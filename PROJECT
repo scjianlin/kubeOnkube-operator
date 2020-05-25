@@ -1,0 +1,10 @@
+domain: gostship.io
+repo: github.com/gostship/kunkka
+resources:
+- group: devops
+  kind: Cluster
+  version: v1
+- group: devops
+  kind: Machine
+  version: v1
+version: "2"

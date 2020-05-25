@@ -1,0 +1,24 @@
+# permissions for end users to edit virtulclusters.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: virtulcluster-editor-role
+rules:
+- apiGroups:
+  - devops.gostship.io
+  resources:
+  - virtulclusters
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - devops.gostship.io
+  resources:
+  - virtulclusters/status
+  verbs:
+  - get

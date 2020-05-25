@@ -1,0 +1,7 @@
+apiVersion: devops.gostship.io/v1
+kind: VirtulCluster
+metadata:
+  name: virtulcluster-sample
+spec:
+  # Add fields here
+  foo: bar
