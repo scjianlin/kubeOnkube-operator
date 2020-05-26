@@ -19,10 +19,10 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/klog"
 
+	"github.com/gostship/kunkka/pkg/apiserver"
 	"github.com/gostship/kunkka/pkg/controllers"
 	"github.com/gostship/kunkka/pkg/k8sclient"
 	"github.com/gostship/kunkka/pkg/option"
-	ctrl "sigs.k8s.io/controller-runtime"
 	ctrlmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
@@ -34,8 +34,12 @@ func NewControllerCmd(opt *option.GlobalManagerOption) *cobra.Command {
 		Short: "Manage controller Component",
 		Run: func(cmd *cobra.Command, args []string) {
 			PrintFlags(cmd.Flags())
+			stopCh := signals.SetupSignalHandler()
 
-			cfg, err := ctrl.GetConfig()
+			svc := apiserver.New()
+			cfg, err := svc.Start(stopCh)
+
+			// cfg, err := ctrl.GetConfig()
 			if err != nil {
 				klog.Fatalf("unable to get cfg err: %v", err)
 			}
@@ -56,8 +60,6 @@ func NewControllerCmd(opt *option.GlobalManagerOption) *cobra.Command {
 			if err != nil {
 				klog.Fatalf("unable to new manager err: %v", err)
 			}
-
-			stopCh := signals.SetupSignalHandler()
 
 			// Setup all Controllers
 			klog.Info("Setting up controller")
