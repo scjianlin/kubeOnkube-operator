@@ -4,6 +4,7 @@
 resources:
 - bases/devops.gostship.io_clusters.yaml
 - bases/devops.gostship.io_machines.yaml
+- bases/devops.gostship.io_clusterCredentials.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

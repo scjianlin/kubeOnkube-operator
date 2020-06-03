@@ -17,5 +17,5 @@ bin/
 .github/
 .idea/
 .vscode/
-k8sbin/
-k8sdata/
+tools/
+k8s/

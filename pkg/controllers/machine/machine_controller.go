@@ -55,7 +55,7 @@ func Add(mgr manager.Manager) error {
 
 func (r *manchineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&devopsv1.Cluster{}).
+		For(&devopsv1.Machine{}).
 		Complete(r)
 }
 

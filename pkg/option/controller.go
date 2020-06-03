@@ -16,6 +16,10 @@ limitations under the License.
 
 package option
 
+import (
+	"github.com/spf13/pflag"
+)
+
 type ControllersManagerOption struct {
 	EnableCluster bool
 	EnableMachine bool
@@ -26,4 +30,9 @@ func DefaultControllersManagerOption() *ControllersManagerOption {
 		EnableCluster: true,
 		EnableMachine: true,
 	}
+}
+
+func (o *ControllersManagerOption) AddFlags(fs *pflag.FlagSet) {
+	fs.BoolVar(&o.EnableCluster, "enable-cluster", o.EnableCluster, "Enables the Cluster controller manager")
+	fs.BoolVar(&o.EnableMachine, "enable-machine", o.EnableMachine, "Enables the Machine controller manager")
 }

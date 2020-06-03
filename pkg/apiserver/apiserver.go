@@ -4,18 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
-
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"net"
 	"net/url"
 	"strconv"
 
+	"k8s.io/client-go/rest"
+
 	"github.com/gostship/kunkka/pkg/apiserver/internal"
+	"github.com/gostship/kunkka/pkg/option"
 	"k8s.io/klog"
 )
 
@@ -44,6 +43,8 @@ type ServerWarpper struct {
 	// This is useful in cases that need aggregated API servers and the like.
 	UseExistingCluster bool
 
+	UseExistingEtcd bool
+
 	// ControlPlaneStartTimeout is the maximum duration each controlplane component
 	// may take to start. It defaults to the KUBEBUILDER_CONTROLPLANE_START_TIMEOUT
 	// environment variable or 20 seconds if unspecified
@@ -63,13 +64,15 @@ type ServerWarpper struct {
 	AttachControlPlaneOutput bool
 
 	BasePath string
+	*option.ApiServerOption
 }
 
-func New() *ServerWarpper {
+func New(o *option.ApiServerOption) *ServerWarpper {
 	return &ServerWarpper{
-		UseExistingCluster:       false,
+		UseExistingCluster:       !o.IsLocalKube,
 		AttachControlPlaneOutput: true,
-		BasePath:                 "k8sbin" + "/" + runtime.GOOS,
+		BasePath:                 o.BaseBinDir,
+		ApiServerOption:          o,
 	}
 }
 
@@ -111,84 +114,69 @@ func (te ServerWarpper) getAPIServerFlags() []string {
 
 // Start starts a local Kubernetes server and updates te.ApiserverPort with the port it is listening on
 func (te *ServerWarpper) Start(stopCh <-chan struct{}) (*rest.Config, error) {
-	if te.UseExistingCluster {
-		klog.V(1).Info("using existing cluster")
-		if te.Config == nil {
-			// we want to allow people to pass in their own config, so
-			// only load a config if it hasn't already been set.
-			klog.V(1).Info("automatically acquiring client configuration")
-
-			var err error
-			te.Config, err = config.GetConfig()
-			if err != nil {
-				return nil, err
-			}
+	if te.ControlPlane.APIServer == nil {
+		te.ControlPlane.APIServer = &internal.APIServer{
+			Path: te.fillAssetPath("kube-apiserver"),
+			Args: te.getAPIServerFlags(),
+			URL: &url.URL{
+				Scheme: "http",
+				Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(18080)),
+			},
+			SecurePort: 18088,
 		}
-	} else {
-		if te.ControlPlane.APIServer == nil {
-			te.ControlPlane.APIServer = &internal.APIServer{
-				Path: te.fillAssetPath("kube-apiserver"),
-				Args: te.getAPIServerFlags(),
-				URL: &url.URL{
-					Scheme: "http",
-					Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(18080)),
-				},
-				SecurePort: 18088,
-			}
-
-		}
-		if te.ControlPlane.Etcd == nil {
-			te.ControlPlane.Etcd = &internal.Etcd{
-				Path:    te.fillAssetPath("etcd"),
-				DataDir: "k8sdata/etcd",
-				URL: &url.URL{
-					Scheme: "http",
-					Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(12379)),
-				},
-			}
-		}
-
-		if te.ControlPlane.APIServer.Out == nil && te.AttachControlPlaneOutput {
-			te.ControlPlane.APIServer.Out = os.Stdout
-		}
-		if te.ControlPlane.APIServer.Err == nil && te.AttachControlPlaneOutput {
-			te.ControlPlane.APIServer.Err = os.Stderr
-		}
-		if te.ControlPlane.Etcd.Out == nil && te.AttachControlPlaneOutput {
-			te.ControlPlane.Etcd.Out = os.Stdout
-		}
-		if te.ControlPlane.Etcd.Err == nil && te.AttachControlPlaneOutput {
-			te.ControlPlane.Etcd.Err = os.Stderr
-		}
-
-		if err := te.defaultTimeouts(); err != nil {
-			return nil, fmt.Errorf("failed to default controlplane timeouts: %w", err)
-		}
-		te.ControlPlane.Etcd.StartTimeout = te.ControlPlaneStartTimeout
-		te.ControlPlane.Etcd.StopTimeout = te.ControlPlaneStopTimeout
-		te.ControlPlane.APIServer.StartTimeout = te.ControlPlaneStartTimeout
-		te.ControlPlane.APIServer.StopTimeout = te.ControlPlaneStopTimeout
-
-		klog.Infof("starting control plane api server flags [%+v]", te.ControlPlane.APIServer.Args)
-		if err := te.startControlPlane(); err != nil {
-			return nil, err
-		}
-
-		go func(stopCh <-chan struct{}) {
-			<-stopCh
-			klog.Infof("stop control plane api server")
-			te.Stop()
-		}(stopCh)
-
-		// Create the *rest.Config for creating new clients
-		te.Config = &rest.Config{
-			Host: te.ControlPlane.APIURL().Host,
-			// gotta go fast during tests -- we don't really care about overwhelming our test API server
-			QPS:   1000.0,
-			Burst: 2000.0,
+	}
+	if te.ControlPlane.Etcd == nil {
+		te.ControlPlane.Etcd = &internal.Etcd{
+			Path:    te.fillAssetPath("etcd"),
+			DataDir: "k8s/data/etcd",
+			URL: &url.URL{
+				Scheme: "http",
+				Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(12379)),
+			},
 		}
 	}
 
+	if te.ControlPlane.APIServer.Out == nil && te.AttachControlPlaneOutput {
+		te.ControlPlane.APIServer.Out = os.Stdout
+	}
+	if te.ControlPlane.APIServer.Err == nil && te.AttachControlPlaneOutput {
+		te.ControlPlane.APIServer.Err = os.Stderr
+	}
+	if te.ControlPlane.Etcd.Out == nil && te.AttachControlPlaneOutput {
+		te.ControlPlane.Etcd.Out = os.Stdout
+	}
+	if te.ControlPlane.Etcd.Err == nil && te.AttachControlPlaneOutput {
+		te.ControlPlane.Etcd.Err = os.Stderr
+	}
+
+	if err := te.defaultTimeouts(); err != nil {
+		return nil, fmt.Errorf("failed to default controlplane timeouts: %w", err)
+	}
+	te.ControlPlane.Etcd.StartTimeout = te.ControlPlaneStartTimeout
+	te.ControlPlane.Etcd.StopTimeout = te.ControlPlaneStopTimeout
+	te.ControlPlane.APIServer.StartTimeout = te.ControlPlaneStartTimeout
+	te.ControlPlane.APIServer.StopTimeout = te.ControlPlaneStopTimeout
+
+	klog.Infof("starting control plane api server flags [%+v]", te.ControlPlane.APIServer.Args)
+	if err := te.startControlPlane(); err != nil {
+		return nil, err
+	}
+
+	go func(stopCh <-chan struct{}) {
+		<-stopCh
+		klog.Infof("stop control plane api server")
+		te.Stop()
+	}(stopCh)
+
+	// Create the *rest.Config for creating new clients
+	te.Config = &rest.Config{
+		Host: te.ControlPlane.APIURL().Host,
+		// gotta go fast during tests -- we don't really care about overwhelming our test API server
+		QPS:   1000.0,
+		Burst: 2000.0,
+	}
+
+	klog.Infof("start local kubernets Host: %s", te.Config.Host)
 	return te.Config, nil
 }
 

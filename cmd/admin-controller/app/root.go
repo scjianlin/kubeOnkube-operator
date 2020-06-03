@@ -19,7 +19,7 @@ package app
 import (
 	"flag"
 
-	"github.com/gostship/kunkka/pkg/option"
+	"github.com/gostship/kunkka/cmd/admin-controller/app/app_option"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"k8s.io/klog"
@@ -44,9 +44,9 @@ func runHelp(cmd *cobra.Command, args []string) {
 
 // GetRootCmd returns the root of the cobra command-tree.
 func GetRootCmd(args []string) *cobra.Command {
-	opt := option.DefaultGlobalManagetOption()
+	opt := app_option.NewOptions()
 	rootCmd := &cobra.Command{
-		Use:               "mid-operator",
+		Use:               "ctrl-operator",
 		Short:             "Request a new project",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
@@ -54,16 +54,12 @@ func GetRootCmd(args []string) *cobra.Command {
 	}
 
 	rootCmd.SetArgs(args)
-	rootCmd.PersistentFlags().StringVarP(&opt.Namespace, "namespace", "n", opt.Namespace, "Config namespace")
-	rootCmd.PersistentFlags().BoolVarP(&opt.LoggerDevMode, "logger-dev-mode", "d", opt.LoggerDevMode, "Set development mode (mainly for logging)")
-	rootCmd.PersistentFlags().IntVarP(&opt.GoroutineThreshold, "goroutine-threshold", "g", opt.GoroutineThreshold, "the max Goroutine Threshold")
-	rootCmd.PersistentFlags().IntVarP(&opt.Threadiness, "threadiness", "t", opt.Threadiness, "the max Goroutine for controller reconcile")
-	rootCmd.PersistentFlags().DurationVar(&opt.ResyncPeriod, "resync-period", opt.ResyncPeriod, "the max resync period to informer")
+	opt.Global.AddFlags(rootCmd.PersistentFlags())
 
 	// Make sure that klog logging variables are initialized so that we can
 	// update them from this file.
 	klog.InitFlags(nil)
-	ctrl.SetLogger(zap.New(zap.UseDevMode(opt.LoggerDevMode)))
+	ctrl.SetLogger(zap.New(zap.UseDevMode(opt.Global.LoggerDevMode)))
 
 	// Make sure klog (used by the client-go dependency) logs to stderr, as it
 	// will try to log to directories that may not exist in the cilium-operator
@@ -72,6 +68,8 @@ func GetRootCmd(args []string) *cobra.Command {
 	AddFlags(rootCmd)
 
 	rootCmd.AddCommand(NewControllerCmd(opt))
+	rootCmd.AddCommand(NewFakeApiserverCmd(opt))
+	rootCmd.AddCommand(NewCertCmd(opt))
 	rootCmd.AddCommand(NewCmdVersion())
 	return rootCmd
 }

@@ -1,11 +1,5 @@
 package internal
 
-// NB(directxman12): nothing has verified that this has good settings.  In fact,
-// the setting generated here are probably terrible, but they're fine for integration
-// tests.  These ABSOLUTELY SHOULD NOT ever be exposed in the public API.  They're
-// ONLY for use with envtest's ability to configure webhook testing.
-// If I didn't otherwise not want to add a dependency on cfssl, I'd just use that.
-
 import (
 	"crypto"
 	crand "crypto/rand"
@@ -80,7 +74,7 @@ func NewTinyCA() (*TinyCA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate private key for CA: %v", err)
 	}
-	caCfg := certutil.Config{CommonName: "envtest-environment", Organization: []string{"envtest"}}
+	caCfg := certutil.Config{CommonName: "bootstrap", Organization: []string{"bootstrap"}}
 	caCert, err := certutil.NewSelfSignedCACert(caCfg, caPrivateKey)
 	if err != nil {
 		return nil, fmt.Errorf("unable to generate certificate for CA: %v", err)
@@ -88,7 +82,7 @@ func NewTinyCA() (*TinyCA, error) {
 
 	return &TinyCA{
 		CA:         CertPair{Key: caPrivateKey, Cert: caCert},
-		orgName:    "envtest",
+		orgName:    "bootstrap",
 		nextSerial: big.NewInt(1),
 	}, nil
 }

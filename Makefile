@@ -50,6 +50,10 @@ vet:
 generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+pre-build:
+	go run pkg/static/generate.go
+#	go generate ./pkg/... ./cmd/...
+
 # Build the docker image
 docker-build: test
 	docker build . -t ${IMG}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/onsi/gomega/gbytes"
 	"github.com/onsi/gomega/gexec"
+	"k8s.io/klog"
 )
 
 // ProcessState define the state of the process.
@@ -101,6 +102,7 @@ func (ps *ProcessState) Start(stdout, stderr io.Writer) (err error) {
 		return nil
 	}
 
+	klog.Infof("start run path:%s, args: %+v ...", ps.Path, ps.Args)
 	command := exec.Command(ps.Path, ps.Args...)
 
 	ready := make(chan bool)
