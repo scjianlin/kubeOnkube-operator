@@ -367,9 +367,19 @@ type ClusterStatus struct {
 	RegistryIPs []string `json:"registryIPs,omitempty" protobuf:"bytes,14,opt,name=registryIPs"`
 }
 
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
 // +kubebuilder:object:root=true
 
 // Cluster is the Schema for the Cluster API
+// +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:resource:shortName=vc
+// +kubebuilder:printcolumn:name="DNSIP",type="string",JSONPath=".status.dnsIP",description="The cluster dnsIP."
+// +kubebuilder:printcolumn:name="VERSION",type="string",JSONPath=".status..version",description="The version of kubernetes."
+// +kubebuilder:printcolumn:name="PHASE",type="string",JSONPath=".status.phase",description="The cluter phase."
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp",description="CreationTimestamp is a timestamp representing the server time when this object was created. "
 type Cluster struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -380,7 +390,7 @@ type Cluster struct {
 
 // +kubebuilder:object:root=true
 
-// ClusterList contains a list of VirtulCluster
+// ClusterList contains a list of Cluster
 type ClusterList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`

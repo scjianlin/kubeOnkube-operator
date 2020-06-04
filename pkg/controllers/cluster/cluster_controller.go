@@ -18,17 +18,18 @@ package cluster
 
 import (
 	"context"
+	"fmt"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"time"
-
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -40,6 +41,13 @@ type clusterReconciler struct {
 	Log    logr.Logger
 	Mgr    manager.Manager
 	Scheme *runtime.Scheme
+}
+
+type reconcileContext struct {
+	Ctx     context.Context
+	Key     types.NamespacedName
+	Logger  logr.Logger
+	Cluster *devopsv1.Cluster
 }
 
 func Add(mgr manager.Manager) error {
@@ -69,7 +77,7 @@ func (r *clusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
 func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	logger := r.Log.WithValues("machine", req.NamespacedName)
+	logger := r.Log.WithValues("cluster", req.NamespacedName.Name)
 
 	startTime := time.Now()
 	defer func() {
@@ -85,8 +93,8 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		klog.V(logLevel).Infof("##### [%s] reconciling is finished. time taken: %v. ", req.NamespacedName, diffTime)
 	}()
 
-	cluster := &devopsv1.Cluster{}
-	err := r.Client.Get(ctx, req.NamespacedName, cluster)
+	c := &devopsv1.Cluster{}
+	err := r.Client.Get(ctx, req.NamespacedName, c)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.V(3).Infof("not find cluster with name [%q]", req.NamespacedName)
@@ -97,6 +105,35 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
-	klog.Infof("name: %s", cluster.Name)
+	klog.Infof("name: %s", c.Name)
+	if len(string(c.Status.Phase)) == 0 {
+		c.Status.Phase = devopsv1.ClusterInitializing
+		r.Client.Status().Update(ctx, c)
+		return ctrl.Result{}, nil
+	}
+	r.reconcile(&reconcileContext{
+		Ctx:     ctx,
+		Key:     req.NamespacedName,
+		Logger:  logger,
+		Cluster: c,
+	})
 	return ctrl.Result{}, nil
+}
+
+func (r *clusterReconciler) reconcile(ctx *reconcileContext) error {
+	var err error
+	switch ctx.Cluster.Status.Phase {
+	case devopsv1.ClusterInitializing:
+		ctx.Logger.Info("onCreate")
+		err = r.onCreate(ctx)
+	case devopsv1.ClusterRunning, devopsv1.ClusterFailed:
+		ctx.Logger.Info("onUpdate")
+		err = r.onUpdate(ctx)
+		if err == nil {
+			// c.ensureHealthCheck(ctx, key, cluster) // after update to avoid version conflict
+		}
+	default:
+		err = fmt.Errorf("no handler for %q", ctx.Cluster.Status.Phase)
+	}
+	return nil
 }

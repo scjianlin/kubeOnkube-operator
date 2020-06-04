@@ -91,14 +91,12 @@ func NewProvider() (*Provider, error) {
 		},
 	}
 
-	cfg, err := config.New(constants.ConfigFile)
+	cfg, err := config.NewDefaultConfig()
 	if err != nil {
 		return nil, err
 	}
 	p.config = cfg
-
 	containerregistry.Init(cfg.Registry.Domain, cfg.Registry.Namespace)
-
 	return p, nil
 }
 

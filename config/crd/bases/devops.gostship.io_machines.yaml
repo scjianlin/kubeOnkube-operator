@@ -8,13 +8,27 @@ metadata:
   creationTimestamp: null
   name: machines.devops.gostship.io
 spec:
+  additionalPrinterColumns:
+  - JSONPath: .status.phase
+    description: The cluter phase.
+    name: PHASE
+    type: string
+  - JSONPath: .metadata.creationTimestamp
+    description: 'CreationTimestamp is a timestamp representing the server time when
+      this object was created. '
+    name: AGE
+    type: date
   group: devops.gostship.io
   names:
     kind: Machine
     listKind: MachineList
     plural: machines
+    shortNames:
+    - mc
     singular: machine
   scope: Namespaced
+  subresources:
+    status: {}
   validation:
     openAPIV3Schema:
       description: Machine is the Schema for the Machine API

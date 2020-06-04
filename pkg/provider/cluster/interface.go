@@ -114,8 +114,8 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 		if f == nil {
 			return fmt.Errorf("can't get handler by %s", condition.Type)
 		}
-		klog.Infof("OnCreate", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"clusterName", cluster.Name)
+		klog.Infof("clusterName: %s OnCreate handler: %s", cluster.Name,
+			runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		err = f(ctx, cluster)
 		if err != nil {
 			cluster.SetCondition(devopsv1.ClusterCondition{
@@ -158,8 +158,8 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 
 func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Cluster) error {
 	for _, f := range p.UpdateHandlers {
-		klog.Infof("OnUpdate", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"clusterName", cluster.Name)
+		klog.Infof("clusterName: %s OnUpdate handler: %s", cluster.Name,
+			runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		err := f(ctx, cluster)
 		if err != nil {
 			return err
@@ -171,8 +171,8 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Clust
 
 func (p *DelegateProvider) OnDelete(ctx context.Context, cluster *provider.Cluster) error {
 	for _, f := range p.DeleteHandlers {
-		klog.Infof("OnDelete", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"clusterName", cluster.Name)
+		klog.Infof("clusterName: %s OnDelete handler: %s", cluster.Name,
+			runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		err := f(ctx, cluster)
 		if err != nil {
 			return err

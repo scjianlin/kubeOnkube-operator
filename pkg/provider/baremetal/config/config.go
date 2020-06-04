@@ -6,14 +6,13 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
-
-	"github.com/jinzhu/configor"
 )
 
-func New(filename string) (*Config, error) {
-	config := &Config{}
-	if err := configor.Load(config, filename); err != nil {
-		return nil, err
+func NewDefaultConfig() (*Config, error) {
+	config := &Config{
+		Registry: Registry{
+			Prefix: "docker.io/dkestack",
+		},
 	}
 
 	s := strings.Split(config.Registry.Prefix, "/")
