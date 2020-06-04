@@ -301,7 +301,6 @@ spec:
                     format: byte
                     type: string
                   password:
-                    format: byte
                     type: string
                   port:
                     format: int32
@@ -611,7 +610,6 @@ spec:
               format: byte
               type: string
             password:
-              format: byte
               type: string
             port:
               format: int32

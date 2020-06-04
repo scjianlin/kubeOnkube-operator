@@ -130,7 +130,7 @@ type MachineSpec struct {
 	Port        int32           `json:"port" protobuf:"varint,6,opt,name=port"`
 	Username    string          `json:"username" protobuf:"bytes,7,opt,name=username"`
 	// +optional
-	Password []byte `json:"password,omitempty" protobuf:"bytes,8,opt,name=password"`
+	Password string `json:"password,omitempty" protobuf:"bytes,8,opt,name=password"`
 	// +optional
 	PrivateKey []byte `json:"privateKey,omitempty" protobuf:"bytes,9,opt,name=privateKey"`
 	// +optional

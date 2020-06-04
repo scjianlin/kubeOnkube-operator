@@ -24,9 +24,14 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	devopsv1 "github.com/gostship/kunkka/pkg/apis/v1"
+	"time"
+
+	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/pkg/errors"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 // clusterReconciler reconciles a Cluster object
@@ -63,10 +68,35 @@ func (r *clusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=devops.gostship.io,resources=virtulclusters/status,verbs=get;update;patch
 
 func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("cluster", req.NamespacedName)
+	ctx := context.Background()
+	logger := r.Log.WithValues("machine", req.NamespacedName)
 
-	// your logic here
+	startTime := time.Now()
+	defer func() {
+		diffTime := time.Since(startTime)
+		var logLevel klog.Level
+		if diffTime > 1*time.Second {
+			logLevel = 1
+		} else if diffTime > 100*time.Millisecond {
+			logLevel = 2
+		} else {
+			logLevel = 4
+		}
+		klog.V(logLevel).Infof("##### [%s] reconciling is finished. time taken: %v. ", req.NamespacedName, diffTime)
+	}()
 
+	cluster := &devopsv1.Cluster{}
+	err := r.Client.Get(ctx, req.NamespacedName, cluster)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.V(3).Infof("not find cluster with name [%q]", req.NamespacedName)
+			return reconcile.Result{}, nil
+		}
+
+		logger.Error(err, "failed to get cluster")
+		return reconcile.Result{}, err
+	}
+
+	klog.Infof("name: %s", cluster.Name)
 	return ctrl.Result{}, nil
 }

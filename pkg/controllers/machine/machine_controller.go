@@ -24,7 +24,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	devopsv1 "github.com/gostship/kunkka/pkg/apis/v1"
+	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/pkg/errors"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -63,8 +63,9 @@ func (r *manchineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // +kubebuilder:rbac:groups=devops.gostship.io,resources=virtulclusters/status,verbs=get;update;patch
 
 func (r *manchineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
+
 	_ = context.Background()
-	_ = r.Log.WithValues("machine", req.NamespacedName)
+	_ = r.Log.WithValues("cluster", req.NamespacedName)
 
 	// your logic here
 
