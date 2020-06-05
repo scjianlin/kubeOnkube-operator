@@ -42,13 +42,12 @@ func NewProvider() (*Provider, error) {
 	p.DelegateProvider = &clusterprovider.DelegateProvider{
 		ProviderName: "Baremetal",
 		CreateHandlers: []clusterprovider.Handler{
-			p.EnsureCopyFiles,
+			// p.EnsureCopyFiles,
 			// p.EnsurePreInstallHook,
 			//
 			// p.EnsureRegistryHosts,
-			p.EnsureKernelModule,
-			p.EnsureSysctl,
-			p.EnsureDisableSwap,
+
+			p.EnsureSystem,
 
 			p.EnsurePreflight, // wait basic setting done
 
@@ -57,30 +56,27 @@ func NewProvider() (*Provider, error) {
 			// p.EnsureNvidiaDriver,
 			// p.EnsureNvidiaContainerRuntime,
 			// p.EnsureDocker,
-			p.EnsureKubelet,
+			// p.EnsureKubelet,
 			// p.EnsureCNIPlugins,
 			// p.EnsureKubeadm,
-			//
 			// p.EnsurePrepareForControlplane,
 
-			p.EnsureKubeadmInitKubeletStartPhase,
-			p.EnsureKubeadmInitCertsPhase,
-			p.EnsureStoreCredential,
-			p.EnsureKubeconfig,
-			p.EnsureKubeadmInitKubeConfigPhase,
-			p.EnsureKubeadmInitControlPlanePhase,
-			p.EnsureKubeadmInitEtcdPhase,
-			p.EnsureKubeadmInitWaitControlPlanePhase,
-			p.EnsureKubeadmInitUploadConfigPhase,
-			p.EnsureKubeadmInitUploadCertsPhase,
-			p.EnsureKubeadmInitBootstrapTokenPhase,
-			p.EnsureKubeadmInitAddonPhase,
-
-			p.EnsureJoinControlePlane,
-			p.EnsurePatchAnnotation, // wait rest master ready
-			p.EnsureMarkControlPlane,
-
-			p.EnsureCleanup,
+			// p.EnsureKubeadmInitKubeletStartPhase,
+			// p.EnsureKubeadmInitCertsPhase,
+			// p.EnsureStoreCredential,
+			// p.EnsureKubeconfig,
+			// p.EnsureKubeadmInitKubeConfigPhase,
+			// p.EnsureKubeadmInitControlPlanePhase,
+			// p.EnsureKubeadmInitEtcdPhase,
+			// p.EnsureKubeadmInitWaitControlPlanePhase,
+			// p.EnsureKubeadmInitUploadConfigPhase,
+			// p.EnsureKubeadmInitUploadCertsPhase,
+			// p.EnsureKubeadmInitBootstrapTokenPhase,
+			// p.EnsureKubeadmInitAddonPhase,
+			// p.EnsureJoinControlePlane,
+			// p.EnsurePatchAnnotation, // wait rest master ready
+			// p.EnsureMarkControlPlane,
+			// p.EnsureCleanup,
 
 			// p.EnsurePostInstallHook,
 		},

@@ -27,7 +27,7 @@ import (
 	"github.com/gostship/kunkka/pkg/provider"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubelet"
+	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/cmdstring"
@@ -711,10 +711,12 @@ func (p *Provider) EnsurePatchAnnotation(ctx context.Context, c *provider.Cluste
 	return nil
 }
 
-func (p *Provider) EnsureKubelet(ctx context.Context, c *provider.Cluster) error {
-	option := &kubelet.Option{
-		Version:   c.Spec.Version,
-		ExtraArgs: c.Spec.KubeletExtraArgs,
+func (p *Provider) EnsureSystem(ctx context.Context, c *provider.Cluster) error {
+	option := &system.Option{
+		K8sVersion:    c.Spec.Version,
+		DockerVersion: "19.03.8",
+		Cgroupdriver:  "systemd", // cgroupfs
+		ExtraArgs:     c.Spec.KubeletExtraArgs,
 	}
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
@@ -722,7 +724,9 @@ func (p *Provider) EnsureKubelet(ctx context.Context, c *provider.Cluster) error
 			return err
 		}
 
-		err = kubelet.Install(machineSSH, option)
+		option.HostIP = machine.IP
+		option.HostName = "k8s-master1"
+		err = system.Install(machineSSH, option)
 		if err != nil {
 			return errors.Wrap(err, machine.IP)
 		}

@@ -135,5 +135,6 @@ func (r *clusterReconciler) reconcile(ctx *reconcileContext) error {
 	default:
 		err = fmt.Errorf("no handler for %q", ctx.Cluster.Status.Phase)
 	}
+
 	return nil
 }
