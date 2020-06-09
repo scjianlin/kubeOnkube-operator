@@ -6,10 +6,10 @@ metadata:
 spec:
   tenantID: xx
   displayName: demo
-  type: bb
-  version: 1.18.3
+  type: Baremetal
+  version: 1.18.2
   networkType: xx
-  clusterCIDR: 172.10.0.0./16
+  clusterCIDR: 172.10.0.0/16
   serviceCIDR: 192.168.0.0/24
   dnsDomain: cluster.local
   publicAlternativeNames:

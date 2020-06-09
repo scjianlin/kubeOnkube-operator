@@ -38,16 +38,6 @@ const (
 // NetworkType defines the network type of cluster.
 type NetworkType string
 
-// GPUType defines the gpu type of cluster.
-type GPUType string
-
-const (
-	// GPUPhysical indicates the gpu type of cluster is physical.
-	GPUPhysical GPUType = "Physical"
-	// GPUVirtual indicates the gpu type of cluster is virtual.
-	GPUVirtual GPUType = "Virtual"
-)
-
 // ResourceList is a set of (resource name, quantity) pairs.
 type ResourceList map[string]resource.Quantity
 
@@ -124,10 +114,6 @@ type ClusterCondition struct {
 
 type HookType string
 
-type CSIOperatorFeature struct {
-	Version string `json:"version" protobuf:"bytes,1,name=version"`
-}
-
 const (
 	HookPreInstall  HookType = "PreInstall"
 	HookPostInstall HookType = "PostInstall"
@@ -176,11 +162,11 @@ type LocalEtcd struct {
 }
 
 type HA struct {
-	TKEHA        *TKEHA        `json:"tke,omitempty" protobuf:"bytes,1,opt,name=tke"`
+	DKEHA        *DKEHA        `json:"dke,omitempty" protobuf:"bytes,1,opt,name=tke"`
 	ThirdPartyHA *ThirdPartyHA `json:"thirdParty,omitempty" protobuf:"bytes,2,opt,name=thirdParty"`
 }
 
-type TKEHA struct {
+type DKEHA struct {
 	VIP string `json:"vip" protobuf:"bytes,1,name=vip"`
 }
 
@@ -203,8 +189,6 @@ type ClusterFeature struct {
 	// +optional
 	InternalLB *bool `json:"internalLB,omitempty" protobuf:"varint,3,opt,name=internalLB"`
 	// +optional
-	GPUType *GPUType `json:"gpuType,omitempty" protobuf:"bytes,4,opt,name=gpuType"`
-	// +optional
 	EnableMasterSchedule bool `json:"enableMasterSchedule,omitempty" protobuf:"bytes,5,opt,name=enableMasterSchedule"`
 	// +optional
 	HA *HA `json:"ha,omitempty" protobuf:"bytes,6,opt,name=ha"`
@@ -214,8 +198,6 @@ type ClusterFeature struct {
 	Files []File `json:"files,omitempty" protobuf:"bytes,8,opt,name=files"`
 	// +optional
 	Hooks map[HookType]string `json:"hooks,omitempty" protobuf:"bytes,9,opt,name=hooks"`
-	// +optional
-	CSIOperator *CSIOperatorFeature `json:"csiOperator,omitempty" protobuf:"bytes,10,opt,name=csiOperator"`
 }
 
 // ClusterProperty records the attribute information of the cluster.
@@ -306,7 +288,6 @@ type ClusterSpec struct {
 	Properties ClusterProperty `json:"properties,omitempty" protobuf:"bytes,12,opt,name=properties,casttype=ClusterProperty"`
 	// +optional
 	Machines []ClusterMachine `json:"machines,omitempty" protobuf:"bytes,13,rep,name=addresses"`
-
 	// +optional
 	DockerExtraArgs map[string]string `json:"dockerExtraArgs,omitempty" protobuf:"bytes,14,name=dockerExtraArgs"`
 	// +optional
@@ -317,13 +298,6 @@ type ClusterSpec struct {
 	ControllerManagerExtraArgs map[string]string `json:"controllerManagerExtraArgs,omitempty" protobuf:"bytes,17,name=controllerManagerExtraArgs"`
 	// +optional
 	SchedulerExtraArgs map[string]string `json:"schedulerExtraArgs,omitempty" protobuf:"bytes,18,name=schedulerExtraArgs"`
-
-	// ClusterCredentialRef for isolate sensitive information.
-	// If not specified, cluster controller will create one;
-	// If specified, provider must make sure is valid.
-	// +optional
-	ClusterCredentialRef *corev1.LocalObjectReference `json:"clusterCredentialRef,omitempty" probobuf:"bytes,20,opt,name=clusterCredentialRef" protobuf:"bytes,20,opt,name=clusterCredentialRef"`
-
 	// Etcd holds configuration for etcd.
 	Etcd *Etcd `json:"etcd,omitempty" protobuf:"bytes,21,opt,name=etcd"`
 }

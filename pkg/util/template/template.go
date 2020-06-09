@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"text/template"
 
+	"github.com/Masterminds/sprig"
 	"github.com/pkg/errors"
 )
 
@@ -21,7 +22,7 @@ func ParseFile(filename string, obj interface{}) ([]byte, error) {
 // ParseString validates and parses passed as argument template
 func ParseString(strtmpl string, obj interface{}) ([]byte, error) {
 	var buf bytes.Buffer
-	tmpl, err := template.New("template").Parse(strtmpl)
+	tmpl, err := template.New("template").Funcs(sprig.TxtFuncMap()).Parse(strtmpl)
 	if err != nil {
 		return nil, errors.Wrap(err, "error when parsing template")
 	}

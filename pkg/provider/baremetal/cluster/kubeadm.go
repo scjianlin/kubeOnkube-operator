@@ -6,15 +6,14 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 
-	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	kubeletv1beta1 "github.com/gostship/kunkka/pkg/apis/kubelet/config/v1beta1"
 	kubeproxyv1alpha1 "github.com/gostship/kunkka/pkg/apis/kubeproxy/config/v1alpha1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/provider"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/images"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/json"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func (p *Provider) getKubeadmConfig(c *provider.Cluster) *kubeadm.Config {
@@ -34,7 +33,7 @@ func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.Ini
 		BootstrapTokens: []kubeadmv1beta2.BootstrapToken{
 			{
 				Token:       token,
-				Description: "TKE kubeadm bootstrap token",
+				Description: "dke kubeadm bootstrap token",
 				TTL:         &metav1.Duration{Duration: 0},
 			},
 		},
@@ -50,15 +49,28 @@ func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.Ini
 
 func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.ClusterConfiguration {
 	controlPlaneEndpoint := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
-	addr := c.Address(devopsv1.AddressAdvertise)
-	if addr != nil {
-		controlPlaneEndpoint = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
-	}
+
+	// ?? use vip
+	// addr := c.Address(devopsv1.AddressAdvertise)
+	// if addr != nil {
+	// 	controlPlaneEndpoint = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
+	// }
+
+	// if len(c.Spec.PublicAlternativeNames) > 0 {
+	// 	controlPlaneEndpoint = fmt.Sprintf("%s:6443", c.Spec.PublicAlternativeNames[0])
+	// }
 
 	kubernetesVolume := kubeadmv1beta2.HostPathMount{
 		Name:      "vol-dir-0",
 		HostPath:  "/etc/kubernetes",
 		MountPath: "/etc/kubernetes",
+	}
+
+	auditVolume := kubeadmv1beta2.HostPathMount{
+		Name:      "audit-dir-0",
+		HostPath:  "/var/log/kubernetes",
+		MountPath: "/var/log/kubernetes",
+		PathType:  corev1.HostPathDirectoryOrCreate,
 	}
 
 	config := &kubeadmv1beta2.ClusterConfiguration{
@@ -71,7 +83,7 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 		APIServer: kubeadmv1beta2.APIServer{
 			ControlPlaneComponent: kubeadmv1beta2.ControlPlaneComponent{
 				ExtraArgs:    p.getAPIServerExtraArgs(c),
-				ExtraVolumes: []kubeadmv1beta2.HostPathMount{kubernetesVolume},
+				ExtraVolumes: []kubeadmv1beta2.HostPathMount{kubernetesVolume, auditVolume},
 			},
 			CertSANs: GetAPIServerCertSANs(c.Cluster),
 		},
@@ -85,18 +97,13 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 		},
 		DNS: kubeadmv1beta2.DNS{
 			Type: kubeadmv1beta2.CoreDNS,
-			ImageMeta: kubeadmv1beta2.ImageMeta{
-				ImageTag: images.Get().CoreDNS.Tag,
-			},
 		},
 		ImageRepository: p.config.Registry.Prefix,
 		ClusterName:     c.Name,
+		// FeatureGates:
 	}
 
 	utilruntime.Must(json.Merge(&config.Etcd, &c.Spec.Etcd))
-	if config.Etcd.Local != nil {
-		config.Etcd.Local.ImageTag = images.Get().ETCD.Tag
-	}
 
 	return config
 }
@@ -129,10 +136,7 @@ func (p *Provider) getAPIServerExtraArgs(c *provider.Cluster) map[string]string 
 	args := map[string]string{
 		"token-auth-file": constants.TokenFile,
 	}
-	if p.config.Audit.Address != "" {
-		args["audit-policy-file"] = constants.AuditPolicyConfigFile
-		args["audit-webhook-config-file"] = constants.AuditWebhookConfigFile
-	}
+
 	for k, v := range c.Spec.APIServerExtraArgs {
 		args[k] = v
 	}
@@ -141,12 +145,16 @@ func (p *Provider) getAPIServerExtraArgs(c *provider.Cluster) map[string]string 
 }
 
 func (p *Provider) getControllerManagerExtraArgs(c *provider.Cluster) map[string]string {
-	args := map[string]string{
-		"allocate-node-cidrs":      "true",
-		"node-cidr-mask-size":      fmt.Sprintf("%v", c.Status.NodeCIDRMaskSize),
-		"cluster-cidr":             c.Spec.ClusterCIDR,
-		"service-cluster-ip-range": c.Status.ServiceCIDR,
-	}
+	args := map[string]string{}
+
+	// args["allocate-node-cidrs"] = "true"
+	// args["node-cidr-mask-size"] = fmt.Sprintf("%v", c.Status.NodeCIDRMaskSize)
+	// args["service-cluster-ip-range"] = c.Status.ServiceCIDR
+	//
+	// if len(c.Spec.ClusterCIDR) > 0 {
+	// 	args["cluster-cidr"] = c.Spec.ClusterCIDR
+	// }
+
 	for k, v := range c.Spec.ControllerManagerExtraArgs {
 		args[k] = v
 	}
@@ -155,10 +163,11 @@ func (p *Provider) getControllerManagerExtraArgs(c *provider.Cluster) map[string
 }
 
 func (p *Provider) getSchedulerExtraArgs(c *provider.Cluster) map[string]string {
-	args := map[string]string{
-		"use-legacy-policy-config": "true",
-		"policy-config-file":       constants.SchedulerPolicyConfigFile,
-	}
+	args := map[string]string{}
+
+	// args["use-legacy-policy-config"] = "true"
+	// args["policy-config-file"] = constants.SchedulerPolicyConfigFile
+
 	for k, v := range c.Spec.SchedulerExtraArgs {
 		args[k] = v
 	}

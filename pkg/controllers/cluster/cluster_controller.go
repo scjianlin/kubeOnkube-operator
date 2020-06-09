@@ -123,10 +123,10 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *clusterReconciler) reconcile(ctx *reconcileContext) error {
 	var err error
 	switch ctx.Cluster.Status.Phase {
-	case devopsv1.ClusterInitializing:
+	case devopsv1.ClusterInitializing, devopsv1.ClusterRunning:
 		ctx.Logger.Info("onCreate")
 		err = r.onCreate(ctx)
-	case devopsv1.ClusterRunning, devopsv1.ClusterFailed:
+	case devopsv1.ClusterFailed:
 		ctx.Logger.Info("onUpdate")
 		err = r.onUpdate(ctx)
 		if err == nil {

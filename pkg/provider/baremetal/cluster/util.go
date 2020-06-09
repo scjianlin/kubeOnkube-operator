@@ -8,6 +8,7 @@ import (
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/ipallocator"
 	"github.com/pkg/errors"
+	"k8s.io/klog"
 )
 
 func GetNodeCIDRMaskSize(clusterCIDR string, maxNodePodNum int32) (int32, error) {
@@ -81,17 +82,11 @@ func GetAPIServerCertSANs(c *devopsv1.Cluster) []string {
 		"localhost",
 	}
 	certSANs = append(certSANs, c.Spec.PublicAlternativeNames...)
-	if c.Spec.Features.HA != nil {
-		if c.Spec.Features.HA.TKEHA != nil {
-			certSANs = append(certSANs, c.Spec.Features.HA.TKEHA.VIP)
-		}
-		if c.Spec.Features.HA.ThirdPartyHA != nil {
-			certSANs = append(certSANs, c.Spec.Features.HA.ThirdPartyHA.VIP)
-		}
-	}
+
 	for _, address := range c.Status.Addresses {
 		certSANs = append(certSANs, address.Host)
 	}
 
+	klog.Infof("cluster: %s CertSANs: %q", c.Name, certSANs)
 	return certSANs
 }

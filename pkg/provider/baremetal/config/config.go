@@ -11,7 +11,7 @@ import (
 func NewDefaultConfig() (*Config, error) {
 	config := &Config{
 		Registry: Registry{
-			Prefix: "docker.io/dkestack",
+			Prefix: "registry.aliyuncs.com/google_containers",
 		},
 	}
 

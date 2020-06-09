@@ -149,16 +149,6 @@ spec:
               type: object
             clusterCIDR:
               type: string
-            clusterCredentialRef:
-              description: ClusterCredentialRef for isolate sensitive information.
-                If not specified, cluster controller will create one; If specified,
-                provider must make sure is valid.
-              properties:
-                name:
-                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                    TODO: Add other useful fields. apiVersion, kind, uid?'
-                  type: string
-              type: object
             controllerManagerExtraArgs:
               additionalProperties:
                 type: string
@@ -237,13 +227,6 @@ spec:
               description: ClusterFeature records the features that are enabled by
                 the cluster.
               properties:
-                csiOperator:
-                  properties:
-                    version:
-                      type: string
-                  required:
-                  - version
-                  type: object
                 enableMasterSchedule:
                   type: boolean
                 files:
@@ -258,11 +241,15 @@ spec:
                     - src
                     type: object
                   type: array
-                gpuType:
-                  description: GPUType defines the gpu type of cluster.
-                  type: string
                 ha:
                   properties:
+                    dke:
+                      properties:
+                        vip:
+                          type: string
+                      required:
+                      - vip
+                      type: object
                     thirdParty:
                       properties:
                         vip:
@@ -273,13 +260,6 @@ spec:
                       required:
                       - vip
                       - vport
-                      type: object
-                    tke:
-                      properties:
-                        vip:
-                          type: string
-                      required:
-                      - vip
                       type: object
                   type: object
                 hooks:

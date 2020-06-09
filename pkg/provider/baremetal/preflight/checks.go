@@ -25,11 +25,11 @@ func newCommonChecks(s ssh.Interface) []Checker {
 		CPUArchCeck{Interface: s, Arch: 64},
 		KernelCheck{Interface: s, MinKernelVersion: 3, MinMajorVersion: 10},
 
-		KernelModuleCheck{Interface: s, Module: "iptable_nat"},
+		// KernelModuleCheck{Interface: s, Module: "iptable_nat"},
 
 		FileContentCheck{Interface: s, Path: ipv4Forward, Content: []byte{'1'}},
 
-		FileAvailableCheck{Interface: s, Path: constants.KubectlConfigFile},
+		// FileAvailableCheck{Interface: s, Path: constants.KubectlConfigFile},
 
 		DirAvailableCheck{Interface: s, Path: constants.CNIConfDIr},
 		DirAvailableCheck{Interface: s, Path: constants.CNIDataDir},
@@ -44,7 +44,7 @@ func newCommonChecks(s ssh.Interface) []Checker {
 func RunMasterChecks(s ssh.Interface) error {
 	checks := newCommonChecks(s)
 	checks = append(checks, []Checker{
-		NumCPUCheck{Interface: s, NumCPU: 4},
+		NumCPUCheck{Interface: s, NumCPU: 1},
 		DirAvailableCheck{Interface: s, Path: constants.EtcdDataDir},
 		PortOpenCheck{Interface: s, port: 6443}, // kube-apiserver
 		PortOpenCheck{Interface: s, port: constants.InsecureSchedulerPort},

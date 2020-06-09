@@ -34,9 +34,6 @@ const (
 
 	KeepavliedConfigFile = "/etc/keepalived/keepalived.conf"
 
-	OIDCCACertName = "oidc-ca.crt"
-	OIDCCACertFile = CertificatesDir + OIDCCACertName
-
 	// CACertName defines certificate name
 	CACertName = CertificatesDir + "ca.crt"
 	// CAKeyName defines certificate name
@@ -70,17 +67,11 @@ const (
 	// This is a duplicate definition of the constant in pkg/controller/service/service_controller.go
 	LabelNodeRoleMaster = "node-role.kubernetes.io/master"
 
-	ProviderDir = "provider/baremetal/"
-	SrcDir      = ProviderDir + "res/"
-	ConfDir     = ProviderDir + "conf/"
-	ConfigFile  = ConfDir + "config.yaml"
-
-	ManifestsDir        = ProviderDir + "manifests/"
-	GPUManagerManifest  = ManifestsDir + "gpu-manager/gpu-manager.yaml"
-	CSIOperatorManifest = ManifestsDir + "csi-operator/csi-operator.yaml"
-
 	DNSIPIndex = 10
 
 	// RenewCertsTimeThreshold control how long time left to renew certs
 	RenewCertsTimeThreshold = 30 * 24 * time.Hour
+
+	CustomDir      = "/opt/k8s/"
+	SystemInitFile = CustomDir + "init.sh"
 )

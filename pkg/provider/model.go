@@ -9,6 +9,7 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -30,31 +31,34 @@ const (
 func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluster) (*Cluster, error) {
 	result := new(Cluster)
 	result.Cluster = cluster
-	if cluster.Spec.ClusterCredentialRef != nil {
-		clusterCredential := &devopsv1.ClusterCredential{}
-		err := cli.Get(ctx, types.NamespacedName{Name: cluster.Spec.ClusterCredentialRef.Name, Namespace: cluster.Namespace}, clusterCredential)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				klog.V(3).Infof("cluster: %s not find credential, start create ...", cluster.Name)
-				credential := &devopsv1.ClusterCredential{
-					TenantID:    cluster.Spec.TenantID,
-					ClusterName: cluster.Name,
-				}
-				err := cli.Create(ctx, credential)
-				if err != nil && !apierrors.IsAlreadyExists(err) {
-					return nil, err
-				}
 
-				result.ClusterCredential = credential
-				return result, nil
-			} else {
-				klog.Errorf("cluster: %s faild to get credential, err: %v", err)
+	clusterCredential := &devopsv1.ClusterCredential{}
+	err := cli.Get(ctx, types.NamespacedName{Name: cluster.Name, Namespace: cluster.Namespace}, clusterCredential)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.V(3).Infof("cluster: %s not find credential, start create ...", cluster.Name)
+			credential := &devopsv1.ClusterCredential{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      cluster.Name,
+					Namespace: cluster.Namespace,
+				},
+				TenantID:    cluster.Spec.TenantID,
+				ClusterName: cluster.Name,
+			}
+			err := cli.Create(ctx, credential)
+			if err != nil && !apierrors.IsAlreadyExists(err) {
 				return nil, err
 			}
-		}
 
-		result.ClusterCredential = clusterCredential
+			result.ClusterCredential = credential
+			return result, nil
+		} else {
+			klog.Errorf("cluster: %s faild to get credential, err: %v", err)
+			return nil, err
+		}
 	}
+
+	result.ClusterCredential = clusterCredential
 
 	return result, nil
 }

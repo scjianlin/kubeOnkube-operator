@@ -3,7 +3,6 @@ package kubeadm
 import (
 	"bytes"
 	"fmt"
-	"path"
 	"time"
 
 	"github.com/pkg/errors"
@@ -41,30 +40,6 @@ const (
 --ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables
 `
 )
-
-func Install(s ssh.Interface) error {
-	// dstFile, err := res.Kubeadm.CopyToNodeWithDefault(s)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// cmd := "tar xvaf %s -C %s "
-	// _, stderr, exit, err := s.Execf(cmd, dstFile, constants.DstBinDir)
-	// if err != nil || exit != 0 {
-	// 	return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-	// }
-
-	data, err := template.ParseFile(path.Join(constants.ConfDir, "kubeadm/10-kubeadm.conf"), nil)
-	if err != nil {
-		return err
-	}
-	err = s.WriteFile(bytes.NewReader(data), kubeadmKubeletConf)
-	if err != nil {
-		return errors.Wrapf(err, "write %s error", kubeadmKubeletConf)
-	}
-
-	return nil
-}
 
 type InitOption struct {
 	KubeadmConfigFileName string
@@ -106,6 +81,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	}
 
 	cmd := fmt.Sprintf("kubeadm init phase %s --config=%s", extraCmd, constants.KubeadmConfigFileName)
+	klog.Infof("init cmd: %s", cmd)
 	out, err := s.CombinedOutput(cmd)
 	if err != nil {
 		return fmt.Errorf("exec %q error: %w", cmd, err)
@@ -120,21 +96,14 @@ type JoinControlPlaneOption struct {
 	BootstrapToken       string
 	CertificateKey       string
 	ControlPlaneEndpoint string
-	OIDCCA               []byte
 }
 
 func JoinControlPlane(s ssh.Interface, option *JoinControlPlaneOption) error {
-	if len(option.OIDCCA) != 0 { // ensure oidc ca exists becase kubeadm reset probably delete it!
-		err := s.WriteFile(bytes.NewReader(option.OIDCCA), constants.OIDCCACertFile)
-		if err != nil {
-			return err
-		}
-	}
-
 	cmd, err := template.ParseString(joinControlPlaneCmd, option)
 	if err != nil {
 		return errors.Wrap(err, "parse joinControlePlaneCmd error")
 	}
+	klog.Infof("node: %s join cmd: %s", option.NodeName, cmd)
 	stdout, stderr, exit, err := s.Exec(string(cmd))
 	if err != nil || exit != 0 {
 		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
@@ -263,13 +232,4 @@ func RestartContainerByFilter(s ssh.Interface, filter string) error {
 	}
 
 	return nil
-}
-
-func GetKubeadmConfig(option *InitOption) ([]byte, error) {
-	configData, err := template.ParseFile(path.Join(constants.ConfDir, kubeadmConfigFile), option)
-	if err != nil {
-		return nil, errors.Wrap(err, "parse kubeadm config file error")
-	}
-
-	return configData, nil
 }

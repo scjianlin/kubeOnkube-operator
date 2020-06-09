@@ -19,6 +19,9 @@ package cluster
 import (
 	"time"
 
+	"fmt"
+
+	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/provider"
 	clusterprovider "github.com/gostship/kunkka/pkg/provider/cluster"
 )
@@ -45,10 +48,30 @@ func (r *clusterReconciler) onCreate(ctx *reconcileContext) error {
 	if err != nil {
 		clusterWrapper.Status.Message = err.Error()
 		clusterWrapper.Status.Reason = reasonFailedInit
-		r.Client.Status().Update(ctx.Ctx, ctx.Cluster)
+		r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
 		return err
 	}
 
+	condition := clusterWrapper.Status.Conditions[len(clusterWrapper.Status.Conditions)-1]
+	if condition.Status == devopsv1.ConditionFalse { // means current condition run into error
+		clusterWrapper.Status.Message = condition.Message
+		clusterWrapper.Status.Reason = condition.Reason
+		r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
+		return fmt.Errorf("Provider.OnCreate.%s [Failed] reason: %s message: %s",
+			condition.Type, condition.Reason, condition.Message)
+	}
+
+	clusterWrapper.Status.Message = ""
+	clusterWrapper.Status.Reason = ""
+	err = r.Client.Update(ctx.Ctx, clusterWrapper.ClusterCredential)
+	if err != nil {
+		return err
+	}
+
+	err = r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
