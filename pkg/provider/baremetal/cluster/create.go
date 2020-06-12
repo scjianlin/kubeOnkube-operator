@@ -32,7 +32,7 @@ import (
 	"bytes"
 
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/cni"
-	"github.com/gostship/kunkka/pkg/util/k8s"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"k8s.io/klog"
 )
 
@@ -631,7 +631,7 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
 
-		etcdObj, err := k8s.UnmarshalFromYaml(etcdByte, corev1.SchemeGroupVersion)
+		etcdObj, err := k8sutil.UnmarshalFromYaml(etcdByte, corev1.SchemeGroupVersion)
 		if err != nil {
 			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
@@ -653,7 +653,7 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 			if isFindState != true {
 				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--initial-cluster-state=existing")
 			}
-			serialized, err := k8s.MarshalToYaml(etcdPod, corev1.SchemeGroupVersion)
+			serialized, err := k8sutil.MarshalToYaml(etcdPod, corev1.SchemeGroupVersion)
 			if err != nil {
 				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", etcdPod.Name)
 			}
@@ -666,7 +666,7 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
 
-		apiServerObj, err := k8s.UnmarshalFromYaml(apiServerByte, corev1.SchemeGroupVersion)
+		apiServerObj, err := k8sutil.UnmarshalFromYaml(apiServerByte, corev1.SchemeGroupVersion)
 		if err != nil {
 			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
@@ -680,7 +680,7 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 				}
 			}
 
-			serialized, err := k8s.MarshalToYaml(apiServerPod, corev1.SchemeGroupVersion)
+			serialized, err := k8sutil.MarshalToYaml(apiServerPod, corev1.SchemeGroupVersion)
 			if err != nil {
 				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", apiServerPod.Name)
 			}
