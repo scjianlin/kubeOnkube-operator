@@ -41,7 +41,7 @@ func Install(s ssh.Interface, option *Option) error {
 	exit, err := s.ExecStream(cmd, os.Stdout, os.Stderr)
 	if err != nil {
 		klog.Errorf("%q %+v", exit, err)
-		return errors.Wrapf(err, "node: %s exec init")
+		return errors.Wrapf(err, "node: %s exec init", option.HostIP)
 	}
 
 	klog.Infof("node: %s exec init system success", option.HostIP)

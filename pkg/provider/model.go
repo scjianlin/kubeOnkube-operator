@@ -53,7 +53,7 @@ func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluste
 			result.ClusterCredential = credential
 			return result, nil
 		} else {
-			klog.Errorf("cluster: %s faild to get credential, err: %v", err)
+			klog.Errorf("cluster: %s faild to get credential, err: %v", cluster.Name, err)
 			return nil, err
 		}
 	}

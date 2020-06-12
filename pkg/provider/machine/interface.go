@@ -109,8 +109,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 		if f == nil {
 			return fmt.Errorf("can't get handler by %s", condition.Type)
 		}
-		klog.Infof("OnCreate", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"machineName", machine.Name)
+		klog.Infof("machineName: %s OnCreate handler: %s", machine.Name, f.Name())
 		err = f(ctx, machine, cluster)
 		if err != nil {
 			machine.SetCondition(devopsv1.MachineCondition{
@@ -152,8 +151,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 
 func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error {
 	for _, f := range p.UpdateHandlers {
-		klog.Infof("OnUpdate", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"machineName", machine.Name)
+		klog.Infof("machineName: %s OnUpdate handler: %s", machine.Name, f.Name())
 		err := f(ctx, machine, cluster)
 		if err != nil {
 			return err
@@ -165,8 +163,7 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machi
 
 func (p *DelegateProvider) OnDelete(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error {
 	for _, f := range p.DeleteHandlers {
-		klog.Infof("OnDelete", "handler", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name(),
-			"machineName", machine.Name)
+		klog.Infof("machineName: %s OnDelete handler: %s", machine.Name, f.Name())
 		err := f(ctx, machine, cluster)
 		if err != nil {
 			return err
@@ -176,7 +173,7 @@ func (p *DelegateProvider) OnDelete(ctx context.Context, machine *devopsv1.Machi
 	return nil
 }
 
-func (h Handler) name() string {
+func (h Handler) Name() string {
 	name := runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name()
 	i := strings.Index(name, "Ensure")
 	if i == -1 {
@@ -201,12 +198,12 @@ func (p *DelegateProvider) getNextConditionType(conditionType string) string {
 	}
 	next := p.CreateHandlers[i+1]
 
-	return next.name()
+	return next.Name()
 }
 
 func (p *DelegateProvider) getCreateHandler(conditionType string) Handler {
 	for _, f := range p.CreateHandlers {
-		if conditionType == f.name() {
+		if conditionType == f.Name() {
 			return f
 		}
 	}
@@ -224,7 +221,7 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *devopsv1.Machine) (*devo
 
 	if len(c.Status.Conditions) == 0 {
 		return &devopsv1.MachineCondition{
-			Type:          p.CreateHandlers[0].name(),
+			Type:          p.CreateHandlers[0].Name(),
 			Status:        devopsv1.ConditionUnknown,
 			LastProbeTime: metav1.Now(),
 			Message:       "waiting process",
