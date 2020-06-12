@@ -42,10 +42,10 @@ func NewProvider() (*Provider, error) {
 	p.DelegateProvider = &clusterprovider.DelegateProvider{
 		ProviderName: "Baremetal",
 		CreateHandlers: []clusterprovider.Handler{
-
+			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
 			p.EnsureSystem,
-			// p.EnsurePreflight, // wait basic setting done
+			p.EnsurePreflight, // wait basic setting done
 			p.EnsureClusterComplete,
 
 			p.EnsurePrepareForControlplane,
@@ -66,7 +66,9 @@ func NewProvider() (*Provider, error) {
 			p.EnsureMarkControlPlane,
 			p.EnsureCleanup,
 
+			p.EnsureMakeEtcd,
 			p.EnsurePostInstallHook,
+			// p.EnsureMakeCni,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
 			p.EnsureRenewCerts,

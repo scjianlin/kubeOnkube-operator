@@ -1,7 +1,6 @@
 package cluster
 
 import (
-	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -29,18 +28,18 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
-	"k8s.io/klog"
-)
 
-const (
-	sysctlFile       = "/etc/sysctl.conf"
-	sysctlCustomFile = "/etc/sysctl.d/99-tke.conf"
-	moduleFile       = "/etc/modules-load.d/tke.conf"
+	"bytes"
+
+	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/cni"
+	"github.com/gostship/kunkka/pkg/util/k8s"
+	"k8s.io/klog"
 )
 
 func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) error {
 	for _, file := range c.Spec.Features.Files {
-		for _, machine := range c.Spec.Machines {
+		for idx := range c.Spec.Machines {
+			machine := &c.Spec.Machines[idx]
 			machineSSH, err := machine.SSH()
 			if err != nil {
 				return err
@@ -56,154 +55,28 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) err
 	return nil
 }
 
-// func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *v1.Cluster) error {
-// 	hook := c.Spec.Features.Hooks[platformv1.HookPreInstall]
-// 	if hook == "" {
-// 		return nil
-// 	}
-// 	cmd := strings.Split(hook, " ")[0]
-//
-// 	for _, machine := range c.Spec.Machines {
-// 		machineSSH, err := machine.SSH()
-// 		if err != nil {
-// 			return err
-// 		}
-//
-// 		machineSSH.Execf("chmod +x %s", cmd)
-// 		_, stderr, exit, err := machineSSH.Exec(hook)
-// 		if err != nil || exit != 0 {
-// 			return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
-// 		}
-// 	}
-// 	return nil
-// }
-
-// func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *v1.Cluster) error {
-// 	hook := c.Spec.Features.Hooks[platformv1.HookPostInstall]
-// 	if hook == "" {
-// 		return nil
-// 	}
-// 	cmd := strings.Split(hook, " ")[0]
-//
-// 	for _, machine := range c.Spec.Machines {
-// 		machineSSH, err := machine.SSH()
-// 		if err != nil {
-// 			return err
-// 		}
-//
-// 		machineSSH.Execf("chmod +x %s", cmd)
-// 		_, stderr, exit, err := machineSSH.Exec(hook)
-// 		if err != nil || exit != 0 {
-// 			return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
-// 		}
-// 	}
-// 	return nil
-// }
-
 func (p *Provider) EnsurePreflight(ctx context.Context, c *provider.Cluster) error {
-	for _, machine := range c.Spec.Machines {
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
+		klog.Infof("start check node: %s ... ", machine.IP)
 		err = preflight.RunMasterChecks(machineSSH)
 		if err != nil {
+			klog.Errorf("node:%s check err: %+v", machine.IP, err)
 			return errors.Wrap(err, machine.IP)
 		}
 	}
-
-	return nil
-}
-
-// func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *v1.Cluster) error {
-// 	if !p.config.Registry.NeedSetHosts() {
-// 		return nil
-// 	}
-//
-// 	domains := []string{
-// 		p.config.Registry.Domain,
-// 		c.Spec.TenantID + "." + p.config.Registry.Domain,
-// 	}
-// 	for _, machine := range c.Spec.Machines {
-// 		machineSSH, err := machine.SSH()
-// 		if err != nil {
-// 			return err
-// 		}
-//
-// 		for _, one := range domains {
-// 			remoteHosts := hosts.RemoteHosts{Host: one, SSH: machineSSH}
-// 			err := remoteHosts.Set(p.config.Registry.IP)
-// 			if err != nil {
-// 				return errors.Wrap(err, machine.IP)
-// 			}
-// 		}
-// 	}
-//
-// 	return nil
-// }
-
-func (p *Provider) EnsureKernelModule(ctx context.Context, c *provider.Cluster) error {
-	modules := []string{"iptable_nat"}
-	var data bytes.Buffer
-	for _, machine := range c.Spec.Machines {
-		machineSSH, err := machine.SSH()
-		if err != nil {
-			return err
-		}
-
-		for _, m := range modules {
-			_, err := machineSSH.CombinedOutput(fmt.Sprintf("modprobe %s", m))
-			if err != nil {
-				return errors.Wrap(err, machine.IP)
-			}
-			data.WriteString(m + "\n")
-		}
-		err = machineSSH.WriteFile(strings.NewReader(data.String()), moduleFile)
-		if err != nil {
-			return errors.Wrap(err, machine.IP)
-		}
-	}
-
-	return nil
-}
-
-func (p *Provider) EnsureSysctl(ctx context.Context, c *provider.Cluster) error {
-	// for _, machine := range c.Spec.Machines {
-	// 	machineSSH, err := machine.SSH()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	_, err = machineSSH.CombinedOutput(cmdstring.SetFileContent(sysctlFile, "^net.ipv4.ip_forward.*", "net.ipv4.ip_forward = 1"))
-	// 	if err != nil {
-	// 		return errors.Wrap(err, machine.IP)
-	// 	}
-	//
-	// 	_, err = machineSSH.CombinedOutput(cmdstring.SetFileContent(sysctlFile, "^net.bridge.bridge-nf-call-iptables.*", "net.bridge.bridge-nf-call-iptables = 1"))
-	// 	if err != nil {
-	// 		return errors.Wrap(err, machine.IP)
-	// 	}
-	//
-	// 	f, err := os.Open(path.Join(constants.ConfDir, "sysctl.conf"))
-	// 	if err == nil {
-	// 		err = machineSSH.WriteFile(f, sysctlCustomFile)
-	// 		if err != nil {
-	// 			return err
-	// 		}
-	// 	}
-	//
-	// 	_, err = machineSSH.CombinedOutput("sysctl --system")
-	// 	if err != nil {
-	// 		return errors.Wrap(err, machine.IP)
-	// 	}
-	// }
 
 	return nil
 }
 
 func (p *Provider) EnsureDisableSwap(ctx context.Context, c *provider.Cluster) error {
-	for _, machine := range c.Spec.Machines {
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -218,10 +91,9 @@ func (p *Provider) EnsureDisableSwap(ctx context.Context, c *provider.Cluster) e
 	return nil
 }
 
-// 因为validate那里没法更新对象（不能存储）
-// PreCrete，在api中错误只能panic，响应不会有报错提示，所以只能挪到这里处理
 func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *provider.Cluster) error {
 	funcs := []func(cluster *provider.Cluster) error{
+		completeK8sVersion,
 		completeNetworking,
 		completeDNS,
 		completeAddresses,
@@ -232,6 +104,11 @@ func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *provider.
 			return err
 		}
 	}
+	return nil
+}
+
+func completeK8sVersion(cluster *provider.Cluster) error {
+	cluster.Status.Version = cluster.Spec.Version
 	return nil
 }
 
@@ -308,7 +185,8 @@ func completeCredential(cluster *provider.Cluster) error {
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) error {
-	for _, machine := range c.Spec.Machines {
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -330,13 +208,14 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) er
 }
 
 func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *provider.Cluster) error {
-	for i := range c.Spec.Machines {
-		machine := &c.Spec.Machines[i]
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
+		c.Status.Version = c.Spec.Version
 		klog.Infof("start write toke file to machine: %s", machine.IP)
 		tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
 		err = machineSSH.WriteFile(strings.NewReader(tokenData), constants.TokenFile)
@@ -357,19 +236,39 @@ func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *pr
 }
 
 func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *provider.Cluster) error {
-	machineSSH, err := c.Spec.Machines[0].SSH()
-	if err != nil {
-		return err
+	cfg := p.getKubeadmConfig(c)
+	if p.config.CustomeCert {
+		err := kubeadm.InitCustomCerts(cfg, c)
+		if err != nil {
+			return err
+		}
+	} else {
+		machineSSH, err := c.Spec.Machines[0].SSH()
+		if err != nil {
+			return err
+		}
+		klog.Infof("node: %s start init certs by kubeadm", c.Spec.Machines[0].IP)
+		return kubeadm.Init(machineSSH, cfg, "certs all")
 	}
-	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "certs all")
+
+	return nil
 }
 
 func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *provider.Cluster) error {
-	machineSSH, err := c.Spec.Machines[0].SSH()
-	if err != nil {
-		return err
+	cfg := p.getKubeadmConfig(c)
+	if p.config.CustomeCert {
+		err := kubeadm.InitCustomKubeconfig(cfg, c)
+		if err != nil {
+			return err
+		}
+	} else {
+		machineSSH, err := c.Spec.Machines[0].SSH()
+		if err != nil {
+			return err
+		}
+		return kubeadm.Init(machineSSH, cfg, "kubeconfig all")
 	}
-	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "kubeconfig all")
+	return nil
 }
 
 func (p *Provider) EnsureKubeadmInitControlPlanePhase(ctx context.Context, c *provider.Cluster) error {
@@ -377,6 +276,7 @@ func (p *Provider) EnsureKubeadmInitControlPlanePhase(ctx context.Context, c *pr
 	if err != nil {
 		return err
 	}
+
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "control-plane all")
 }
 
@@ -489,28 +389,28 @@ func (p *Provider) EnsureStoreCredential(ctx context.Context, c *provider.Cluste
 }
 
 func (p *Provider) EnsurePatchAnnotation(ctx context.Context, c *provider.Cluster) error {
-	fileData := map[string]string{
-		constants.EtcdPodManifestFile:                  `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "2379"`,
-		constants.KubeAPIServerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "6443"`,
-		constants.KubeControllerManagerPodManifestFile: `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10252"`,
-		constants.KubeSchedulerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10251"`,
-	}
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
-
-		machineSSH, err := machine.SSH()
-		if err != nil {
-			return err
-		}
-
-		for file, data := range fileData {
-			cmd := fmt.Sprintf(`grep 'prometheus.io/port' %s || sed -i '3a\%s' %s`, file, data, file)
-			_, stderr, exit, err := machineSSH.Exec(cmd)
-			if err != nil || exit != 0 {
-				return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-			}
-		}
-	}
+	// fileData := map[string]string{
+	// 	constants.EtcdPodManifestFile:                  `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "2379"`,
+	// 	constants.KubeAPIServerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "6443"`,
+	// 	constants.KubeControllerManagerPodManifestFile: `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10252"`,
+	// 	constants.KubeSchedulerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10251"`,
+	// }
+	// for idx := range c.Spec.Machines {
+	// 	machine := &c.Spec.Machines[idx]
+	//
+	// 	machineSSH, err := machine.SSH()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	for file, data := range fileData {
+	// 		cmd := fmt.Sprintf(`grep 'prometheus.io/port' %s || sed -i '3a\%s' %s`, file, data, file)
+	// 		_, stderr, exit, err := machineSSH.Exec(cmd)
+	// 		if err != nil || exit != 0 {
+	// 			return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
+	// 		}
+	// 	}
+	// }
 
 	return nil
 }
@@ -554,8 +454,11 @@ func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c
 			log.Warn(err.Error())
 			return false, nil
 		}
-		clientset.Discovery().RESTClient().Get().AbsPath("/healthz").Do(ctx).StatusCode(&healthStatus)
+
+		res := clientset.Discovery().RESTClient().Get().AbsPath("/healthz").Do(ctx)
+		res.StatusCode(&healthStatus)
 		if healthStatus != http.StatusOK {
+			klog.Errorf("Discovery healthz err: %+v", res.Error())
 			return false, nil
 		}
 
@@ -575,8 +478,8 @@ func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *provider.Clust
 		if machine.Labels == nil {
 			machine.Labels = make(map[string]string)
 		}
-		machine.Labels[constants.LabelNodeRoleMaster] = ""
 
+		machine.Labels[constants.LabelNodeRoleMaster] = ""
 		if !c.Spec.Features.EnableMasterSchedule {
 			taint := corev1.Taint{
 				Key:    constants.LabelNodeRoleMaster,
@@ -677,32 +580,132 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluste
 }
 
 func (p *Provider) EnsureCleanup(ctx context.Context, c *provider.Cluster) error {
+	// for idx := range c.Spec.Machines {
+	// 	machine := &c.Spec.Machines[idx]
+	//
+	// 	s, err := machine.SSH()
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	if c.Spec.Features.HA != nil {
+	// 		if c.Spec.Features.HA.ThirdPartyHA != nil && idx > 0 {
+	// 			cmd := fmt.Sprintf("iptables -t nat -D PREROUTING -p tcp --dport 6443 -j DNAT --to-destination %s:6443",
+	// 				c.Spec.Machines[0].IP)
+	// 			_, stderr, exit, err := s.Exec(cmd)
+	// 			if err != nil || exit != 0 {
+	// 				return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
+	// 			}
+	//
+	// 			cmd = fmt.Sprintf("iptables -t nat -D POSTROUTING -p tcp -d %s --dport 6443 -j SNAT --to-source %s",
+	// 				c.Spec.Machines[0].IP, machine.IP)
+	// 			_, stderr, exit, err = s.Exec(cmd)
+	// 			if err != nil || exit != 0 {
+	// 				return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
+	// 			}
+	// 		}
+	// 	}
+	// }
+
+	return nil
+}
+
+func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) error {
+	etcdPeerEndpoints := []string{}
+	etcdClusterEndpoints := []string{}
 	for idx := range c.Spec.Machines {
 		machine := &c.Spec.Machines[idx]
+		etcdPeerEndpoints = append(etcdPeerEndpoints, fmt.Sprintf("%s=https://%s:2380", machine.IP, machine.IP))
+		etcdClusterEndpoints = append(etcdClusterEndpoints, fmt.Sprintf("https://%s:2379", machine.IP))
+	}
 
-		s, err := machine.SSH()
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
+		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
-		if c.Spec.Features.HA != nil {
-			if c.Spec.Features.HA.ThirdPartyHA != nil && idx > 0 {
-				cmd := fmt.Sprintf("iptables -t nat -D PREROUTING -p tcp --dport 6443 -j DNAT --to-destination %s:6443",
-					c.Spec.Machines[0].IP)
-				_, stderr, exit, err := s.Exec(cmd)
-				if err != nil || exit != 0 {
-					return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-				}
-
-				cmd = fmt.Sprintf("iptables -t nat -D POSTROUTING -p tcp -d %s --dport 6443 -j SNAT --to-source %s",
-					c.Spec.Machines[0].IP, machine.IP)
-				_, stderr, exit, err = s.Exec(cmd)
-				if err != nil || exit != 0 {
-					return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-				}
-			}
+		etcdByte, err := machineSSH.ReadFile(constants.EtcdPodManifestFile)
+		if err != nil {
+			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
 
+		etcdObj, err := k8s.UnmarshalFromYaml(etcdByte, corev1.SchemeGroupVersion)
+		if err != nil {
+			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
+		}
+
+		if etcdPod, ok := etcdObj.(*corev1.Pod); ok {
+			// runCmd := etcdPod.Spec.Containers[0].Command
+			// if
+			isFindState := false
+			klog.Infof("etcd pod name: %s, cmd: %s", etcdPod.Name, etcdPod.Spec.Containers[0].Command)
+			for i, arg := range etcdPod.Spec.Containers[0].Command {
+				if strings.HasPrefix(arg, "--initial-cluster=") {
+					etcdPod.Spec.Containers[0].Command[i] = fmt.Sprintf("--initial-cluster=%s", strings.Join(etcdPeerEndpoints, ","))
+				}
+				if strings.HasPrefix(arg, "--initial-cluster-state") {
+					isFindState = true
+				}
+			}
+
+			if isFindState != true {
+				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--initial-cluster-state=existing")
+			}
+			serialized, err := k8s.MarshalToYaml(etcdPod, corev1.SchemeGroupVersion)
+			if err != nil {
+				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", etcdPod.Name)
+			}
+
+			machineSSH.WriteFile(bytes.NewReader(serialized), constants.EtcdPodManifestFile)
+		}
+
+		apiServerByte, err := machineSSH.ReadFile(constants.KubeAPIServerPodManifestFile)
+		if err != nil {
+			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
+		}
+
+		apiServerObj, err := k8s.UnmarshalFromYaml(apiServerByte, corev1.SchemeGroupVersion)
+		if err != nil {
+			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
+		}
+
+		if apiServerPod, ok := apiServerObj.(*corev1.Pod); ok {
+			klog.Infof("apiServer pod name: %s, cmd: %s", apiServerPod.Name, apiServerPod.Spec.Containers[0].Command)
+			for i, arg := range apiServerPod.Spec.Containers[0].Command {
+				if strings.HasPrefix(arg, "--etcd-servers=") {
+					apiServerPod.Spec.Containers[0].Command[i] = fmt.Sprintf("--etcd-servers=%s", strings.Join(etcdClusterEndpoints, ","))
+					break
+				}
+			}
+
+			serialized, err := k8s.MarshalToYaml(apiServerPod, corev1.SchemeGroupVersion)
+			if err != nil {
+				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", apiServerPod.Name)
+			}
+
+			machineSSH.WriteFile(bytes.NewReader(serialized), constants.KubeAPIServerPodManifestFile)
+		}
 	}
+
+	return nil
+}
+
+func (p *Provider) EnsureMakeCni(ctx context.Context, c *provider.Cluster) error {
+
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		err = cni.Install(machineSSH, c)
+		if err != nil {
+			return errors.Wrap(err, machine.IP)
+		}
+	}
+
 	return nil
 }

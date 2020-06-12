@@ -21,14 +21,15 @@ func NewDefaultConfig() (*Config, error) {
 	}
 	config.Registry.Domain = s[0]
 	config.Registry.Namespace = s[1]
-
+	config.CustomeCert = true
 	return config, nil
 }
 
 type Config struct {
-	Registry Registry `yaml:"registry"`
-	Audit    Audit    `yaml:"audit"`
-	Feature  Feature  `yaml:"feature"`
+	Registry    Registry `yaml:"registry"`
+	Audit       Audit    `yaml:"audit"`
+	Feature     Feature  `yaml:"feature"`
+	CustomeCert bool
 }
 
 func (c *Config) Save(filename string) error {

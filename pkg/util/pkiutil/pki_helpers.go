@@ -20,9 +20,12 @@ import (
 
 	"github.com/pkg/errors"
 
+	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
+	kubeadmconstants "github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/constants"
 	"k8s.io/apimachinery/pkg/util/validation"
 	certutil "k8s.io/client-go/util/cert"
 	"k8s.io/client-go/util/keyutil"
+	"k8s.io/klog"
 )
 
 const (
@@ -38,6 +41,7 @@ const (
 )
 
 const duration365d = time.Hour * 24 * 365
+const NotAfter = duration365d * 100
 
 // CertConfig is a wrapper around certutil.Config extending it with PublicKeyAlgorithm.
 type CertConfig struct {
@@ -52,7 +56,7 @@ func NewCertificateAuthority(config *CertConfig) (*x509.Certificate, crypto.Sign
 		return nil, nil, errors.Wrap(err, "unable to create private key while generating CA certificate")
 	}
 
-	cert, err := certutil.NewSelfSignedCACert(config.Config, key)
+	cert, err := NewSelfSignedCACert(config, key)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to create self-signed CA certificate")
 	}
@@ -352,7 +356,7 @@ func appendSANsToAltNames(altNames *certutil.AltNames, SANs []string, certName s
 		} else if len(validation.IsWildcardDNS1123Subdomain(altname)) == 0 {
 			altNames.DNSNames = append(altNames.DNSNames, altname)
 		} else {
-			fmt.Printf(
+			klog.Infof(
 				"[certificates] WARNING: '%s' was not added to the '%s' SAN, because it is not a valid IP or RFC-1123 compliant DNS entry\n",
 				altname,
 				certName,
@@ -449,6 +453,29 @@ func NewPrivateKey(keyType x509.PublicKeyAlgorithm) (crypto.Signer, error) {
 	return rsa.GenerateKey(cryptorand.Reader, rsaKeySize)
 }
 
+// NewSelfSignedCACert creates a CA certificate
+func NewSelfSignedCACert(cfg *CertConfig, key crypto.Signer) (*x509.Certificate, error) {
+	now := time.Now()
+	tmpl := x509.Certificate{
+		SerialNumber: new(big.Int).SetInt64(0),
+		Subject: pkix.Name{
+			CommonName:   cfg.CommonName,
+			Organization: cfg.Organization,
+		},
+		NotBefore:             now.UTC(),
+		NotAfter:              now.Add(NotAfter).UTC(),
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+
+	certDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &tmpl, &tmpl, key.Public(), key)
+	if err != nil {
+		return nil, err
+	}
+	return x509.ParseCertificate(certDERBytes)
+}
+
 // NewSignedCert creates a signed certificate using the given CA certificate and key
 func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate, caKey crypto.Signer) (*x509.Certificate, error) {
 	serial, err := cryptorand.Int(cryptorand.Reader, new(big.Int).SetInt64(math.MaxInt64))
@@ -471,7 +498,7 @@ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate,
 		IPAddresses:  cfg.AltNames.IPs,
 		SerialNumber: serial,
 		NotBefore:    caCert.NotBefore,
-		NotAfter:     time.Now().Add(duration365d * 10).UTC(),
+		NotAfter:     time.Now().Add(NotAfter).UTC(),
 		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  cfg.Usages,
 	}
@@ -480,4 +507,91 @@ func NewSignedCert(cfg *CertConfig, key crypto.Signer, caCert *x509.Certificate,
 		return nil, err
 	}
 	return x509.ParseCertificate(certDERBytes)
+}
+
+// GetAPIServerAltNames builds an AltNames object for to be used when generating apiserver certificate
+func GetAPIServerAltNames(cfg *kubeadmv1beta2.WarpperConfiguration) (*certutil.AltNames, error) {
+	internalAPIServerVirtualIP, err := kubeadmconstants.GetAPIServerVirtualIP(cfg.Networking.ServiceSubnet, false)
+	if err != nil {
+		return nil, errors.Wrapf(err, "unable to get first IP address from the given CIDR: %v", cfg.Networking.ServiceSubnet)
+	}
+
+	// create AltNames with defaults DNSNames/IPs
+	altNames := &certutil.AltNames{
+		DNSNames: []string{
+			"kubernetes",
+			"kubernetes.default",
+			"kubernetes.default.svc",
+			fmt.Sprintf("kubernetes.default.svc.%s", cfg.Networking.DNSDomain),
+		},
+		IPs: []net.IP{
+			internalAPIServerVirtualIP,
+			net.IPv6loopback,
+		},
+	}
+
+	altNames.DNSNames = append(altNames.DNSNames, cfg.IPs...)
+	appendSANsToAltNames(altNames, cfg.APIServer.CertSANs, kubeadmconstants.APIServerCertName)
+	return altNames, nil
+}
+
+// GetEtcdAltNames builds an AltNames object for generating the etcd server certificate.
+// `advertise address` and localhost are included in the SAN since this is the interfaces the etcd static pod listens on.
+// The user can override the listen address with `Etcd.ExtraArgs` and add SANs with `Etcd.ServerCertSANs`.
+func GetEtcdAltNames(cfg *kubeadmv1beta2.WarpperConfiguration) (*certutil.AltNames, error) {
+	return getAltNames(cfg, kubeadmconstants.EtcdServerCertName)
+}
+
+// GetEtcdPeerAltNames builds an AltNames object for generating the etcd peer certificate.
+// Hostname and `API.AdvertiseAddress` are included if the user chooses to promote the single node etcd cluster into a multi-node one (stacked etcd).
+// The user can override the listen address with `Etcd.ExtraArgs` and add SANs with `Etcd.PeerCertSANs`.
+func GetEtcdPeerAltNames(cfg *kubeadmv1beta2.WarpperConfiguration) (*certutil.AltNames, error) {
+	return getAltNames(cfg, kubeadmconstants.EtcdPeerCertName)
+}
+
+// getAltNames builds an AltNames object with the cfg and certName.
+func getAltNames(cfg *kubeadmv1beta2.WarpperConfiguration, certName string) (*certutil.AltNames, error) {
+	// create AltNames with defaults DNSNames/IPs
+	altNames := &certutil.AltNames{
+		IPs: []net.IP{net.IPv6loopback},
+	}
+	altNames.DNSNames = append(altNames.DNSNames, cfg.IPs...)
+	appendSANsToAltNames(altNames, cfg.APIServer.CertSANs, certName)
+	return altNames, nil
+}
+
+// BuildKeyByte stores the given key at the given location
+func BuildKeyByte(pkiPath, name string, key crypto.Signer) (string, []byte, error) {
+	if key == nil {
+		return "", nil, errors.New("private key cannot be nil when writing to file")
+	}
+
+	privateKeyPath := pathForKey(pkiPath, name)
+	encoded, err := keyutil.MarshalPrivateKeyToPEM(key)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "unable to marshal private key to PEM")
+	}
+	return privateKeyPath, encoded, nil
+}
+
+// BuildCertByte stores the given certificate at the given location
+func BuildCertByte(pkiPath, name string, cert *x509.Certificate) (string, []byte, error) {
+	if cert == nil {
+		return "", nil, errors.New("certificate cannot be nil when writing to file")
+	}
+	return pathForCert(pkiPath, name), EncodeCertPEM(cert), nil
+}
+
+// BuildPublicKeyByte stores the given public key at the given location
+func BuildPublicKeyByte(pkiPath, name string, key crypto.PublicKey) (string, []byte, error) {
+	if key == nil {
+		return "", nil, errors.New("public key cannot be nil when writing to file")
+	}
+
+	publicKeyBytes, err := EncodePublicKeyPEM(key)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return pathForPublicKey(pkiPath, name), publicKeyBytes, nil
 }

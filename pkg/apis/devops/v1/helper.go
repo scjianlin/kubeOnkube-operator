@@ -7,8 +7,27 @@ import (
 	"time"
 
 	"github.com/gostship/kunkka/pkg/util/ssh"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// ClusterMachine is the master machine definition of cluster.
+type ClusterMachine struct {
+	IP       string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
+	Port     int32  `json:"port" protobuf:"varint,2,opt,name=port"`
+	Username string `json:"username" protobuf:"bytes,3,opt,name=username"`
+	// +optional
+	Password string `json:"password,omitempty" protobuf:"bytes,4,opt,name=password"`
+	// +optional
+	PrivateKey []byte `json:"privateKey,omitempty" protobuf:"bytes,5,opt,name=privateKey"`
+	// +optional
+	PassPhrase []byte `json:"passPhrase,omitempty" protobuf:"bytes,6,opt,name=passPhrase"`
+	// +optional
+	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,7,opt,name=labels"`
+	// If specified, the node's taints.
+	// +optional
+	Taints []corev1.Taint `json:"taints,omitempty" protobuf:"bytes,8,opt,name=taints"`
+}
 
 func (in *Cluster) SetCondition(newCondition ClusterCondition) {
 	var conditions []ClusterCondition

@@ -42,6 +42,7 @@ func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.Ini
 		},
 		LocalAPIEndpoint: kubeadmv1beta2.APIEndpoint{
 			AdvertiseAddress: c.Spec.Machines[0].IP,
+			BindPort:         6443,
 		},
 		CertificateKey: *c.ClusterCredential.CertificateKey,
 	}
@@ -50,14 +51,10 @@ func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.Ini
 func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.ClusterConfiguration {
 	controlPlaneEndpoint := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
 
-	// ?? use vip
+	// //  use vip
 	// addr := c.Address(devopsv1.AddressAdvertise)
 	// if addr != nil {
 	// 	controlPlaneEndpoint = fmt.Sprintf("%s:%d", addr.Host, addr.Port)
-	// }
-
-	// if len(c.Spec.PublicAlternativeNames) > 0 {
-	// 	controlPlaneEndpoint = fmt.Sprintf("%s:6443", c.Spec.PublicAlternativeNames[0])
 	// }
 
 	kubernetesVolume := kubeadmv1beta2.HostPathMount{
@@ -74,6 +71,7 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 	}
 
 	config := &kubeadmv1beta2.ClusterConfiguration{
+		CertificatesDir: constants.CertificatesDir,
 		Networking: kubeadmv1beta2.Networking{
 			DNSDomain:     c.Spec.DNSDomain,
 			ServiceSubnet: c.Status.ServiceCIDR,
@@ -100,7 +98,6 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 		},
 		ImageRepository: p.config.Registry.Prefix,
 		ClusterName:     c.Name,
-		// FeatureGates:
 	}
 
 	utilruntime.Must(json.Merge(&config.Etcd, &c.Spec.Etcd))

@@ -11,7 +11,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 
+	"crypto/x509"
+
+	"path/filepath"
+
+	"os"
+
+	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
+	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/helper"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"k8s.io/klog"
@@ -29,7 +38,8 @@ const (
 --ignore-preflight-errors=ImagePull \
 --ignore-preflight-errors=Port-10250 \
 --ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables \
---ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests
+--ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests \
+--ignore-preflight-errors=FileAvailable--etc-kubernetes-kubelet.conf
 `
 	joinNodeCmd = `kubeadm join {{.ControlPlaneEndpoint}} \
 --node-name={{.NodeName}} \
@@ -91,6 +101,103 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	return nil
 }
 
+func InitCustomCerts(cfg *Config, c *provider.Cluster) error {
+	var lastCACert *helper.CaAll
+	cfgMaps := make(map[string][]byte)
+
+	warp := &kubeadmv1beta2.WarpperConfiguration{
+		InitConfiguration:    cfg.InitConfiguration,
+		ClusterConfiguration: cfg.ClusterConfiguration,
+		IPs:                  c.IPs(),
+	}
+
+	for _, cert := range helper.GetDefaultCertList() {
+		if cert.CAName == "" {
+			ret, err := helper.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
+			if err != nil {
+				return err
+			}
+			lastCACert = ret
+		} else {
+			if lastCACert == nil {
+				return fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
+			}
+			err := helper.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
+			if err != nil {
+				return errors.Wrapf(err, "create cert: %s", cert.Name)
+			}
+		}
+	}
+
+	err := helper.CreateServiceAccountKeyAndPublicKeyFiles(cfg.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
+	if err != nil {
+		return errors.Wrapf(err, "create sa public key")
+	}
+
+	if len(cfgMaps) == 0 {
+		return fmt.Errorf("no cert build")
+	}
+
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
+		sh, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		klog.Infof("node: %s start write cert ...", machine.IP)
+		for pathFile, v := range cfgMaps {
+			err = sh.WriteFile(bytes.NewReader(v), pathFile)
+			if err != nil {
+				klog.Errorf("write kubeconfg: %s err: %+v", pathFile, err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func InitCustomKubeconfig(cfg *Config, c *provider.Cluster) error {
+	warp := &kubeadmv1beta2.WarpperConfiguration{
+		InitConfiguration:    cfg.InitConfiguration,
+		ClusterConfiguration: cfg.ClusterConfiguration,
+		IPs:                  c.IPs(),
+	}
+
+	machine := &c.Spec.Machines[0]
+	sh, err := machine.SSH()
+	if err != nil {
+		return err
+	}
+
+	cfgMaps, err := helper.CreateKubeConfigFile(c.ClusterCredential.CAKey,
+		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
+			AdvertiseAddress: machine.IP,
+			BindPort:         warp.LocalAPIEndpoint.BindPort,
+		}, warp.ClusterName)
+	if err != nil {
+		klog.Errorf("create kubeconfg err: %+v", err)
+		return err
+	}
+
+	klog.Infof("node: %s start write kubeconfig ...", machine.IP)
+	for noPathFile, v := range cfgMaps {
+		by, err := helper.BuildKubeConfigByte(v)
+		if err != nil {
+			return err
+		}
+
+		pathFile := filepath.Join(constants.KubernetesDir, noPathFile)
+		err = sh.WriteFile(bytes.NewReader(by), pathFile)
+		if err != nil {
+			klog.Errorf("write kubeconfg: %s err: %+v", noPathFile, err)
+			return err
+		}
+	}
+
+	return nil
+}
+
 type JoinControlPlaneOption struct {
 	NodeName             string
 	BootstrapToken       string
@@ -104,11 +211,10 @@ func JoinControlPlane(s ssh.Interface, option *JoinControlPlaneOption) error {
 		return errors.Wrap(err, "parse joinControlePlaneCmd error")
 	}
 	klog.Infof("node: %s join cmd: %s", option.NodeName, cmd)
-	stdout, stderr, exit, err := s.Exec(string(cmd))
+	exit, err := s.ExecStream(string(cmd), os.Stdout, os.Stderr)
 	if err != nil || exit != 0 {
-		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
+		return fmt.Errorf("exec %q failed:exit %d error:%v", cmd, exit, err)
 	}
-	klog.Info(stdout)
 
 	return nil
 }
@@ -124,12 +230,11 @@ func JoinNode(s ssh.Interface, option *JoinNodeOption) error {
 	if err != nil {
 		return errors.Wrap(err, "parse joinNodeCmd error")
 	}
-	stdout, stderr, exit, err := s.Exec(string(cmd))
+	exit, err := s.ExecStream(string(cmd), os.Stdout, os.Stderr)
 	if err != nil || exit != 0 {
 		_, _, _, _ = s.Exec("kubeadm reset -f")
-		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
+		return fmt.Errorf("exec %q failed:exit %d error:%v", cmd, exit, err)
 	}
-	klog.Info(stdout)
 
 	return nil
 }

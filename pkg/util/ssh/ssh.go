@@ -65,6 +65,7 @@ type Config struct {
 type Interface interface {
 	Ping() error
 	Exec(cmd string) (stdout string, stderr string, exit int, err error)
+	ExecStream(cmd string, stdout, stderr io.Writer) (exit int, err error)
 	Execf(format string, a ...interface{}) (stdout string, stderr string, exit int, err error)
 	CombinedOutput(cmd string) ([]byte, error)
 
@@ -177,6 +178,54 @@ func (s *SSH) Exec(cmd string) (stdout string, stderr string, exit int, err erro
 		}
 	}
 	return bout.String(), berr.String(), code, err
+}
+
+func (s *SSH) ExecStream(cmd string, stdout, stderr io.Writer) (exit int, err error) {
+	// Setup the config, dial the server, and open a session.
+	config := &ssh.ClientConfig{
+		User:            s.User,
+		Auth:            s.authMethods,
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
+	}
+	client, err := s.dialer.Dial("tcp", s.addr, config)
+	if err != nil && s.Retry > 0 {
+		err = wait.Poll(5*time.Second, time.Duration(s.Retry)*5*time.Second, func() (bool, error) {
+			if client, err = s.dialer.Dial("tcp", s.addr, config); err != nil {
+				return false, err
+			}
+			return true, nil
+		})
+	}
+	if err != nil {
+		return 0, fmt.Errorf("error getting SSH client to %s@%s: '%v'", s.User, s.addr, err)
+	}
+	defer client.Close()
+
+	session, err := client.NewSession()
+	if err != nil {
+		return 0, fmt.Errorf("error creating session to %s@%s: '%v'", s.User, s.addr, err)
+	}
+	defer session.Close()
+
+	// Run the command.
+	code := 0
+	session.Stdout, session.Stderr = stdout, stderr
+	if err = session.Run(cmd); err != nil {
+		// Check whether the command failed to run or didn't complete.
+		if exiterr, ok := err.(*ssh.ExitError); ok {
+			// If we got an ExitError and the exit code is nonzero, we'll
+			// consider the SSH itself successful (just that the command run
+			// errored on the Host).
+			if code = exiterr.ExitStatus(); code != 0 {
+				err = nil
+			}
+		} else {
+			// Some other kind of error happened (e.g. an IOError); consider the
+			// SSH unsuccessful.
+			err = fmt.Errorf("failed running `%s` on %s@%s: '%v'", cmd, s.User, s.addr, err)
+		}
+	}
+	return code, err
 }
 
 func (s *SSH) CopyFile(src, dst string) error {

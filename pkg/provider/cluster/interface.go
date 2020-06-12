@@ -114,9 +114,11 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 		if f == nil {
 			return fmt.Errorf("can't get handler by %s", condition.Type)
 		}
-		klog.Infof("clusterName: %s OnCreate handler: %s", cluster.Name, runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		handlerName := f.Name()
+		klog.Infof("clusterName: %s OnCreate handler: %s", cluster.Name, handlerName)
 		err = f(ctx, cluster)
 		if err != nil {
+			klog.Errorf("cluster: %s OnCreate handler: %s err: %+v", cluster.Name, handlerName, err)
 			cluster.SetCondition(devopsv1.ClusterCondition{
 				Type:          condition.Type,
 				Status:        devopsv1.ConditionFalse,
@@ -181,7 +183,7 @@ func (p *DelegateProvider) OnDelete(ctx context.Context, cluster *provider.Clust
 	return nil
 }
 
-func (h Handler) name() string {
+func (h Handler) Name() string {
 	name := runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name()
 	i := strings.Index(name, "Ensure")
 	if i == -1 {
@@ -206,12 +208,12 @@ func (p *DelegateProvider) getNextConditionType(conditionType string) string {
 	}
 	next := p.CreateHandlers[i+1]
 
-	return next.name()
+	return next.Name()
 }
 
 func (p *DelegateProvider) getCreateHandler(conditionType string) Handler {
 	for _, f := range p.CreateHandlers {
-		if conditionType == f.name() {
+		if conditionType == f.Name() {
 			return f
 		}
 	}
@@ -230,7 +232,7 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devo
 
 	if len(c.Status.Conditions) == 0 {
 		return &devopsv1.ClusterCondition{
-			Type:          p.CreateHandlers[0].name(),
+			Type:          p.CreateHandlers[0].Name(),
 			Status:        devopsv1.ConditionUnknown,
 			LastProbeTime: metav1.Now(),
 			Message:       "waiting process",
@@ -239,6 +241,9 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devo
 	}
 
 	for _, condition := range c.Status.Conditions {
+		// if condition.Type == "EnsureKubeadmInitWaitControlPlanePhase" {
+		// 	return &condition, nil
+		// }
 		if condition.Status == devopsv1.ConditionFalse || condition.Status == devopsv1.ConditionUnknown {
 			return &condition, nil
 		}
@@ -246,7 +251,7 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devo
 
 	if len(c.Status.Conditions) < len(p.CreateHandlers) {
 		return &devopsv1.ClusterCondition{
-			Type:          p.CreateHandlers[len(c.Status.Conditions)].name(),
+			Type:          p.CreateHandlers[len(c.Status.Conditions)].Name(),
 			Status:        devopsv1.ConditionUnknown,
 			LastProbeTime: metav1.Now(),
 			Message:       "waiting process",

@@ -394,3 +394,10 @@ type HostPathMount struct {
 	// PathType is the type of the HostPath.
 	PathType v1.HostPathType `json:"pathType,omitempty"`
 }
+
+// WarpperConfiguration contains a list of elements that InitConfiguration and ClusterConfiguration
+type WarpperConfiguration struct {
+	*InitConfiguration    `json:"-"`
+	*ClusterConfiguration `json:"-"`
+	IPs                   []string
+}

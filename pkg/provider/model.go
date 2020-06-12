@@ -161,3 +161,12 @@ func (c *Cluster) HostForBootstrap() (string, error) {
 
 	return "", errors.New("can't find bootstrap address")
 }
+
+func (c *Cluster) IPs() []string {
+	ips := []string{}
+	for idx := range c.Spec.Machines {
+		machine := &c.Spec.Machines[idx]
+		ips = append(ips, machine.IP)
+	}
+	return ips
+}

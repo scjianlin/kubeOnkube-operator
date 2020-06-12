@@ -30,9 +30,8 @@ const (
 
 	TokenFile = KubernetesDir + "known_tokens.csv"
 
-	KubectlConfigFile = "/root/.kube/config"
-
-	KeepavliedConfigFile = "/etc/keepalived/keepalived.conf"
+	KubectlConfigFile    = "/root/.kube/config"
+	CACertAndKeyBaseName = "ca"
 
 	// CACertName defines certificate name
 	CACertName = CertificatesDir + "ca.crt"
@@ -72,6 +71,8 @@ const (
 	// RenewCertsTimeThreshold control how long time left to renew certs
 	RenewCertsTimeThreshold = 30 * 24 * time.Hour
 
-	CustomDir      = "/opt/k8s/"
-	SystemInitFile = CustomDir + "init.sh"
+	CustomDir        = "/opt/k8s/"
+	SystemInitFile   = CustomDir + "init.sh"
+	CniHostLocalFile = CNIConfDIr + "/net.d/10-host-local.conf"
+	CniLoopBack      = CNIConfDIr + "/net.d/99-loopback.conf"
 )

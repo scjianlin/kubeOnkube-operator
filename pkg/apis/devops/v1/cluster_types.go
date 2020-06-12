@@ -19,8 +19,6 @@ package v1
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	corev1 "k8s.io/api/core/v1"
-
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -210,24 +208,6 @@ type ClusterProperty struct {
 	OversoldRatio map[string]string `json:"oversoldRatio,omitempty" protobuf:"bytes,3,opt,name=oversoldRatio"`
 }
 
-// ClusterMachine is the master machine definition of cluster.
-type ClusterMachine struct {
-	IP       string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
-	Port     int32  `json:"port" protobuf:"varint,2,opt,name=port"`
-	Username string `json:"username" protobuf:"bytes,3,opt,name=username"`
-	// +optional
-	Password string `json:"password,omitempty" protobuf:"bytes,4,opt,name=password"`
-	// +optional
-	PrivateKey []byte `json:"privateKey,omitempty" protobuf:"bytes,5,opt,name=privateKey"`
-	// +optional
-	PassPhrase []byte `json:"passPhrase,omitempty" protobuf:"bytes,6,opt,name=passPhrase"`
-	// +optional
-	Labels map[string]string `json:"labels,omitempty" protobuf:"bytes,7,opt,name=labels"`
-	// If specified, the node's taints.
-	// +optional
-	Taints []corev1.Taint `json:"taints,omitempty" protobuf:"bytes,8,opt,name=taints"`
-}
-
 // ExternalEtcd describes an external etcd cluster.
 // Kubeadm has no knowledge of where certificate files live and they must be supplied.
 type ExternalEtcd struct {
@@ -300,6 +280,8 @@ type ClusterSpec struct {
 	SchedulerExtraArgs map[string]string `json:"schedulerExtraArgs,omitempty" protobuf:"bytes,18,name=schedulerExtraArgs"`
 	// Etcd holds configuration for etcd.
 	Etcd *Etcd `json:"etcd,omitempty" protobuf:"bytes,21,opt,name=etcd"`
+	//
+	Pause bool `json:"pause,omitempty"`
 }
 
 // ClusterStatus represents information about the status of a cluster.

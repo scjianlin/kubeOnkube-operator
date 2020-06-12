@@ -352,6 +352,8 @@ spec:
             networkType:
               description: NetworkType defines the network type of cluster.
               type: string
+            pause:
+              type: boolean
             properties:
               description: ClusterProperty records the attribute information of the
                 cluster.
@@ -386,6 +388,7 @@ spec:
             version:
               type: string
           required:
+          - pause
           - tenantID
           - type
           - version
@@ -627,6 +630,8 @@ spec:
               type: string
             password:
               type: string
+            pause:
+              type: boolean
             port:
               format: int32
               type: integer
@@ -669,6 +674,7 @@ spec:
           required:
           - clusterName
           - ip
+          - pause
           - port
           - type
           - username

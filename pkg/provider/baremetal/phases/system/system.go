@@ -2,7 +2,8 @@ package system
 
 import (
 	"bytes"
-
+	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -30,22 +31,23 @@ func Install(s ssh.Interface, option *Option) error {
 		return err
 	}
 
-	klog.Infof("write init.sh to node: %s", option.HostIP)
 	err = s.WriteFile(bytes.NewReader(initData), constants.SystemInitFile)
 	if err != nil {
 		return err
 	}
 
-	execf, stderr, exit, err := s.Execf("chmod a+x %s && %s", constants.SystemInitFile, constants.SystemInitFile)
+	klog.Infof("node: %s start exec init system ... ", option.HostIP)
+	cmd := fmt.Sprintf("chmod a+x %s && %s", constants.SystemInitFile, constants.SystemInitFile)
+	exit, err := s.ExecStream(cmd, os.Stdout, os.Stderr)
 	if err != nil {
-		klog.Errorf("%q %q %q", execf, stderr, exit)
-		return err
+		klog.Errorf("%q %+v", exit, err)
+		return errors.Wrapf(err, "node: %s exec init")
 	}
 
-	klog.Infof("init node: %s system success, info execf:\n %s \n info stderr: \n %s", option.HostIP, execf, stderr)
+	klog.Infof("node: %s exec init system success", option.HostIP)
 	result, err := s.CombinedOutput("uname -r")
 	if err != nil {
-		klog.Errorf("err: %q", err)
+		klog.Errorf("err: %+v", err)
 		return err
 	}
 	versionStr := strings.TrimSpace(string(result))

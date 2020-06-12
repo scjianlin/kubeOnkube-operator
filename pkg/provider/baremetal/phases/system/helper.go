@@ -25,16 +25,6 @@ function Install_depend_environment(){
       return
     fi
 
-    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo    
-    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
-enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
-EOF
     echo -e "\033[32;32m 开始安装依赖环境包 \033[0m \n" 
     yum makecache fast
     yum install -y nfs-utils curl yum-utils device-mapper-persistent-data lvm2 \
@@ -57,8 +47,7 @@ fs.nr_open=52706963
 net.ipv6.conf.all.disable_ipv6=1
 net.netfilter.nf_conntrack_max=2310720
 EOF
-    sysctl -p /etc/sysctl.d/k8s.conf
-    ls /proc/sys/net/bridge
+    modprobe br_netfilter && sysctl -p /etc/sysctl.d/k8s.conf
     systemctl enable chronyd && systemctl start chronyd && chronyc sources
 
     echo -e "\033[32;32m 开始配置系统ipvs \033[0m \n"
@@ -88,6 +77,8 @@ function Install_docker(){
     fi
     
     echo -e "\033[32;32m 开始安装docker \033[0m \n" 
+    yum-config-manager --add-repo http://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo 
+    yum makecache fast
     yum install -y docker-ce-{{ .DockerVersion }} docker-ce-cli-{{ .DockerVersion }}
 
     echo -e "\033[32;32m 开始写 docker daemon.json\033[0m \n"
@@ -133,7 +124,17 @@ function Install_kubernetes_component(){
     rpm -qa | grep kubelet && echo -e "\033[32;32m 已安装kubernetes组件 \033[0m \n" && return
     
     echo -e "\033[32;32m 开始安装k8s组件 \033[0m \n"
-    yum install -y kubelet-{{ .K8sVersion }} kubeadm-{{ .K8sVersion }} kubectl-{{ .K8sVersion }} kubernetes-cni
+    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=1
+gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
+EOF
+    yum install -y --nogpgcheck kubelet-{{ .K8sVersion }} kubeadm-{{ .K8sVersion }} kubectl-{{ .K8sVersion }} kubernetes-cni
+    echo "source <(kubectl completion bash)" >> ~/.bashrc
 }
 
 function Update_kernel(){

@@ -69,6 +69,8 @@ spec:
               type: string
             password:
               type: string
+            pause:
+              type: boolean
             port:
               format: int32
               type: integer
@@ -111,6 +113,7 @@ spec:
           required:
           - clusterName
           - ip
+          - pause
           - port
           - type
           - username

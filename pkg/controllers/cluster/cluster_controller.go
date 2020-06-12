@@ -105,10 +105,18 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, err
 	}
 
+	if c.Spec.Pause == true {
+		klog.V(5).Infof("cluster [%q] is Pause", req.NamespacedName)
+		return reconcile.Result{}, nil
+	}
+
 	klog.Infof("name: %s", c.Name)
 	if len(string(c.Status.Phase)) == 0 {
 		c.Status.Phase = devopsv1.ClusterInitializing
-		r.Client.Status().Update(ctx, c)
+		err = r.Client.Status().Update(ctx, c)
+		if err != nil {
+			return ctrl.Result{}, err
+		}
 		return ctrl.Result{}, nil
 	}
 	r.reconcile(&reconcileContext{
