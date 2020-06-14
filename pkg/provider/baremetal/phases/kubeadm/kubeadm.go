@@ -157,22 +157,16 @@ func InitCustomCerts(cfg *Config, c *provider.Cluster) error {
 	return nil
 }
 
-func InitCustomKubeconfig(cfg *Config, c *provider.Cluster) error {
+func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *provider.Cluster) error {
 	warp := &kubeadmv1beta2.WarpperConfiguration{
 		InitConfiguration:    cfg.InitConfiguration,
 		ClusterConfiguration: cfg.ClusterConfiguration,
 		IPs:                  c.IPs(),
 	}
 
-	machine := &c.Spec.Machines[0]
-	sh, err := machine.SSH()
-	if err != nil {
-		return err
-	}
-
 	cfgMaps, err := helper.CreateKubeConfigFile(c.ClusterCredential.CAKey,
 		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
-			AdvertiseAddress: machine.IP,
+			AdvertiseAddress: s.HostIP(),
 			BindPort:         warp.LocalAPIEndpoint.BindPort,
 		}, warp.ClusterName)
 	if err != nil {
@@ -180,7 +174,7 @@ func InitCustomKubeconfig(cfg *Config, c *provider.Cluster) error {
 		return err
 	}
 
-	klog.Infof("node: %s start write kubeconfig ...", machine.IP)
+	klog.Infof("node: %s start write kubeconfig ...", s.HostIP())
 	for noPathFile, v := range cfgMaps {
 		by, err := helper.BuildKubeConfigByte(v)
 		if err != nil {
@@ -188,7 +182,7 @@ func InitCustomKubeconfig(cfg *Config, c *provider.Cluster) error {
 		}
 
 		pathFile := filepath.Join(constants.KubernetesDir, noPathFile)
-		err = sh.WriteFile(bytes.NewReader(by), pathFile)
+		err = s.WriteFile(bytes.NewReader(by), pathFile)
 		if err != nil {
 			klog.Errorf("write kubeconfg: %s err: %+v", noPathFile, err)
 			return err

@@ -64,11 +64,11 @@ func NewProvider() (*Provider, error) {
 			p.EnsureJoinControlePlane,
 			p.EnsurePatchAnnotation, // wait rest master ready
 			p.EnsureMarkControlPlane,
-			p.EnsureCleanup,
 
 			p.EnsureMakeEtcd,
+			p.EnsureMakeControlPlane,
+			p.EnsureMakeCni,
 			p.EnsurePostInstallHook,
-			// p.EnsureMakeCni,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
 			p.EnsureRenewCerts,

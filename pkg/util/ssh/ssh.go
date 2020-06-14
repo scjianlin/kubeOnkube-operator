@@ -63,6 +63,7 @@ type Config struct {
 }
 
 type Interface interface {
+	HostIP() string
 	Ping() error
 	Exec(cmd string) (stdout string, stderr string, exit int, err error)
 	ExecStream(cmd string, stdout, stderr io.Writer) (exit int, err error)
@@ -114,6 +115,10 @@ func (s *SSH) Ping() error {
 	_, _, _, err := s.Exec("pwd")
 
 	return err
+}
+
+func (s *SSH) HostIP() string {
+	return s.Host
 }
 
 func (s *SSH) CombinedOutput(cmd string) ([]byte, error) {

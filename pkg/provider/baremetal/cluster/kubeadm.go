@@ -144,13 +144,11 @@ func (p *Provider) getAPIServerExtraArgs(c *provider.Cluster) map[string]string 
 func (p *Provider) getControllerManagerExtraArgs(c *provider.Cluster) map[string]string {
 	args := map[string]string{}
 
-	// args["allocate-node-cidrs"] = "true"
-	// args["node-cidr-mask-size"] = fmt.Sprintf("%v", c.Status.NodeCIDRMaskSize)
-	// args["service-cluster-ip-range"] = c.Status.ServiceCIDR
-	//
-	// if len(c.Spec.ClusterCIDR) > 0 {
-	// 	args["cluster-cidr"] = c.Spec.ClusterCIDR
-	// }
+	if len(c.Spec.ClusterCIDR) > 0 {
+		args["allocate-node-cidrs"] = "true"
+		args["cluster-cidr"] = c.Spec.ClusterCIDR
+		args["node-cidr-mask-size"] = fmt.Sprintf("%v", c.Status.NodeCIDRMaskSize)
+	}
 
 	for k, v := range c.Spec.ControllerManagerExtraArgs {
 		args[k] = v

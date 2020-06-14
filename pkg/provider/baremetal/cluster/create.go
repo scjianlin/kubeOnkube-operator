@@ -31,7 +31,7 @@ import (
 
 	"bytes"
 
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/cni"
+	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/addons/flannel"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"k8s.io/klog"
 )
@@ -257,7 +257,12 @@ func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *provider.
 func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *provider.Cluster) error {
 	cfg := p.getKubeadmConfig(c)
 	if p.config.CustomeCert {
-		err := kubeadm.InitCustomKubeconfig(cfg, c)
+		machine := c.Spec.Machines[0]
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+		err = kubeadm.InitCustomKubeconfig(cfg, machineSSH, c)
 		if err != nil {
 			return err
 		}
@@ -579,37 +584,6 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluste
 	return nil
 }
 
-func (p *Provider) EnsureCleanup(ctx context.Context, c *provider.Cluster) error {
-	// for idx := range c.Spec.Machines {
-	// 	machine := &c.Spec.Machines[idx]
-	//
-	// 	s, err := machine.SSH()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	if c.Spec.Features.HA != nil {
-	// 		if c.Spec.Features.HA.ThirdPartyHA != nil && idx > 0 {
-	// 			cmd := fmt.Sprintf("iptables -t nat -D PREROUTING -p tcp --dport 6443 -j DNAT --to-destination %s:6443",
-	// 				c.Spec.Machines[0].IP)
-	// 			_, stderr, exit, err := s.Exec(cmd)
-	// 			if err != nil || exit != 0 {
-	// 				return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-	// 			}
-	//
-	// 			cmd = fmt.Sprintf("iptables -t nat -D POSTROUTING -p tcp -d %s --dport 6443 -j SNAT --to-source %s",
-	// 				c.Spec.Machines[0].IP, machine.IP)
-	// 			_, stderr, exit, err = s.Exec(cmd)
-	// 			if err != nil || exit != 0 {
-	// 				return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-	// 			}
-	// 		}
-	// 	}
-	// }
-
-	return nil
-}
-
 func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) error {
 	etcdPeerEndpoints := []string{}
 	etcdClusterEndpoints := []string{}
@@ -637,8 +611,6 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 		}
 
 		if etcdPod, ok := etcdObj.(*corev1.Pod); ok {
-			// runCmd := etcdPod.Spec.Containers[0].Command
-			// if
 			isFindState := false
 			klog.Infof("etcd pod name: %s, cmd: %s", etcdPod.Name, etcdPod.Spec.Containers[0].Command)
 			for i, arg := range etcdPod.Spec.Containers[0].Command {
@@ -692,18 +664,69 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 	return nil
 }
 
-func (p *Provider) EnsureMakeCni(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *provider.Cluster) error {
+	if !p.config.CustomeCert {
+		return nil
+	}
 
-	for idx := range c.Spec.Machines {
+	cfg := p.getKubeadmConfig(c)
+	for idx := range c.Spec.Machines[1:] {
 		machine := &c.Spec.Machines[idx]
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
 		}
-
-		err = cni.Install(machineSSH, c)
+		err = kubeadm.InitCustomKubeconfig(cfg, machineSSH, c)
 		if err != nil {
-			return errors.Wrap(err, machine.IP)
+			return err
+		}
+
+		_, _, _, err = machineSSH.Execf("systemctl restart kubelet")
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureMakeCni(ctx context.Context, c *provider.Cluster) error {
+	if c.Spec.Features.Hooks == nil {
+		return nil
+	}
+
+	hook := c.Spec.Features.Hooks[devopsv1.HookPostCniInstall]
+	if hook == "" {
+		return nil
+	}
+
+	if hook == "flannel" {
+		opt := &flannel.Option{
+			ClusterPodCidr: c.Spec.ClusterCIDR,
+			BackendType:    "vxlan",
+		}
+
+		machine := c.Spec.Machines[0]
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		err = flannel.Install(machineSSH, opt)
+		if err != nil {
+			return err
 		}
 	}
 

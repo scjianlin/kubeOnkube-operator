@@ -71,6 +71,7 @@ const (
 	// RenewCertsTimeThreshold control how long time left to renew certs
 	RenewCertsTimeThreshold = 30 * 24 * time.Hour
 
+	FlannelDirFile   = KubernetesDir + "flannel.yaml"
 	CustomDir        = "/opt/k8s/"
 	SystemInitFile   = CustomDir + "init.sh"
 	CniHostLocalFile = CNIConfDIr + "/net.d/10-host-local.conf"
