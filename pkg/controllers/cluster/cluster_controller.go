@@ -43,8 +43,7 @@ type clusterReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-type reconcileContext struct {
-	Ctx     context.Context
+type clusterContext struct {
 	Key     types.NamespacedName
 	Logger  logr.Logger
 	Cluster *devopsv1.Cluster
@@ -97,7 +96,7 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err := r.Client.Get(ctx, req.NamespacedName, c)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.V(3).Infof("not find cluster with name [%q]", req.NamespacedName)
+			logger.V(4).Info("not find cluster")
 			return reconcile.Result{}, nil
 		}
 
@@ -106,7 +105,7 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	}
 
 	if c.Spec.Pause == true {
-		klog.V(5).Infof("cluster [%q] is Pause", req.NamespacedName)
+		logger.V(4).Info("cluster is Pause")
 		return reconcile.Result{}, nil
 	}
 
@@ -119,8 +118,7 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		return ctrl.Result{}, nil
 	}
-	r.reconcile(&reconcileContext{
-		Ctx:     ctx,
+	r.reconcile(ctx, &clusterContext{
 		Key:     req.NamespacedName,
 		Logger:  logger,
 		Cluster: c,
@@ -128,20 +126,20 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *clusterReconciler) reconcile(ctx *reconcileContext) error {
+func (r *clusterReconciler) reconcile(ctx context.Context, rc *clusterContext) error {
 	var err error
-	switch ctx.Cluster.Status.Phase {
-	case devopsv1.ClusterInitializing, devopsv1.ClusterRunning:
-		ctx.Logger.Info("onCreate")
-		err = r.onCreate(ctx)
-	case devopsv1.ClusterFailed:
-		ctx.Logger.Info("onUpdate")
-		err = r.onUpdate(ctx)
+	switch rc.Cluster.Status.Phase {
+	case devopsv1.ClusterInitializing:
+		rc.Logger.Info("onCreate")
+		err = r.onCreate(ctx, rc)
+	case devopsv1.ClusterRunning:
+		rc.Logger.Info("onUpdate")
+		err = r.onUpdate(ctx, rc)
 		if err == nil {
 			// c.ensureHealthCheck(ctx, key, cluster) // after update to avoid version conflict
 		}
 	default:
-		err = fmt.Errorf("no handler for %q", ctx.Cluster.Status.Phase)
+		err = fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
 	}
 
 	return nil

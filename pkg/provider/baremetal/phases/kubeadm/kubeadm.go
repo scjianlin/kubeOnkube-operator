@@ -138,8 +138,7 @@ func InitCustomCerts(cfg *Config, c *provider.Cluster) error {
 		return fmt.Errorf("no cert build")
 	}
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		sh, err := machine.SSH()
 		if err != nil {
 			return err
@@ -310,6 +309,7 @@ func DockerFilterForControlPlane(name string) string {
 
 func RestartContainerByFilter(s ssh.Interface, filter string) error {
 	cmd := fmt.Sprintf("docker rm -f $(docker ps -q -f '%s')", filter)
+	klog.V(4).Infof("node: %s, cmd: %s", s.HostIP(), cmd)
 	_, err := s.CombinedOutput(cmd)
 	if err != nil {
 		return err
@@ -317,6 +317,7 @@ func RestartContainerByFilter(s ssh.Interface, filter string) error {
 
 	err = wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
 		cmd = fmt.Sprintf("docker ps -q -f '%s'", filter)
+		klog.V(4).Infof("wait node: %s, cmd: %s", s.HostIP(), cmd)
 		output, err := s.CombinedOutput(cmd)
 		if err != nil {
 			return false, nil

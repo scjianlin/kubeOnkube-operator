@@ -42,8 +42,10 @@ func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluste
 					Name:      cluster.Name,
 					Namespace: cluster.Namespace,
 				},
-				TenantID:    cluster.Spec.TenantID,
-				ClusterName: cluster.Name,
+				CredentialInfo: devopsv1.CredentialInfo{
+					TenantID:    cluster.Spec.TenantID,
+					ClusterName: cluster.Name,
+				},
 			}
 			err := cli.Create(ctx, credential)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
@@ -164,8 +166,7 @@ func (c *Cluster) HostForBootstrap() (string, error) {
 
 func (c *Cluster) IPs() []string {
 	ips := []string{}
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		ips = append(ips, machine.IP)
 	}
 	return ips

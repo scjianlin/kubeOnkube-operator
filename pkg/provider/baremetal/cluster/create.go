@@ -38,8 +38,7 @@ import (
 
 func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) error {
 	for _, file := range c.Spec.Features.Files {
-		for idx := range c.Spec.Machines {
-			machine := &c.Spec.Machines[idx]
+		for _, machine := range c.Spec.Machines {
 			machineSSH, err := machine.SSH()
 			if err != nil {
 				return err
@@ -56,8 +55,7 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) err
 }
 
 func (p *Provider) EnsurePreflight(ctx context.Context, c *provider.Cluster) error {
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -67,23 +65,6 @@ func (p *Provider) EnsurePreflight(ctx context.Context, c *provider.Cluster) err
 		err = preflight.RunMasterChecks(machineSSH)
 		if err != nil {
 			klog.Errorf("node:%s check err: %+v", machine.IP, err)
-			return errors.Wrap(err, machine.IP)
-		}
-	}
-
-	return nil
-}
-
-func (p *Provider) EnsureDisableSwap(ctx context.Context, c *provider.Cluster) error {
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
-		machineSSH, err := machine.SSH()
-		if err != nil {
-			return err
-		}
-
-		_, err = machineSSH.CombinedOutput("swapoff -a && sed -i 's/^[^#]*swap/#&/' /etc/fstab")
-		if err != nil {
 			return errors.Wrap(err, machine.IP)
 		}
 	}
@@ -185,8 +166,7 @@ func completeCredential(cluster *provider.Cluster) error {
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) error {
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -208,8 +188,7 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) er
 }
 
 func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *provider.Cluster) error {
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -393,33 +372,6 @@ func (p *Provider) EnsureStoreCredential(ctx context.Context, c *provider.Cluste
 	return nil
 }
 
-func (p *Provider) EnsurePatchAnnotation(ctx context.Context, c *provider.Cluster) error {
-	// fileData := map[string]string{
-	// 	constants.EtcdPodManifestFile:                  `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "2379"`,
-	// 	constants.KubeAPIServerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "https"\n    prometheus.io/port: "6443"`,
-	// 	constants.KubeControllerManagerPodManifestFile: `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10252"`,
-	// 	constants.KubeSchedulerPodManifestFile:         `  annotations:\n    scheduler.alpha.kubernetes.io/critical-pod: ""\n    tke.prometheus.io/scrape: "true"\n    prometheus.io/scheme: "http"\n    prometheus.io/port: "10251"`,
-	// }
-	// for idx := range c.Spec.Machines {
-	// 	machine := &c.Spec.Machines[idx]
-	//
-	// 	machineSSH, err := machine.SSH()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	for file, data := range fileData {
-	// 		cmd := fmt.Sprintf(`grep 'prometheus.io/port' %s || sed -i '3a\%s' %s`, file, data, file)
-	// 		_, stderr, exit, err := machineSSH.Exec(cmd)
-	// 		if err != nil || exit != 0 {
-	// 			return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", cmd, exit, stderr, err)
-	// 		}
-	// 	}
-	// }
-
-	return nil
-}
-
 func (p *Provider) EnsureSystem(ctx context.Context, c *provider.Cluster) error {
 	dockerVersion := "19.03.8"
 	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
@@ -432,8 +384,7 @@ func (p *Provider) EnsureSystem(ctx context.Context, c *provider.Cluster) error 
 		ExtraArgs:     c.Spec.KubeletExtraArgs,
 	}
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -478,8 +429,7 @@ func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *provider.Clust
 		return err
 	}
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		if machine.Labels == nil {
 			machine.Labels = make(map[string]string)
 		}
@@ -541,8 +491,7 @@ func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *provider.Cluster
 	}
 	cmd := strings.Split(hook, " ")[0]
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -568,8 +517,7 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluste
 	}
 	cmd := strings.Split(hook, " ")[0]
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -587,14 +535,12 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluste
 func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) error {
 	etcdPeerEndpoints := []string{}
 	etcdClusterEndpoints := []string{}
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		etcdPeerEndpoints = append(etcdPeerEndpoints, fmt.Sprintf("%s=https://%s:2380", machine.IP, machine.IP))
 		etcdClusterEndpoints = append(etcdClusterEndpoints, fmt.Sprintf("https://%s:2379", machine.IP))
 	}
 
-	for idx := range c.Spec.Machines {
-		machine := &c.Spec.Machines[idx]
+	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
@@ -670,30 +616,29 @@ func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *provider.Clust
 	}
 
 	cfg := p.getKubeadmConfig(c)
-	for idx := range c.Spec.Machines[1:] {
-		machine := &c.Spec.Machines[idx]
-		machineSSH, err := machine.SSH()
+	for _, machine := range c.Spec.Machines[1:] {
+		sh, err := machine.SSH()
 		if err != nil {
 			return err
 		}
-		err = kubeadm.InitCustomKubeconfig(cfg, machineSSH, c)
+		err = kubeadm.InitCustomKubeconfig(cfg, sh, c)
 		if err != nil {
 			return err
 		}
 
-		_, _, _, err = machineSSH.Execf("systemctl restart kubelet")
+		_, _, _, err = sh.Execf("systemctl restart kubelet")
 		if err != nil {
 			return err
 		}
-		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
 		if err != nil {
 			return err
 		}
-		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
 		if err != nil {
 			return err
 		}
-		err = kubeadm.RestartContainerByFilter(machineSSH, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
 		if err != nil {
 			return err
 		}

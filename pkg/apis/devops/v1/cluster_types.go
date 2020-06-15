@@ -268,7 +268,7 @@ type ClusterSpec struct {
 	// +optional
 	Properties ClusterProperty `json:"properties,omitempty" protobuf:"bytes,12,opt,name=properties,casttype=ClusterProperty"`
 	// +optional
-	Machines []ClusterMachine `json:"machines,omitempty" protobuf:"bytes,13,rep,name=addresses"`
+	Machines []*ClusterMachine `json:"machines,omitempty" protobuf:"bytes,13,rep,name=addresses"`
 	// +optional
 	DockerExtraArgs map[string]string `json:"dockerExtraArgs,omitempty" protobuf:"bytes,14,name=dockerExtraArgs"`
 	// +optional

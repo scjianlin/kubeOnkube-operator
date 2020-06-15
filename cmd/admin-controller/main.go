@@ -25,7 +25,7 @@ import (
 	"github.com/gostship/kunkka/cmd/admin-controller/app"
 
 	_ "github.com/gostship/kunkka/pkg/provider/baremetal/cluster"
-	// _ "github.com/gostship/kunkka/pkg/provider/baremetal/machine"
+	_ "github.com/gostship/kunkka/pkg/provider/baremetal/machine"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 

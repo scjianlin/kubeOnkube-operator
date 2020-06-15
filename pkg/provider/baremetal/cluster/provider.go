@@ -62,7 +62,6 @@ func NewProvider() (*Provider, error) {
 			p.EnsureKubeadmInitBootstrapTokenPhase,
 			p.EnsureKubeadmInitAddonPhase,
 			p.EnsureJoinControlePlane,
-			p.EnsurePatchAnnotation, // wait rest master ready
 			p.EnsureMarkControlPlane,
 
 			p.EnsureMakeEtcd,
@@ -71,6 +70,9 @@ func NewProvider() (*Provider, error) {
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
+			p.EnsureStoreCredential,
+			p.EnsureMakeEtcd,
+			p.EnsureMakeControlPlane,
 			p.EnsureRenewCerts,
 			p.EnsureAPIServerCert,
 			p.EnsureStoreCredential,

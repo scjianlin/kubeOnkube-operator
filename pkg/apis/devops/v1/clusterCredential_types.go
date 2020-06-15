@@ -2,14 +2,7 @@ package v1
 
 import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-// +kubebuilder:object:root=true
-
-// ClusterCredential records the credential information needed to access the cluster.
-type ClusterCredential struct {
-	metav1.TypeMeta `json:",inline"`
-	// +optional
-	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
+type CredentialInfo struct {
 	TenantID    string `json:"tenantID" protobuf:"bytes,2,opt,name=tenantID"`
 	ClusterName string `json:"clusterName" protobuf:"bytes,3,opt,name=clusterName"`
 
@@ -43,6 +36,17 @@ type ClusterCredential struct {
 	// For kubeadm init or join
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty" protobuf:"bytes,14,opt,name=certificateKey"`
+}
+
+// +kubebuilder:object:root=true
+
+// ClusterCredential records the credential information needed to access the cluster.
+type ClusterCredential struct {
+	metav1.TypeMeta `json:",inline"`
+	// +optional
+	metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	CredentialInfo `json:",inline"`
 }
 
 // +kubebuilder:object:root=true

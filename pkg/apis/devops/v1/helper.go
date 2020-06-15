@@ -11,6 +11,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+// ConditionStatus defines the status of Condition.
+type ConditionStatus string
+
+// These are valid condition statuses.
+// "ConditionTrue" means a resource is in the condition.
+// "ConditionFalse" means a resource is not in the condition.
+// "ConditionUnknown" means server can't decide if a resource is in the condition
+// or not.
+const (
+	ConditionTrue    ConditionStatus = "True"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
+)
+
+const (
+	ClusterAnnotationAction = "k8s.io/action"
+)
+
 // ClusterMachine is the master machine definition of cluster.
 type ClusterMachine struct {
 	IP       string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
@@ -162,12 +180,12 @@ func (in *Machine) SetCondition(newCondition MachineCondition) {
 
 func (in *MachineSpec) SSH() (*ssh.SSH, error) {
 	sshConfig := &ssh.Config{
-		User:        in.Username,
-		Host:        in.IP,
-		Port:        int(in.Port),
-		Password:    in.Password,
-		PrivateKey:  in.PrivateKey,
-		PassPhrase:  in.PassPhrase,
+		User:        in.Machine.Username,
+		Host:        in.Machine.IP,
+		Port:        int(in.Machine.Port),
+		Password:    in.Machine.Password,
+		PrivateKey:  in.Machine.PrivateKey,
+		PassPhrase:  in.Machine.PassPhrase,
 		DialTimeOut: time.Second,
 		Retry:       0,
 	}

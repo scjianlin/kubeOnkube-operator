@@ -301,7 +301,6 @@ spec:
             version:
               type: string
           required:
-          - pause
           - tenantID
           - type
           - version

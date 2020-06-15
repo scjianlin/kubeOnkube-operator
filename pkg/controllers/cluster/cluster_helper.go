@@ -17,13 +17,15 @@ limitations under the License.
 package cluster
 
 import (
+	"context"
 	"time"
-
-	"fmt"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/provider"
 	clusterprovider "github.com/gostship/kunkka/pkg/provider/cluster"
+	"k8s.io/apimachinery/pkg/api/equality"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/meta"
 )
 
 const (
@@ -34,68 +36,117 @@ const (
 	reasonFailedUpdate = "FailedUpdate"
 )
 
-func (r *clusterReconciler) onCreate(ctx *reconcileContext) error {
-	p, err := clusterprovider.GetProvider(ctx.Cluster.Spec.Type)
+func (r *clusterReconciler) applyStatus(ctx context.Context, rc *clusterContext, cluster *provider.Cluster) error {
+	c := &devopsv1.Cluster{}
+	err := r.Client.Get(ctx, rc.Key, c)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			rc.Logger.Error(err, "not find cluster")
+			return nil
+		}
+
+		rc.Logger.Error(err, "failed to get cluster")
 		return err
 	}
 
-	clusterWrapper, err := provider.GetCluster(ctx.Ctx, r.Client, ctx.Cluster)
-	if err != nil {
-		return err
+	if !equality.Semantic.DeepEqual(c.Status, cluster.Cluster.Status) {
+		metaAccessor := meta.NewAccessor()
+		currentResourceVersion, err := metaAccessor.ResourceVersion(c)
+		if err != nil {
+			rc.Logger.Error(err, "failed to metaAccessor")
+			return err
+		}
+
+		metaAccessor.SetResourceVersion(cluster.Cluster, currentResourceVersion)
+		err = r.Client.Status().Update(ctx, cluster.Cluster)
+		if err != nil {
+			rc.Logger.Error(err, "failed to update cluster status")
+			return err
+		}
+
+		rc.Logger.V(4).Info("update cluster status success")
 	}
-	err = p.OnCreate(ctx.Ctx, clusterWrapper)
+
+	credential := &devopsv1.ClusterCredential{}
+	err = r.Client.Get(ctx, rc.Key, credential)
 	if err != nil {
-		clusterWrapper.Status.Message = err.Error()
-		clusterWrapper.Status.Reason = reasonFailedInit
-		r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
+		if apierrors.IsNotFound(err) {
+			rc.Logger.Error(err, "not find cluster credential")
+			return nil
+		}
+
+		rc.Logger.Error(err, "failed to get cluster credential")
 		return err
 	}
 
-	condition := clusterWrapper.Status.Conditions[len(clusterWrapper.Status.Conditions)-1]
-	if condition.Status == devopsv1.ConditionFalse { // means current condition run into error
-		clusterWrapper.Status.Message = condition.Message
-		clusterWrapper.Status.Reason = condition.Reason
-		r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
-		return fmt.Errorf("Provider.OnCreate.%s [Failed] reason: %s message: %s",
-			condition.Type, condition.Reason, condition.Message)
+	if !equality.Semantic.DeepEqual(credential.CredentialInfo, cluster.ClusterCredential.CredentialInfo) {
+		metaAccessor := meta.NewAccessor()
+		currentResourceVersion, err := metaAccessor.ResourceVersion(c)
+		if err != nil {
+			rc.Logger.Error(err, "failed to metaAccessor")
+			return err
+		}
+		metaAccessor.SetResourceVersion(cluster.ClusterCredential, currentResourceVersion)
+		err = r.Client.Update(ctx, cluster.ClusterCredential)
+		if err != nil {
+			rc.Logger.Error(err, "failed to update cluster credential")
+			return err
+		}
+		rc.Logger.V(4).Info("update cluster credential success")
 	}
 
-	clusterWrapper.Status.Message = ""
-	clusterWrapper.Status.Reason = ""
-	err = r.Client.Update(ctx.Ctx, clusterWrapper.ClusterCredential)
-	if err != nil {
-		return err
-	}
-
-	err = r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
-func (r *clusterReconciler) onUpdate(ctx *reconcileContext) error {
-	p, err := clusterprovider.GetProvider(ctx.Cluster.Spec.Type)
+func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) error {
+	p, err := clusterprovider.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	clusterWrapper, err := provider.GetCluster(ctx.Ctx, r.Client, ctx.Cluster)
+	clusterWrapper, err := provider.GetCluster(ctx, r.Client, rc.Cluster)
+	if err != nil {
+		return err
+	}
+	err = p.OnCreate(ctx, clusterWrapper)
+	if err != nil {
+		clusterWrapper.Status.Message = err.Error()
+		clusterWrapper.Status.Reason = reasonFailedInit
+	} else {
+		condition := clusterWrapper.Status.Conditions[len(clusterWrapper.Status.Conditions)-1]
+		if condition.Status == devopsv1.ConditionFalse { // means current condition run into error
+			clusterWrapper.Status.Message = condition.Message
+			clusterWrapper.Status.Reason = condition.Reason
+		} else {
+			clusterWrapper.Status.Message = ""
+			clusterWrapper.Status.Reason = ""
+		}
+	}
+
+	r.applyStatus(ctx, rc, clusterWrapper)
+	return nil
+}
+
+func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext) error {
+	p, err := clusterprovider.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	err = p.OnUpdate(ctx.Ctx, clusterWrapper)
+	clusterWrapper, err := provider.GetCluster(ctx, r.Client, rc.Cluster)
+	if err != nil {
+		return err
+	}
+
+	err = p.OnUpdate(ctx, clusterWrapper)
 	if err != nil {
 		clusterWrapper.Status.Message = err.Error()
 		clusterWrapper.Status.Reason = reasonFailedUpdate
-		r.Client.Status().Update(ctx.Ctx, ctx.Cluster)
-		return err
+	} else {
+		clusterWrapper.Status.Message = ""
+		clusterWrapper.Status.Reason = ""
 	}
-	clusterWrapper.Status.Message = ""
-	clusterWrapper.Status.Reason = ""
-	r.Client.Status().Update(ctx.Ctx, clusterWrapper.ClusterCredential)
-	r.Client.Status().Update(ctx.Ctx, clusterWrapper.Cluster)
+
+	r.applyStatus(ctx, rc, clusterWrapper)
 	return nil
 }

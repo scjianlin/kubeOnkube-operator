@@ -34,20 +34,6 @@ const (
 	MachineTerminating MachinePhase = "Terminating"
 )
 
-// ConditionStatus defines the status of Condition.
-type ConditionStatus string
-
-// These are valid condition statuses.
-// "ConditionTrue" means a resource is in the condition.
-// "ConditionFalse" means a resource is not in the condition.
-// "ConditionUnknown" means server can't decide if a resource is in the condition
-// or not.
-const (
-	ConditionTrue    ConditionStatus = "True"
-	ConditionFalse   ConditionStatus = "False"
-	ConditionUnknown ConditionStatus = "Unknown"
-)
-
 // MachineAddressType represents the type of machine address.
 type MachineAddressType string
 
@@ -117,18 +103,26 @@ type MachineCondition struct {
 	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
 }
 
+type MachineFeature struct {
+	// +optional
+	SkipConditions []string `json:"skipConditions,omitempty" protobuf:"bytes,7,opt,name=skipConditions"`
+	// +optional
+	Files []File `json:"files,omitempty" protobuf:"bytes,8,opt,name=files"`
+	// +optional
+	Hooks map[string]string `json:"hooks,omitempty" protobuf:"bytes,9,opt,name=hooks"`
+}
+
 // MachineSpec is a description of machine.
 type MachineSpec struct {
 	// Finalizers is an opaque list of values that must be empty to permanently remove object from storage.
 	// +optional
-	Finalizers     []FinalizerName `json:"finalizers,omitempty" protobuf:"bytes,1,rep,name=finalizers,casttype=FinalizerName"`
-	TenantID       string          `json:"tenantID,omitempty" protobuf:"bytes,2,opt,name=tenantID"`
-	ClusterName    string          `json:"clusterName" protobuf:"bytes,3,opt,name=clusterName"`
-	Type           string          `json:"type" protobuf:"bytes,4,opt,name=type"`
-	ClusterMachine `json:",inline"`
-
-	//
-	Pause bool `json:"pause"`
+	Finalizers  []FinalizerName `json:"finalizers,omitempty" protobuf:"bytes,1,rep,name=finalizers,casttype=FinalizerName"`
+	TenantID    string          `json:"tenantID,omitempty" protobuf:"bytes,2,opt,name=tenantID"`
+	ClusterName string          `json:"clusterName" protobuf:"bytes,3,opt,name=clusterName"`
+	Type        string          `json:"type" protobuf:"bytes,4,opt,name=type"`
+	Machine     *ClusterMachine `json:"machine,omitempty"`
+	Feature     *MachineFeature `json:"feature,omitempty"`
+	Pause       bool            `json:"pause,omitempty"`
 }
 
 // MachineStatus represents information about the status of an machine.
@@ -182,7 +176,7 @@ type Machine struct {
 type MachineList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []Cluster `json:"items"`
+	Items           []Machine `json:"items"`
 }
 
 func init() {

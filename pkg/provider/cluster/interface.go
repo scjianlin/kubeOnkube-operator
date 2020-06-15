@@ -114,6 +114,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 		if f == nil {
 			return fmt.Errorf("can't get handler by %s", condition.Type)
 		}
+
 		handlerName := f.Name()
 		klog.Infof("clusterName: %s OnCreate handler: %s", cluster.Name, handlerName)
 		err = f(ctx, cluster)
@@ -157,14 +158,73 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 	return nil
 }
 
+func tryFindHandler(handlerName string, handlers []string, cluster *provider.Cluster) bool {
+	var obj *devopsv1.ClusterCondition
+	for idx := range cluster.Status.Conditions {
+		c := &cluster.Status.Conditions[idx]
+		if c.Type == handlerName {
+			if c.Status == devopsv1.ConditionTrue {
+				obj = c
+			}
+			break
+		}
+	}
+
+	for _, name := range handlers {
+		if name == handlerName {
+			if obj == nil {
+				return true
+			} else {
+				return false
+			}
+		}
+	}
+
+	return false
+}
+
 func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Cluster) error {
+	if cluster.Cluster.Annotations == nil {
+		return nil
+	}
+
+	var key string
+	var ok bool
+	if key, ok = cluster.Cluster.Annotations[devopsv1.ClusterAnnotationAction]; !ok {
+		return nil
+	}
+
+	Handlers := strings.Split(key, ",")
 	for _, f := range p.UpdateHandlers {
-		klog.Infof("clusterName: %s OnUpdate handler: %s", cluster.Name,
-			runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		handlerName := f.Name()
+		if !tryFindHandler(handlerName, Handlers, cluster) {
+			continue
+		}
+
+		klog.Infof("clusterName: %s OnUpdate handler: %s", cluster.Name, handlerName)
+		now := metav1.Now()
 		err := f(ctx, cluster)
 		if err != nil {
-			return err
+			klog.Errorf("cluster: %s OnUpdate handler: %s err: %+v", cluster.Name, handlerName, err)
+			cluster.SetCondition(devopsv1.ClusterCondition{
+				Type:          handlerName,
+				Status:        devopsv1.ConditionFalse,
+				LastProbeTime: now,
+				Message:       err.Error(),
+				Reason:        ReasonFailedProcess,
+			})
+			cluster.Status.Reason = ReasonFailedProcess
+			cluster.Status.Message = err.Error()
+			return nil
 		}
+
+		cluster.SetCondition(devopsv1.ClusterCondition{
+			Type:               handlerName,
+			Status:             devopsv1.ConditionTrue,
+			LastProbeTime:      now,
+			LastTransitionTime: now,
+			Reason:             ReasonSuccessfulProcess,
+		})
 	}
 
 	return nil
@@ -172,8 +232,7 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Clust
 
 func (p *DelegateProvider) OnDelete(ctx context.Context, cluster *provider.Cluster) error {
 	for _, f := range p.DeleteHandlers {
-		klog.Infof("clusterName: %s OnDelete handler: %s", cluster.Name,
-			runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+		klog.Infof("clusterName: %s OnDelete handler: %s", cluster.Name, f.Name())
 		err := f(ctx, cluster)
 		if err != nil {
 			return err
@@ -198,7 +257,7 @@ func (p *DelegateProvider) getNextConditionType(conditionType string) string {
 		f Handler
 	)
 	for i, f = range p.CreateHandlers {
-		name := runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name()
+		name := f.Name()
 		if strings.Contains(name, conditionType) {
 			break
 		}
@@ -222,9 +281,9 @@ func (p *DelegateProvider) getCreateHandler(conditionType string) Handler {
 }
 
 func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devopsv1.ClusterCondition, error) {
-	// if c.Status.Phase == devopsv1.ClusterRunning {
-	// 	return nil, errors.New("cluster phase is running now")
-	// }
+	if c.Status.Phase == devopsv1.ClusterRunning {
+		return nil, errors.New("cluster phase is running now")
+	}
 
 	if len(p.CreateHandlers) == 0 {
 		return nil, errors.New("no create handlers")
@@ -241,9 +300,6 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devo
 	}
 
 	for _, condition := range c.Status.Conditions {
-		// if condition.Type == "EnsureKubeadmInitWaitControlPlanePhase" {
-		// 	return &condition, nil
-		// }
 		if condition.Status == devopsv1.ConditionFalse || condition.Status == devopsv1.ConditionUnknown {
 			return &condition, nil
 		}

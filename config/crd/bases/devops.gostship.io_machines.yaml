@@ -50,6 +50,29 @@ spec:
           properties:
             clusterName:
               type: string
+            feature:
+              properties:
+                files:
+                  items:
+                    properties:
+                      dst:
+                        type: string
+                      src:
+                        type: string
+                    required:
+                    - dst
+                    - src
+                    type: object
+                  type: array
+                hooks:
+                  additionalProperties:
+                    type: string
+                  type: object
+                skipConditions:
+                  items:
+                    type: string
+                  type: array
+              type: object
             finalizers:
               description: Finalizers is an opaque list of values that must be empty
                 to permanently remove object from storage.
@@ -58,65 +81,69 @@ spec:
                   cluster lifecycle.
                 type: string
               type: array
-            ip:
-              type: string
-            labels:
-              additionalProperties:
-                type: string
+            machine:
+              description: ClusterMachine is the master machine definition of cluster.
+              properties:
+                ip:
+                  type: string
+                labels:
+                  additionalProperties:
+                    type: string
+                  type: object
+                passPhrase:
+                  format: byte
+                  type: string
+                password:
+                  type: string
+                port:
+                  format: int32
+                  type: integer
+                privateKey:
+                  format: byte
+                  type: string
+                taints:
+                  description: If specified, the node's taints.
+                  items:
+                    description: The node this Taint is attached to has the "effect"
+                      on any pod that does not tolerate the Taint.
+                    properties:
+                      effect:
+                        description: Required. The effect of the taint on pods that
+                          do not tolerate the taint. Valid effects are NoSchedule,
+                          PreferNoSchedule and NoExecute.
+                        type: string
+                      key:
+                        description: Required. The taint key to be applied to a node.
+                        type: string
+                      timeAdded:
+                        description: TimeAdded represents the time at which the taint
+                          was added. It is only written for NoExecute taints.
+                        format: date-time
+                        type: string
+                      value:
+                        description: The taint value corresponding to the taint key.
+                        type: string
+                    required:
+                    - effect
+                    - key
+                    type: object
+                  type: array
+                username:
+                  type: string
+              required:
+              - ip
+              - port
+              - username
               type: object
-            passPhrase:
-              format: byte
-              type: string
-            password:
-              type: string
             pause:
               type: boolean
-            port:
-              format: int32
-              type: integer
-            privateKey:
-              format: byte
-              type: string
-            taints:
-              description: If specified, the node's taints.
-              items:
-                description: The node this Taint is attached to has the "effect" on
-                  any pod that does not tolerate the Taint.
-                properties:
-                  effect:
-                    description: Required. The effect of the taint on pods that do
-                      not tolerate the taint. Valid effects are NoSchedule, PreferNoSchedule
-                      and NoExecute.
-                    type: string
-                  key:
-                    description: Required. The taint key to be applied to a node.
-                    type: string
-                  timeAdded:
-                    description: TimeAdded represents the time at which the taint
-                      was added. It is only written for NoExecute taints.
-                    format: date-time
-                    type: string
-                  value:
-                    description: The taint value corresponding to the taint key.
-                    type: string
-                required:
-                - effect
-                - key
-                type: object
-              type: array
             tenantID:
               type: string
             type:
               type: string
-            username:
-              type: string
           required:
           - clusterName
-          - ip
-          - pause
-          - port
           - type
-          - username
           type: object
         status:
           description: MachineStatus represents information about the status of an
