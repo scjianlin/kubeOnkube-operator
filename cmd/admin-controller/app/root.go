@@ -47,7 +47,7 @@ func GetRootCmd(args []string) *cobra.Command {
 	opt := app_option.NewOptions()
 	rootCmd := &cobra.Command{
 		Use:               "ctrl-operator",
-		Short:             "Request a new project",
+		Short:             "Request a new ctrl operator",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
 		Run:               runHelp,

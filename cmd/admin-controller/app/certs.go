@@ -82,10 +82,10 @@ func TryRun() error {
 		PublicKeyAlgorithm: x509.RSA,
 		Config: certutil.Config{
 			CommonName:   "kube-apiserver",
-			Organization: []string{"gostship"},
+			Organization: []string{"dke"},
 			AltNames: certutil.AltNames{
 				DNSNames: []string{
-					"vip-otdyiqyb.dke.gostship.com", // dns
+					"vip-otdyiqyb.dke.k8s.io", // dns
 					"localhost",
 					"kubernetes",
 					"kubernetes.default",
@@ -114,7 +114,7 @@ func TryRun() error {
 func NewCertCmd(opt *app_option.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "cert",
-		Short: "Manage k8s cert",
+		Short: "Manage k8s cert demo",
 		Run: func(cmd *cobra.Command, args []string) {
 			TryRun()
 		},

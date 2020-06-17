@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package app
 
 import (
@@ -22,6 +23,8 @@ import (
 	"github.com/gostship/kunkka/cmd/admin-controller/app/app_option"
 	"github.com/gostship/kunkka/pkg/controllers"
 	"github.com/gostship/kunkka/pkg/k8sclient"
+	"github.com/gostship/kunkka/pkg/static"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	ctrlmanager "sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
@@ -36,6 +39,18 @@ func NewControllerCmd(opt *app_option.Options) *cobra.Command {
 			cfg, err := opt.Global.GetK8sConfig()
 			if err != nil {
 				klog.Fatalf("unable to get cfg err: %v", err)
+			}
+
+			if opt.Ctrl.EnableManagerCrds {
+				crds, err := static.LoadCRDs()
+				if err != nil {
+					klog.Fatalf("unable to get cfg err: %v", err)
+				}
+
+				err = k8sutil.ReconcileCrds(cfg, crds)
+				if err != nil {
+					klog.Fatalf("failed to reconcile crd err: %v", err)
+				}
 			}
 
 			// Adjust our client's rate limits based on the number of controllers we are running.
@@ -54,18 +69,6 @@ func NewControllerCmd(opt *app_option.Options) *cobra.Command {
 			if err != nil {
 				klog.Fatalf("unable to new manager err: %v", err)
 			}
-
-			// crds, err := static.LoadCRDs()
-			// if err != nil {
-			// 	klog.Fatalf("unable to get cfg err: %v", err)
-			// }
-			//
-			// for _, crd := range crds {
-			// 	crderr := k8sutils.Reconcile(log.Log, mgr.GetClient(), crd, k8sutils.DesiredStatePresent)
-			// 	if crderr != nil {
-			// 		klog.Errorf("crd name: %s err: %v", crd.Name, crderr)
-			// 	}
-			// }
 
 			// Setup all Controllers
 			klog.Info("Setting up controller")

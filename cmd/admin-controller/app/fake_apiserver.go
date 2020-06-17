@@ -33,7 +33,7 @@ import (
 
 // CreateKubeConfigFile creates a kubeconfig file.
 func CreateKubeConfigFile(outDir string, kubeConfigFileName string, cfg *rest.Config) error {
-	klog.V(1).Infof("creating kubeconfig file for %s", kubeConfigFileName)
+	klog.Infof("creating kubeconfig file for %s", kubeConfigFileName)
 
 	clusterName := "fake-cluster"
 	userName := "devops"
@@ -63,6 +63,7 @@ func CreateKubeConfigFile(outDir string, kubeConfigFileName string, cfg *rest.Co
 		return err
 	}
 
+	klog.Infof("kubeconfig file for [%s@%s] is write to path: %s", clusterName, userName, kubeConfigFilePath)
 	return nil
 }
 
