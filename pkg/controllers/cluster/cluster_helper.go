@@ -21,8 +21,7 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
-	clusterprovider "github.com/gostship/kunkka/pkg/provider/cluster"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -36,7 +35,7 @@ const (
 	reasonFailedUpdate = "FailedUpdate"
 )
 
-func (r *clusterReconciler) applyStatus(ctx context.Context, rc *clusterContext, cluster *provider.Cluster) error {
+func (r *clusterReconciler) applyStatus(ctx context.Context, rc *clusterContext, cluster *common.Cluster) error {
 	c := &devopsv1.Cluster{}
 	err := r.Client.Get(ctx, rc.Key, c)
 	if err != nil {
@@ -99,12 +98,12 @@ func (r *clusterReconciler) applyStatus(ctx context.Context, rc *clusterContext,
 }
 
 func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) error {
-	p, err := clusterprovider.GetProvider(rc.Cluster.Spec.Type)
+	p, err := r.CpManager.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	clusterWrapper, err := provider.GetCluster(ctx, r.Client, rc.Cluster)
+	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster)
 	if err != nil {
 		return err
 	}
@@ -128,12 +127,12 @@ func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) er
 }
 
 func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext) error {
-	p, err := clusterprovider.GetProvider(rc.Cluster.Spec.Type)
+	p, err := r.CpManager.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	clusterWrapper, err := provider.GetCluster(ctx, r.Client, rc.Cluster)
+	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster)
 	if err != nil {
 		return err
 	}

@@ -10,13 +10,13 @@ import (
 	kubeletv1beta1 "github.com/gostship/kunkka/pkg/apis/kubelet/config/v1beta1"
 	kubeproxyv1alpha1 "github.com/gostship/kunkka/pkg/apis/kubeproxy/config/v1alpha1"
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/json"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func (p *Provider) getKubeadmConfig(c *provider.Cluster) *kubeadm.Config {
+func (p *Provider) getKubeadmConfig(c *common.Cluster) *kubeadm.Config {
 	config := new(kubeadm.Config)
 	config.InitConfiguration = p.getInitConfiguration(c)
 	config.ClusterConfiguration = p.getClusterConfiguration(c)
@@ -26,7 +26,7 @@ func (p *Provider) getKubeadmConfig(c *provider.Cluster) *kubeadm.Config {
 	return config
 }
 
-func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.InitConfiguration {
+func (p *Provider) getInitConfiguration(c *common.Cluster) *kubeadmv1beta2.InitConfiguration {
 	token, _ := kubeadmv1beta2.NewBootstrapTokenString(*c.ClusterCredential.BootstrapToken)
 
 	return &kubeadmv1beta2.InitConfiguration{
@@ -48,7 +48,7 @@ func (p *Provider) getInitConfiguration(c *provider.Cluster) *kubeadmv1beta2.Ini
 	}
 }
 
-func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.ClusterConfiguration {
+func (p *Provider) getClusterConfiguration(c *common.Cluster) *kubeadmv1beta2.ClusterConfiguration {
 	controlPlaneEndpoint := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
 
 	// //  use vip
@@ -96,7 +96,7 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 		DNS: kubeadmv1beta2.DNS{
 			Type: kubeadmv1beta2.CoreDNS,
 		},
-		ImageRepository: p.config.Registry.Prefix,
+		ImageRepository: p.Cfg.Registry.Prefix,
 		ClusterName:     c.Name,
 	}
 
@@ -105,7 +105,7 @@ func (p *Provider) getClusterConfiguration(c *provider.Cluster) *kubeadmv1beta2.
 	return config
 }
 
-func (p *Provider) getKubeProxyConfiguration(c *provider.Cluster) *kubeproxyv1alpha1.KubeProxyConfiguration {
+func (p *Provider) getKubeProxyConfiguration(c *common.Cluster) *kubeproxyv1alpha1.KubeProxyConfiguration {
 	kubeProxyMode := "iptables"
 	if c.Spec.Features.IPVS != nil && *c.Spec.Features.IPVS {
 		kubeProxyMode = "ipvs"
@@ -116,7 +116,7 @@ func (p *Provider) getKubeProxyConfiguration(c *provider.Cluster) *kubeproxyv1al
 	}
 }
 
-func (p *Provider) getKubeletConfiguration(c *provider.Cluster) *kubeletv1beta1.KubeletConfiguration {
+func (p *Provider) getKubeletConfiguration(c *common.Cluster) *kubeletv1beta1.KubeletConfiguration {
 	return &kubeletv1beta1.KubeletConfiguration{
 		KubeReserved: map[string]string{
 			"cpu":    "100m",
@@ -129,7 +129,7 @@ func (p *Provider) getKubeletConfiguration(c *provider.Cluster) *kubeletv1beta1.
 	}
 }
 
-func (p *Provider) getAPIServerExtraArgs(c *provider.Cluster) map[string]string {
+func (p *Provider) getAPIServerExtraArgs(c *common.Cluster) map[string]string {
 	args := map[string]string{
 		"token-auth-file": constants.TokenFile,
 	}
@@ -141,7 +141,7 @@ func (p *Provider) getAPIServerExtraArgs(c *provider.Cluster) map[string]string 
 	return args
 }
 
-func (p *Provider) getControllerManagerExtraArgs(c *provider.Cluster) map[string]string {
+func (p *Provider) getControllerManagerExtraArgs(c *common.Cluster) map[string]string {
 	args := map[string]string{}
 
 	if len(c.Spec.ClusterCIDR) > 0 {
@@ -157,7 +157,7 @@ func (p *Provider) getControllerManagerExtraArgs(c *provider.Cluster) map[string
 	return args
 }
 
-func (p *Provider) getSchedulerExtraArgs(c *provider.Cluster) map[string]string {
+func (p *Provider) getSchedulerExtraArgs(c *common.Cluster) map[string]string {
 	args := map[string]string{}
 
 	// args["use-legacy-policy-config"] = "true"

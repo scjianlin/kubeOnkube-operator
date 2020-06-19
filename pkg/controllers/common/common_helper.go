@@ -1,4 +1,4 @@
-package provider
+package common
 
 import (
 	"context"
@@ -17,16 +17,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-type Cluster struct {
-	*devopsv1.Cluster
-	ClusterCredential *devopsv1.ClusterCredential
-}
-
 const (
 	defaultTimeout = 30 * time.Second
 	defaultQPS     = 100
 	defaultBurst   = 200
 )
+
+type Cluster struct {
+	*devopsv1.Cluster
+	ClusterCredential *devopsv1.ClusterCredential
+}
 
 func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluster) (*Cluster, error) {
 	result := new(Cluster)
@@ -166,8 +166,8 @@ func (c *Cluster) HostForBootstrap() (string, error) {
 
 func (c *Cluster) IPs() []string {
 	ips := []string{}
-	for _, machine := range c.Spec.Machines {
-		ips = append(ips, machine.IP)
+	for _, m := range c.Spec.Machines {
+		ips = append(ips, m.IP)
 	}
 	return ips
 }

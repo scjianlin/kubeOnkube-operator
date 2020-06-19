@@ -43,41 +43,17 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 	}
 
 	p.DelegateProvider = &clusterprovider.DelegateProvider{
-		ProviderName: "Baremetal",
+		ProviderName: "Escrow",
 		CreateHandlers: []clusterprovider.Handler{
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
-			p.EnsureSystem,
-			p.EnsurePreflight, // wait basic setting done
-			p.EnsureClusterComplete,
 
-			p.EnsurePrepareForControlplane,
-			p.EnsureKubeadmInitCertsPhase,
 			p.EnsureStoreCredential,
-			p.EnsureKubeadmInitKubeletStartPhase,
-			p.EnsureKubeconfig,
-			p.EnsureKubeadmInitKubeConfigPhase,
-			p.EnsureKubeadmInitControlPlanePhase,
-			p.EnsureKubeadmInitEtcdPhase,
-			p.EnsureKubeadmInitWaitControlPlanePhase,
-			p.EnsureKubeadmInitUploadConfigPhase,
-			p.EnsureKubeadmInitUploadCertsPhase,
-			p.EnsureKubeadmInitBootstrapTokenPhase,
-			p.EnsureKubeadmInitAddonPhase,
-			p.EnsureJoinControlePlane,
-			p.EnsureMarkControlPlane,
 
-			p.EnsureMakeEtcd,
-			p.EnsureMakeControlPlane,
-			p.EnsureMakeCni,
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
 			p.EnsureStoreCredential,
-			p.EnsureMakeEtcd,
-			p.EnsureMakeControlPlane,
-			p.EnsureRenewCerts,
-			p.EnsureAPIServerCert,
 			p.EnsureStoreCredential,
 		},
 	}

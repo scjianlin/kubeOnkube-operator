@@ -23,8 +23,7 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
-	machineprovider "github.com/gostship/kunkka/pkg/provider/machine"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 )
 
 const (
@@ -36,12 +35,12 @@ const (
 )
 
 func (r *machineReconciler) onCreate(ctx context.Context, rc *manchineContext) error {
-	p, err := machineprovider.GetProvider(rc.Cluster.Spec.Type)
+	p, err := r.MpManager.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	clusterWrapper := &provider.Cluster{
+	clusterWrapper := &common.Cluster{
 		Cluster:           rc.Cluster,
 		ClusterCredential: rc.ClusterCredential,
 	}
@@ -72,12 +71,12 @@ func (r *machineReconciler) onCreate(ctx context.Context, rc *manchineContext) e
 }
 
 func (r *machineReconciler) onUpdate(ctx context.Context, rc *manchineContext) error {
-	p, err := machineprovider.GetProvider(rc.Cluster.Spec.Type)
+	p, err := r.MpManager.GetProvider(rc.Cluster.Spec.Type)
 	if err != nil {
 		return err
 	}
 
-	clusterWrapper := &provider.Cluster{
+	clusterWrapper := &common.Cluster{
 		Cluster:           rc.Cluster,
 		ClusterCredential: rc.ClusterCredential,
 	}

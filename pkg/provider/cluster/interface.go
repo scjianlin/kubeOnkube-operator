@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/thoas/go-funk"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
@@ -33,26 +33,26 @@ type Provider interface {
 
 	RegisterHandler(mux *mux.PathRecorderMux)
 
-	Validate(cluster *provider.Cluster) field.ErrorList
+	Validate(cluster *common.Cluster) field.ErrorList
 
-	PreCreate(cluster *provider.Cluster) error
-	AfterCreate(cluster *provider.Cluster) error
+	PreCreate(cluster *common.Cluster) error
+	AfterCreate(cluster *common.Cluster) error
 
-	OnCreate(ctx context.Context, cluster *provider.Cluster) error
-	OnUpdate(ctx context.Context, cluster *provider.Cluster) error
-	OnDelete(ctx context.Context, cluster *provider.Cluster) error
+	OnCreate(ctx context.Context, cluster *common.Cluster) error
+	OnUpdate(ctx context.Context, cluster *common.Cluster) error
+	OnDelete(ctx context.Context, cluster *common.Cluster) error
 }
 
 var _ Provider = &DelegateProvider{}
 
-type Handler func(context.Context, *provider.Cluster) error
+type Handler func(context.Context, *common.Cluster) error
 
 type DelegateProvider struct {
 	ProviderName string
 
-	ValidateFunc    func(cluster *provider.Cluster) field.ErrorList
-	PreCreateFunc   func(cluster *provider.Cluster) error
-	AfterCreateFunc func(cluster *provider.Cluster) error
+	ValidateFunc    func(cluster *common.Cluster) field.ErrorList
+	PreCreateFunc   func(cluster *common.Cluster) error
+	AfterCreateFunc func(cluster *common.Cluster) error
 
 	CreateHandlers []Handler
 	DeleteHandlers []Handler
@@ -69,7 +69,7 @@ func (p *DelegateProvider) Name() string {
 func (p *DelegateProvider) RegisterHandler(mux *mux.PathRecorderMux) {
 }
 
-func (p *DelegateProvider) Validate(cluster *provider.Cluster) field.ErrorList {
+func (p *DelegateProvider) Validate(cluster *common.Cluster) field.ErrorList {
 	if p.ValidateFunc != nil {
 		return p.ValidateFunc(cluster)
 	}
@@ -77,7 +77,7 @@ func (p *DelegateProvider) Validate(cluster *provider.Cluster) field.ErrorList {
 	return nil
 }
 
-func (p *DelegateProvider) PreCreate(cluster *provider.Cluster) error {
+func (p *DelegateProvider) PreCreate(cluster *common.Cluster) error {
 	if p.PreCreateFunc != nil {
 		return p.PreCreateFunc(cluster)
 	}
@@ -85,7 +85,7 @@ func (p *DelegateProvider) PreCreate(cluster *provider.Cluster) error {
 	return nil
 }
 
-func (p *DelegateProvider) AfterCreate(cluster *provider.Cluster) error {
+func (p *DelegateProvider) AfterCreate(cluster *common.Cluster) error {
 	if p.AfterCreateFunc != nil {
 		return p.AfterCreateFunc(cluster)
 	}
@@ -93,7 +93,7 @@ func (p *DelegateProvider) AfterCreate(cluster *provider.Cluster) error {
 	return nil
 }
 
-func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *common.Cluster) error {
 	condition, err := p.getCreateCurrentCondition(cluster)
 	if err != nil {
 		return err
@@ -158,7 +158,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *provider.Clust
 	return nil
 }
 
-func tryFindHandler(handlerName string, handlers []string, cluster *provider.Cluster) bool {
+func tryFindHandler(handlerName string, handlers []string, cluster *common.Cluster) bool {
 	var obj *devopsv1.ClusterCondition
 	for idx := range cluster.Status.Conditions {
 		c := &cluster.Status.Conditions[idx]
@@ -183,7 +183,7 @@ func tryFindHandler(handlerName string, handlers []string, cluster *provider.Clu
 	return false
 }
 
-func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *common.Cluster) error {
 	if cluster.Cluster.Annotations == nil {
 		return nil
 	}
@@ -230,7 +230,7 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *provider.Clust
 	return nil
 }
 
-func (p *DelegateProvider) OnDelete(ctx context.Context, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnDelete(ctx context.Context, cluster *common.Cluster) error {
 	for _, f := range p.DeleteHandlers {
 		klog.Infof("clusterName: %s OnDelete handler: %s", cluster.Name, f.Name())
 		err := f(ctx, cluster)
@@ -280,7 +280,7 @@ func (p *DelegateProvider) getCreateHandler(conditionType string) Handler {
 	return nil
 }
 
-func (p *DelegateProvider) getCreateCurrentCondition(c *provider.Cluster) (*devopsv1.ClusterCondition, error) {
+func (p *DelegateProvider) getCreateCurrentCondition(c *common.Cluster) (*devopsv1.ClusterCondition, error) {
 	if c.Status.Phase == devopsv1.ClusterRunning {
 		return nil, errors.New("cluster phase is running now")
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/thoas/go-funk"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"k8s.io/klog"
@@ -36,14 +36,14 @@ type Provider interface {
 	PreCreate(machine *devopsv1.Machine) error
 	AfterCreate(machine *devopsv1.Machine) error
 
-	OnCreate(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error
-	OnUpdate(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error
-	OnDelete(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error
+	OnCreate(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error
+	OnUpdate(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error
+	OnDelete(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error
 }
 
 var _ Provider = &DelegateProvider{}
 
-type Handler func(context.Context, *devopsv1.Machine, *provider.Cluster) error
+type Handler func(context.Context, *devopsv1.Machine, *common.Cluster) error
 
 type DelegateProvider struct {
 	ProviderName string
@@ -88,7 +88,7 @@ func (p *DelegateProvider) AfterCreate(machine *devopsv1.Machine) error {
 	return nil
 }
 
-func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
 	condition, err := p.getCreateCurrentCondition(machine)
 	if err != nil {
 		return err
@@ -149,7 +149,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 	return nil
 }
 
-func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
 	for _, f := range p.UpdateHandlers {
 		klog.Infof("machineName: %s OnUpdate handler: %s", machine.Name, f.Name())
 		err := f(ctx, machine, cluster)
@@ -161,7 +161,7 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machi
 	return nil
 }
 
-func (p *DelegateProvider) OnDelete(ctx context.Context, machine *devopsv1.Machine, cluster *provider.Cluster) error {
+func (p *DelegateProvider) OnDelete(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
 	for _, f := range p.DeleteHandlers {
 		klog.Infof("machineName: %s OnDelete handler: %s", machine.Name, f.Name())
 		err := f(ctx, machine, cluster)

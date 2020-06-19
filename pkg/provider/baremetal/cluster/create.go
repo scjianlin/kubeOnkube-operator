@@ -21,7 +21,6 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
@@ -31,12 +30,13 @@ import (
 
 	"bytes"
 
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/addons/flannel"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"k8s.io/klog"
 )
 
-func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureCopyFiles(ctx context.Context, c *common.Cluster) error {
 	for _, file := range c.Spec.Features.Files {
 		for _, machine := range c.Spec.Machines {
 			machineSSH, err := machine.SSH()
@@ -54,7 +54,7 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, c *provider.Cluster) err
 	return nil
 }
 
-func (p *Provider) EnsurePreflight(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsurePreflight(ctx context.Context, c *common.Cluster) error {
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
@@ -72,8 +72,8 @@ func (p *Provider) EnsurePreflight(ctx context.Context, c *provider.Cluster) err
 	return nil
 }
 
-func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *provider.Cluster) error {
-	funcs := []func(cluster *provider.Cluster) error{
+func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *common.Cluster) error {
+	funcs := []func(cluster *common.Cluster) error{
 		completeK8sVersion,
 		completeNetworking,
 		completeDNS,
@@ -88,12 +88,12 @@ func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *provider.
 	return nil
 }
 
-func completeK8sVersion(cluster *provider.Cluster) error {
+func completeK8sVersion(cluster *common.Cluster) error {
 	cluster.Status.Version = cluster.Spec.Version
 	return nil
 }
 
-func completeNetworking(cluster *provider.Cluster) error {
+func completeNetworking(cluster *common.Cluster) error {
 	var (
 		serviceCIDR      string
 		nodeCIDRMaskSize int32
@@ -118,7 +118,7 @@ func completeNetworking(cluster *provider.Cluster) error {
 	return nil
 }
 
-func completeDNS(cluster *provider.Cluster) error {
+func completeDNS(cluster *common.Cluster) error {
 	ip, err := GetIndexedIP(cluster.Status.ServiceCIDR, constants.DNSIPIndex)
 	if err != nil {
 		return errors.Wrap(err, "get DNS IP error")
@@ -128,7 +128,7 @@ func completeDNS(cluster *provider.Cluster) error {
 	return nil
 }
 
-func completeAddresses(cluster *provider.Cluster) error {
+func completeAddresses(cluster *common.Cluster) error {
 	for _, m := range cluster.Spec.Machines {
 		cluster.AddAddress(devopsv1.AddressReal, m.IP, 6443)
 	}
@@ -145,7 +145,7 @@ func completeAddresses(cluster *provider.Cluster) error {
 	return nil
 }
 
-func completeCredential(cluster *provider.Cluster) error {
+func completeCredential(cluster *common.Cluster) error {
 	token := ksuid.New().String()
 	cluster.ClusterCredential.Token = &token
 
@@ -165,7 +165,7 @@ func completeCredential(cluster *provider.Cluster) error {
 	return nil
 }
 
-func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) error {
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
@@ -187,7 +187,7 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *provider.Cluster) er
 	return nil
 }
 
-func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *common.Cluster) error {
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
@@ -205,7 +205,7 @@ func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *provider
 	return nil
 }
 
-func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -214,9 +214,9 @@ func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *pr
 		fmt.Sprintf("kubelet-start --node-name=%s", c.Spec.Machines[0].IP))
 }
 
-func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *common.Cluster) error {
 	cfg := p.getKubeadmConfig(c)
-	if p.config.CustomeCert {
+	if p.Cfg.CustomeCert {
 		err := kubeadm.InitCustomCerts(cfg, c)
 		if err != nil {
 			return err
@@ -233,9 +233,9 @@ func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *provider.
 	return nil
 }
 
-func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *common.Cluster) error {
 	cfg := p.getKubeadmConfig(c)
-	if p.config.CustomeCert {
+	if p.Cfg.CustomeCert {
 		machine := c.Spec.Machines[0]
 		machineSSH, err := machine.SSH()
 		if err != nil {
@@ -255,7 +255,7 @@ func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *prov
 	return nil
 }
 
-func (p *Provider) EnsureKubeadmInitControlPlanePhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitControlPlanePhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -264,7 +264,7 @@ func (p *Provider) EnsureKubeadmInitControlPlanePhase(ctx context.Context, c *pr
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "control-plane all")
 }
 
-func (p *Provider) EnsureKubeadmInitEtcdPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitEtcdPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -272,7 +272,7 @@ func (p *Provider) EnsureKubeadmInitEtcdPhase(ctx context.Context, c *provider.C
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "etcd local")
 }
 
-func (p *Provider) EnsureKubeadmInitUploadConfigPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitUploadConfigPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -280,7 +280,7 @@ func (p *Provider) EnsureKubeadmInitUploadConfigPhase(ctx context.Context, c *pr
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "upload-config all ")
 }
 
-func (p *Provider) EnsureKubeadmInitUploadCertsPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitUploadCertsPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -288,7 +288,7 @@ func (p *Provider) EnsureKubeadmInitUploadCertsPhase(ctx context.Context, c *pro
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "upload-certs --upload-certs")
 }
 
-func (p *Provider) EnsureKubeadmInitBootstrapTokenPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitBootstrapTokenPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -296,7 +296,7 @@ func (p *Provider) EnsureKubeadmInitBootstrapTokenPhase(ctx context.Context, c *
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "bootstrap-token")
 }
 
-func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -304,7 +304,7 @@ func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *provider.
 	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c), "addon all")
 }
 
-func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluster) error {
 
 	option := &kubeadm.JoinControlPlaneOption{
 		BootstrapToken:       *c.ClusterCredential.BootstrapToken,
@@ -327,7 +327,7 @@ func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *provider.Clus
 	return nil
 }
 
-func (p *Provider) EnsureStoreCredential(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureStoreCredential(ctx context.Context, c *common.Cluster) error {
 	machineSSH, err := c.Spec.Machines[0].SSH()
 	if err != nil {
 		return err
@@ -372,7 +372,7 @@ func (p *Provider) EnsureStoreCredential(ctx context.Context, c *provider.Cluste
 	return nil
 }
 
-func (p *Provider) EnsureSystem(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureSystem(ctx context.Context, c *common.Cluster) error {
 	dockerVersion := "19.03.8"
 	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
 		dockerVersion = v
@@ -400,7 +400,7 @@ func (p *Provider) EnsureSystem(ctx context.Context, c *provider.Cluster) error 
 	return nil
 }
 
-func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c *common.Cluster) error {
 	start := time.Now()
 
 	return wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
@@ -423,7 +423,7 @@ func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c
 	})
 }
 
-func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *common.Cluster) error {
 	clientset, err := c.ClientsetForBootstrap()
 	if err != nil {
 		return err
@@ -453,14 +453,14 @@ func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *provider.Clust
 	return nil
 }
 
-func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *provider.Cluster) error {
-	if !p.config.Registry.NeedSetHosts() {
+func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *common.Cluster) error {
+	if !p.Cfg.Registry.NeedSetHosts() {
 		return nil
 	}
 
 	domains := []string{
-		p.config.Registry.Domain,
-		c.Spec.TenantID + "." + p.config.Registry.Domain,
+		p.Cfg.Registry.Domain,
+		c.Spec.TenantID + "." + p.Cfg.Registry.Domain,
 	}
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
@@ -470,7 +470,7 @@ func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *provider.Cluster)
 
 		for _, one := range domains {
 			remoteHosts := &hosts.RemoteHosts{Host: one, SSH: machineSSH}
-			err := remoteHosts.Set(p.config.Registry.IP)
+			err := remoteHosts.Set(p.Cfg.Registry.IP)
 			if err != nil {
 				return errors.Wrap(err, machine.IP)
 			}
@@ -480,7 +480,7 @@ func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *provider.Cluster)
 	return nil
 }
 
-func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *common.Cluster) error {
 	if c.Spec.Features.Hooks == nil {
 		return nil
 	}
@@ -506,7 +506,7 @@ func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *provider.Cluster
 	return nil
 }
 
-func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *common.Cluster) error {
 	if c.Spec.Features.Hooks == nil {
 		return nil
 	}
@@ -532,7 +532,7 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *provider.Cluste
 	return nil
 }
 
-func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *common.Cluster) error {
 	etcdPeerEndpoints := []string{}
 	etcdClusterEndpoints := []string{}
 	for _, machine := range c.Spec.Machines {
@@ -610,8 +610,8 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *provider.Cluster) erro
 	return nil
 }
 
-func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *provider.Cluster) error {
-	if !p.config.CustomeCert {
+func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *common.Cluster) error {
+	if !p.Cfg.CustomeCert {
 		return nil
 	}
 
@@ -647,7 +647,7 @@ func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *provider.Clust
 	return nil
 }
 
-func (p *Provider) EnsureMakeCni(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureMakeCni(ctx context.Context, c *common.Cluster) error {
 	if c.Spec.Features.Hooks == nil {
 		return nil
 	}

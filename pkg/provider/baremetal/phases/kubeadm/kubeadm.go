@@ -19,7 +19,7 @@ import (
 
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/helper"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
@@ -101,7 +101,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	return nil
 }
 
-func InitCustomCerts(cfg *Config, c *provider.Cluster) error {
+func InitCustomCerts(cfg *Config, c *common.Cluster) error {
 	var lastCACert *helper.CaAll
 	cfgMaps := make(map[string][]byte)
 
@@ -156,7 +156,7 @@ func InitCustomCerts(cfg *Config, c *provider.Cluster) error {
 	return nil
 }
 
-func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *provider.Cluster) error {
+func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error {
 	warp := &kubeadmv1beta2.WarpperConfiguration{
 		InitConfiguration:    cfg.InitConfiguration,
 		ClusterConfiguration: cfg.ClusterConfiguration,

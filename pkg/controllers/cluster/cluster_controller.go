@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/provider"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,6 +42,7 @@ type clusterReconciler struct {
 	Log    logr.Logger
 	Mgr    manager.Manager
 	Scheme *runtime.Scheme
+	*provider.ProviderManager
 }
 
 type clusterContext struct {
@@ -49,12 +51,13 @@ type clusterContext struct {
 	Cluster *devopsv1.Cluster
 }
 
-func Add(mgr manager.Manager) error {
+func Add(mgr manager.Manager, pMgr *provider.ProviderManager) error {
 	reconciler := &clusterReconciler{
-		Client: mgr.GetClient(),
-		Mgr:    mgr,
-		Log:    ctrl.Log.WithName("controllers").WithName("cluster"),
-		Scheme: mgr.GetScheme(),
+		Client:          mgr.GetClient(),
+		Mgr:             mgr,
+		Log:             ctrl.Log.WithName("controllers").WithName("cluster"),
+		Scheme:          mgr.GetScheme(),
+		ProviderManager: pMgr,
 	}
 
 	err := reconciler.SetupWithManager(mgr)

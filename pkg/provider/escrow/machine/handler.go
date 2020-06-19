@@ -40,7 +40,7 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machin
 }
 
 func (p *Provider) EnsurePreInstallHook(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	hook := cluster.Spec.Features.Hooks[devopsv1.HookPreInstall]
+	hook := cluster.Spec.Features.Hooks[devopsv1.HookPostInstall]
 	if hook == "" {
 		return nil
 	}

@@ -8,7 +8,7 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/ipallocator"
 	"github.com/gostship/kunkka/pkg/util/validation"
 	utilvalidation "github.com/gostship/kunkka/pkg/util/validation"
@@ -20,7 +20,7 @@ var (
 )
 
 // ValidateCluster validates a given Cluster.
-func ValidateCluster(obj *provider.Cluster) field.ErrorList {
+func ValidateCluster(obj *common.Cluster) field.ErrorList {
 	allErrs := ValidatClusterSpec(&obj.Spec, field.NewPath("spec"), obj.Status.Phase)
 
 	return allErrs

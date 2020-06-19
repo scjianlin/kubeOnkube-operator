@@ -4,10 +4,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation/field"
 
 	"github.com/gostship/kunkka/pkg/provider/baremetal/validation"
+	"github.com/gostship/kunkka/pkg/provider/config"
 	machineprovider "github.com/gostship/kunkka/pkg/provider/machine"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider/config"
 	"k8s.io/klog"
 )
 
@@ -33,8 +33,13 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 		Cfg: cfg,
 	}
 
+	cfg, err := config.NewDefaultConfig()
+	if err != nil {
+		return nil, err
+	}
+
 	p.DelegateProvider = &machineprovider.DelegateProvider{
-		ProviderName: "Baremetal",
+		ProviderName: "Escrow",
 		CreateHandlers: []machineprovider.Handler{
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,

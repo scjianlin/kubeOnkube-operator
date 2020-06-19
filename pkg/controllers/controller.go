@@ -20,24 +20,40 @@ import (
 	"github.com/gostship/kunkka/pkg/controllers/cluster"
 	"github.com/gostship/kunkka/pkg/controllers/machine"
 	"github.com/gostship/kunkka/pkg/option"
+	"github.com/gostship/kunkka/pkg/provider"
+	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
 
+var AddToManagerWithProviderFuncs []func(manager.Manager, *provider.ProviderManager) error
+
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, opt *option.ControllersManagerOption) error {
+
 	if opt.EnableCluster {
-		AddToManagerFuncs = append(AddToManagerFuncs, cluster.Add)
+		AddToManagerWithProviderFuncs = append(AddToManagerWithProviderFuncs, cluster.Add)
 	}
 
 	if opt.EnableMachine {
-		AddToManagerFuncs = append(AddToManagerFuncs, machine.Add)
+		AddToManagerWithProviderFuncs = append(AddToManagerWithProviderFuncs, machine.Add)
 	}
 
+	pMgr, err := provider.NewProvider()
+	if err != nil {
+		klog.Errorf("NewProvider err: %v", err)
+		return err
+	}
 	for _, f := range AddToManagerFuncs {
 		if err := f(m); err != nil {
+			return err
+		}
+	}
+
+	for _, f := range AddToManagerWithProviderFuncs {
+		if err := f(m, pMgr); err != nil {
 			return err
 		}
 	}

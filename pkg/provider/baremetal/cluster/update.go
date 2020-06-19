@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
@@ -15,7 +15,7 @@ import (
 	certutil "k8s.io/client-go/util/cert"
 )
 
-func (p *Provider) EnsureRenewCerts(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureRenewCerts(ctx context.Context, c *common.Cluster) error {
 	for _, machine := range c.Spec.Machines {
 		s, err := machine.SSH()
 		if err != nil {
@@ -46,7 +46,7 @@ func (p *Provider) EnsureRenewCerts(ctx context.Context, c *provider.Cluster) er
 	return nil
 }
 
-func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *provider.Cluster) error {
+func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *common.Cluster) error {
 	kubeadmConfig := p.getKubeadmConfig(c)
 	exptectCertSANs := GetAPIServerCertSANs(c.Cluster)
 
