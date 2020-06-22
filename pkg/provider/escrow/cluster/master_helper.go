@@ -260,11 +260,12 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
 					Port:       6443,
+					NodePort:   30443,
 					TargetPort: intstr.FromString("https"),
 				},
 			},
 			Selector: KubeApiServerLabels,
-			Type:     corev1.ServiceTypeClusterIP,
+			Type:     corev1.ServiceTypeNodePort,
 		},
 	}
 
@@ -272,7 +273,9 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 		svc.Annotations = make(map[string]string)
 	}
 
-	svc.Annotations["contour.heptio.com/upstream-protocol.tls"] = "443,https"
+	// svc.Annotations["contour.heptio.com/upstream-protocol.tls"] = "443,https"
+	svc.Annotations["projectcontour.io/upstream-protocol.tls"] = "6443"
+	svc.Annotations["gloo.solo.io/sslService.secret"] = KubeApiServerCerts
 
 	return svc
 }

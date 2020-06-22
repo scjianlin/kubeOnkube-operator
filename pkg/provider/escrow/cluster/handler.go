@@ -17,6 +17,7 @@ import (
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
+	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
 	"github.com/segmentio/ksuid"
 	corev1 "k8s.io/api/core/v1"
@@ -289,28 +290,40 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 }
 
 func (p *Provider) EnsureTemp(ctx context.Context, c *common.Cluster) error {
+	warp := &kubeadmv1beta2.WarpperConfiguration{
+		InitConfiguration:    p.getInitConfiguration(c),
+		ClusterConfiguration: p.getClusterConfiguration(c),
+	}
 
-	certsMap := &corev1.ConfigMap{}
-	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerCerts}, certsMap)
+	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey,
+		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
+			AdvertiseAddress: c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP,
+			BindPort:         c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort,
+		}, warp.ClusterName, pkiutil.AdminKubeConfigFileName)
 	if err != nil {
-		return errors.Wrapf(err, "get certs configmap err: %v", err)
+		klog.Errorf("create kubeconfg err: %+v", err)
+		return err
 	}
 
-	k8sSecret := &corev1.Secret{
-		ObjectMeta: k8sutil.ObjectMeta(KubeApiServerCerts, Labels, c.Cluster),
-		Type:       corev1.SecretTypeTLS,
-		Data:       make(map[string][]byte),
+	cfgMap := &corev1.ConfigMap{}
+	err = c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
+	if err != nil {
+		return errors.Wrapf(err, "get certs cfgMap err: %v", err)
 	}
 
-	k8sSecret.Data[corev1.TLSCertKey] = certsMap.BinaryData["ca.crt"]
-	k8sSecret.Data[corev1.TLSPrivateKeyKey] = certsMap.BinaryData["ca.key"]
-	k8sSecret.Data["ca.crt"] = certsMap.BinaryData["ca.crt"]
-	k8sSecret.Data["ca.key"] = certsMap.BinaryData["ca.key"]
+	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
+	for _, v := range cfgMaps {
+		by, err := certs.BuildKubeConfigByte(v)
+		if err != nil {
+			return err
+		}
+		cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
+	}
+
 	logger := ctrl.Log.WithValues("cluster", c.Name)
-	err = k8sutil.Reconcile(logger, c.Client, k8sSecret, k8sutil.DesiredStatePresent)
+	err = k8sutil.Reconcile(logger, c.Client, cfgMap, k8sutil.DesiredStatePresent)
 	if err != nil {
 		return errors.Wrapf(err, "create k8sSecret err: %v", err)
 	}
-
 	return nil
 }

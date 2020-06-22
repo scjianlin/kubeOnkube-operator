@@ -31,8 +31,8 @@ spec:
     enableMasterSchedule: true
     ha:
       thirdParty:
-        vip: "10.248.224.217"
-        vport: 443
+        vip: "escrow-cluster.dke.k8s.io"
+        vport: 30443
     hooks:
       PostCniInstall: flannel
   properties:

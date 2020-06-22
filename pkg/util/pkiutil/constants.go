@@ -128,7 +128,9 @@ const (
 	FrontProxyClientCertCommonName = "front-proxy-client" //used as subject.commonname attribute (CN)
 
 	// AdminKubeConfigFileName defines name for the kubeconfig aimed to be used by the superuser/admin of the cluster
-	AdminKubeConfigFileName = "admin.conf"
+	AdminKubeConfigFileName         = "admin.conf"
+	ExternalAdminKubeConfigFileName = "external-admin.conf"
+
 	// KubeletBootstrapKubeConfigFileName defines the file name for the kubeconfig that the kubelet will use to do
 	// the TLS bootstrap to get itself an unique credential
 	KubeletBootstrapKubeConfigFileName = "bootstrap-kubelet.conf"
