@@ -83,13 +83,13 @@ func (r *machineReconciler) onUpdate(ctx context.Context, rc *manchineContext) e
 
 	err = p.OnUpdate(ctx, rc.Machine, clusterWrapper)
 	if err != nil {
-		clusterWrapper.Status.Message = err.Error()
-		clusterWrapper.Status.Reason = reasonFailedUpdate
+		clusterWrapper.Cluster.Status.Message = err.Error()
+		clusterWrapper.Cluster.Status.Reason = reasonFailedUpdate
 		r.Client.Status().Update(ctx, rc.Cluster)
 		return err
 	}
-	clusterWrapper.Status.Message = ""
-	clusterWrapper.Status.Reason = ""
+	clusterWrapper.Cluster.Status.Message = ""
+	clusterWrapper.Cluster.Status.Reason = ""
 	r.Client.Status().Update(ctx, clusterWrapper.ClusterCredential)
 	r.Client.Status().Update(ctx, clusterWrapper.Cluster)
 	return nil

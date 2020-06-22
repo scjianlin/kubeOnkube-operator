@@ -160,7 +160,7 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	masterEndpoint, err := GetMasterEndpoint(cluster.Status.Addresses)
+	masterEndpoint, err := GetMasterEndpoint(cluster.Cluster.Status.Addresses)
 	if err != nil {
 		return err
 	}

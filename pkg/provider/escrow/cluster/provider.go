@@ -47,14 +47,17 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 		CreateHandlers: []clusterprovider.Handler{
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
-
-			p.EnsureStoreCredential,
+			p.EnsureClusterComplete,
+			p.EnsureEtcd,
+			p.EnsureCerts,
+			p.EnsureKubeconfig,
+			p.EnsureKubeMaster,
 
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
-			p.EnsureStoreCredential,
-			p.EnsureStoreCredential,
+			p.EnsureKubeMaster,
+			p.EnsureTemp,
 		},
 	}
 

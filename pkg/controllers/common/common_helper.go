@@ -26,6 +26,7 @@ const (
 type Cluster struct {
 	*devopsv1.Cluster
 	ClusterCredential *devopsv1.ClusterCredential
+	client.Client
 }
 
 func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluster) (*Cluster, error) {
@@ -61,7 +62,7 @@ func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluste
 	}
 
 	result.ClusterCredential = clusterCredential
-
+	result.Client = cli
 	return result, nil
 }
 
@@ -132,7 +133,7 @@ func (c *Cluster) RESTConfig(config *rest.Config) (*rest.Config, error) {
 
 func (c *Cluster) Host() (string, error) {
 	addrs := make(map[devopsv1.AddressType][]devopsv1.ClusterAddress)
-	for _, one := range c.Status.Addresses {
+	for _, one := range c.Cluster.Status.Addresses {
 		addrs[one.Type] = append(addrs[one.Type], one)
 	}
 
@@ -155,7 +156,7 @@ func (c *Cluster) Host() (string, error) {
 }
 
 func (c *Cluster) HostForBootstrap() (string, error) {
-	for _, one := range c.Status.Addresses {
+	for _, one := range c.Cluster.Status.Addresses {
 		if one.Type == devopsv1.AddressReal {
 			return fmt.Sprintf("%s:%d", one.Host, one.Port), nil
 		}

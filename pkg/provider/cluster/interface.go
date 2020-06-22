@@ -8,6 +8,8 @@ import (
 	"runtime"
 	"strings"
 
+	"time"
+
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/thoas/go-funk"
@@ -127,8 +129,8 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *common.Cluster
 				Message:       err.Error(),
 				Reason:        ReasonFailedProcess,
 			})
-			cluster.Status.Reason = ReasonFailedProcess
-			cluster.Status.Message = err.Error()
+			cluster.Cluster.Status.Reason = ReasonFailedProcess
+			cluster.Cluster.Status.Message = err.Error()
 			return nil
 		}
 
@@ -143,7 +145,7 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *common.Cluster
 
 	nextConditionType := p.getNextConditionType(condition.Type)
 	if nextConditionType == ConditionTypeDone {
-		cluster.Status.Phase = devopsv1.ClusterRunning
+		cluster.Cluster.Status.Phase = devopsv1.ClusterRunning
 	} else {
 		cluster.SetCondition(devopsv1.ClusterCondition{
 			Type:               nextConditionType,
@@ -160,10 +162,11 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, cluster *common.Cluster
 
 func tryFindHandler(handlerName string, handlers []string, cluster *common.Cluster) bool {
 	var obj *devopsv1.ClusterCondition
-	for idx := range cluster.Status.Conditions {
-		c := &cluster.Status.Conditions[idx]
+	for idx := range cluster.Cluster.Status.Conditions {
+		c := &cluster.Cluster.Status.Conditions[idx]
 		if c.Type == handlerName {
-			if c.Status == devopsv1.ConditionTrue {
+			ltime := c.LastProbeTime
+			if c.Status == devopsv1.ConditionTrue && ltime.Add(2*time.Minute).After(time.Now()) {
 				obj = c
 			}
 			break
@@ -213,8 +216,8 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *common.Cluster
 				Message:       err.Error(),
 				Reason:        ReasonFailedProcess,
 			})
-			cluster.Status.Reason = ReasonFailedProcess
-			cluster.Status.Message = err.Error()
+			cluster.Cluster.Status.Reason = ReasonFailedProcess
+			cluster.Cluster.Status.Message = err.Error()
 			return nil
 		}
 
@@ -281,7 +284,7 @@ func (p *DelegateProvider) getCreateHandler(conditionType string) Handler {
 }
 
 func (p *DelegateProvider) getCreateCurrentCondition(c *common.Cluster) (*devopsv1.ClusterCondition, error) {
-	if c.Status.Phase == devopsv1.ClusterRunning {
+	if c.Cluster.Status.Phase == devopsv1.ClusterRunning {
 		return nil, errors.New("cluster phase is running now")
 	}
 
@@ -289,7 +292,7 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *common.Cluster) (*devops
 		return nil, errors.New("no create handlers")
 	}
 
-	if len(c.Status.Conditions) == 0 {
+	if len(c.Cluster.Status.Conditions) == 0 {
 		return &devopsv1.ClusterCondition{
 			Type:          p.CreateHandlers[0].Name(),
 			Status:        devopsv1.ConditionUnknown,
@@ -299,15 +302,15 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *common.Cluster) (*devops
 		}, nil
 	}
 
-	for _, condition := range c.Status.Conditions {
+	for _, condition := range c.Cluster.Status.Conditions {
 		if condition.Status == devopsv1.ConditionFalse || condition.Status == devopsv1.ConditionUnknown {
 			return &condition, nil
 		}
 	}
 
-	if len(c.Status.Conditions) < len(p.CreateHandlers) {
+	if len(c.Cluster.Status.Conditions) < len(p.CreateHandlers) {
 		return &devopsv1.ClusterCondition{
-			Type:          p.CreateHandlers[len(c.Status.Conditions)].Name(),
+			Type:          p.CreateHandlers[len(c.Cluster.Status.Conditions)].Name(),
 			Status:        devopsv1.ConditionUnknown,
 			LastProbeTime: metav1.Now(),
 			Message:       "waiting process",

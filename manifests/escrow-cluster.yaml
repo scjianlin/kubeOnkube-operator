@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    name: escrow-cluster
+  name: escrow-cluster
+---
+apiVersion: devops.gostship.io/v1
+kind: Cluster
+metadata:
+  name: escrow-cluster
+  namespace: escrow-cluster
+spec:
+  pause: false
+  tenantID: k8s
+  displayName: demo
+  type: Escrow
+  version: 1.18.2
+  networkType: eth0
+  clusterCIDR: 10.97.0.0/16
+  serviceCIDR: 10.96.0.0/16
+  dnsDomain: cluster.local
+  publicAlternativeNames:
+    - escrow-cluster.dke.k8s.io
+    - kube-apiserver
+    - kube-apiserver.escrow-cluster
+    - kube-apiserver.escrow-cluster.svc
+  features:
+    ipvs: true
+    internalLB: true
+    enableMasterSchedule: true
+    ha:
+      thirdParty:
+        vip: "10.248.224.217"
+        vport: 443
+    hooks:
+      PostCniInstall: flannel
+  properties:
+    maxNodePodNum: 64
+  apiServerExtraArgs:
+    audit-log-maxage: "30"
+    audit-log-maxbackup: "3"
+    audit-log-maxsize: "100"
+    audit-log-truncate-enabled: "true"
+    audit-policy-file: "/etc/kubernetes/audit-policy.yaml"
+    audit-log-path: "/var/log/kubernetes/k8s-audit.log"
+  controllerManagerExtraArgs:
+    "bind-address": "0.0.0.0"
+  schedulerExtraArgs:
+    "bind-address": "0.0.0.0"
+  dockerExtraArgs:
+    registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
+    version: 19.03.8

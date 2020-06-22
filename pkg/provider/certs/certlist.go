@@ -1,4 +1,4 @@
-package helper
+package certs
 
 import (
 	"crypto"
@@ -8,7 +8,6 @@ import (
 
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
-	kubeadmconstants "github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/constants"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	certutil "k8s.io/client-go/util/cert"
 )
@@ -175,11 +174,11 @@ var (
 	KubeadmCertAPIServer = KubeadmCert{
 		Name:     "apiserver",
 		LongName: "certificate for serving the Kubernetes API",
-		BaseName: kubeadmconstants.APIServerCertAndKeyBaseName,
+		BaseName: pkiutil.APIServerCertAndKeyBaseName,
 		CAName:   "ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
-				CommonName: kubeadmconstants.APIServerCertCommonName,
+				CommonName: pkiutil.APIServerCertCommonName,
 				Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 			},
 		},
@@ -191,12 +190,12 @@ var (
 	KubeadmCertKubeletClient = KubeadmCert{
 		Name:     "apiserver-kubelet-client",
 		LongName: "certificate for the API server to connect to kubelet",
-		BaseName: kubeadmconstants.APIServerKubeletClientCertAndKeyBaseName,
+		BaseName: pkiutil.APIServerKubeletClientCertAndKeyBaseName,
 		CAName:   "ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
-				CommonName:   kubeadmconstants.APIServerKubeletClientCertCommonName,
-				Organization: []string{kubeadmconstants.SystemPrivilegedGroup},
+				CommonName:   pkiutil.APIServerKubeletClientCertCommonName,
+				Organization: []string{pkiutil.SystemPrivilegedGroup},
 				Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			},
 		},
@@ -206,7 +205,7 @@ var (
 	KubeadmCertFrontProxyCA = KubeadmCert{
 		Name:     "front-proxy-ca",
 		LongName: "self-signed CA to provision identities for front proxy",
-		BaseName: kubeadmconstants.FrontProxyCACertAndKeyBaseName,
+		BaseName: pkiutil.FrontProxyCACertAndKeyBaseName,
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
 				CommonName: "front-proxy-ca",
@@ -217,12 +216,12 @@ var (
 	// KubeadmCertFrontProxyClient is the definition of the cert used by the API server to access the front proxy.
 	KubeadmCertFrontProxyClient = KubeadmCert{
 		Name:     "front-proxy-client",
-		BaseName: kubeadmconstants.FrontProxyClientCertAndKeyBaseName,
+		BaseName: pkiutil.FrontProxyClientCertAndKeyBaseName,
 		LongName: "certificate for the front proxy client",
 		CAName:   "front-proxy-ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
-				CommonName: kubeadmconstants.FrontProxyClientCertCommonName,
+				CommonName: pkiutil.FrontProxyClientCertCommonName,
 				Usages:     []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			},
 		},
@@ -232,7 +231,7 @@ var (
 	KubeadmCertEtcdCA = KubeadmCert{
 		Name:     "etcd-ca",
 		LongName: "self-signed CA to provision identities for etcd",
-		BaseName: kubeadmconstants.EtcdCACertAndKeyBaseName,
+		BaseName: pkiutil.EtcdCACertAndKeyBaseName,
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
 				CommonName: "etcd-ca",
@@ -243,7 +242,7 @@ var (
 	KubeadmCertEtcdServer = KubeadmCert{
 		Name:     "etcd-server",
 		LongName: "certificate for serving etcd",
-		BaseName: kubeadmconstants.EtcdServerCertAndKeyBaseName,
+		BaseName: pkiutil.EtcdServerCertAndKeyBaseName,
 		CAName:   "etcd-ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
@@ -263,7 +262,7 @@ var (
 	KubeadmCertEtcdPeer = KubeadmCert{
 		Name:     "etcd-peer",
 		LongName: "certificate for etcd nodes to communicate with each other",
-		BaseName: kubeadmconstants.EtcdPeerCertAndKeyBaseName,
+		BaseName: pkiutil.EtcdPeerCertAndKeyBaseName,
 		CAName:   "etcd-ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
@@ -279,12 +278,12 @@ var (
 	KubeadmCertEtcdHealthcheck = KubeadmCert{
 		Name:     "etcd-healthcheck-client",
 		LongName: "certificate for liveness probes to healthcheck etcd",
-		BaseName: kubeadmconstants.EtcdHealthcheckClientCertAndKeyBaseName,
+		BaseName: pkiutil.EtcdHealthcheckClientCertAndKeyBaseName,
 		CAName:   "etcd-ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
-				CommonName:   kubeadmconstants.EtcdHealthcheckClientCertCommonName,
-				Organization: []string{kubeadmconstants.SystemPrivilegedGroup},
+				CommonName:   pkiutil.EtcdHealthcheckClientCertCommonName,
+				Organization: []string{pkiutil.SystemPrivilegedGroup},
 				Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			},
 		},
@@ -293,12 +292,12 @@ var (
 	KubeadmCertEtcdAPIClient = KubeadmCert{
 		Name:     "apiserver-etcd-client",
 		LongName: "certificate the apiserver uses to access etcd",
-		BaseName: kubeadmconstants.APIServerEtcdClientCertAndKeyBaseName,
+		BaseName: pkiutil.APIServerEtcdClientCertAndKeyBaseName,
 		CAName:   "etcd-ca",
 		config: pkiutil.CertConfig{
 			Config: certutil.Config{
-				CommonName:   kubeadmconstants.APIServerEtcdClientCertCommonName,
-				Organization: []string{kubeadmconstants.SystemPrivilegedGroup},
+				CommonName:   pkiutil.APIServerEtcdClientCertCommonName,
+				Organization: []string{pkiutil.SystemPrivilegedGroup},
 				Usages:       []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth},
 			},
 		},

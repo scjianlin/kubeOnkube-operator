@@ -89,7 +89,7 @@ func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *common.Cl
 }
 
 func completeK8sVersion(cluster *common.Cluster) error {
-	cluster.Status.Version = cluster.Spec.Version
+	cluster.Cluster.Status.Version = cluster.Spec.Version
 	return nil
 }
 
@@ -102,28 +102,28 @@ func completeNetworking(cluster *common.Cluster) error {
 
 	if cluster.Spec.ServiceCIDR != nil {
 		serviceCIDR = *cluster.Spec.ServiceCIDR
-		nodeCIDRMaskSize, err = GetNodeCIDRMaskSize(cluster.Spec.ClusterCIDR, *cluster.Spec.Properties.MaxNodePodNum)
+		nodeCIDRMaskSize, err = k8sutil.GetNodeCIDRMaskSize(cluster.Spec.ClusterCIDR, *cluster.Spec.Properties.MaxNodePodNum)
 		if err != nil {
 			return errors.Wrap(err, "GetNodeCIDRMaskSize error")
 		}
 	} else {
-		serviceCIDR, nodeCIDRMaskSize, err = GetServiceCIDRAndNodeCIDRMaskSize(cluster.Spec.ClusterCIDR, *cluster.Spec.Properties.MaxClusterServiceNum, *cluster.Spec.Properties.MaxNodePodNum)
+		serviceCIDR, nodeCIDRMaskSize, err = k8sutil.GetServiceCIDRAndNodeCIDRMaskSize(cluster.Spec.ClusterCIDR, *cluster.Spec.Properties.MaxClusterServiceNum, *cluster.Spec.Properties.MaxNodePodNum)
 		if err != nil {
 			return errors.Wrap(err, "GetServiceCIDRAndNodeCIDRMaskSize error")
 		}
 	}
-	cluster.Status.ServiceCIDR = serviceCIDR
-	cluster.Status.NodeCIDRMaskSize = nodeCIDRMaskSize
+	cluster.Cluster.Status.ServiceCIDR = serviceCIDR
+	cluster.Cluster.Status.NodeCIDRMaskSize = nodeCIDRMaskSize
 
 	return nil
 }
 
 func completeDNS(cluster *common.Cluster) error {
-	ip, err := GetIndexedIP(cluster.Status.ServiceCIDR, constants.DNSIPIndex)
+	ip, err := k8sutil.GetIndexedIP(cluster.Cluster.Status.ServiceCIDR, constants.DNSIPIndex)
 	if err != nil {
 		return errors.Wrap(err, "get DNS IP error")
 	}
-	cluster.Status.DNSIP = ip.String()
+	cluster.Cluster.Status.DNSIP = ip.String()
 
 	return nil
 }
@@ -194,7 +194,7 @@ func (p *Provider) EnsurePrepareForControlplane(ctx context.Context, c *common.C
 			return err
 		}
 
-		c.Status.Version = c.Spec.Version
+		c.Cluster.Status.Version = c.Spec.Version
 		klog.Infof("start write toke file to machine: %s", machine.IP)
 		tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
 		err = machineSSH.WriteFile(strings.NewReader(tokenData), constants.TokenFile)

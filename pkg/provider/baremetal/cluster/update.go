@@ -9,6 +9,7 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
 	"github.com/thoas/go-funk"
@@ -48,7 +49,7 @@ func (p *Provider) EnsureRenewCerts(ctx context.Context, c *common.Cluster) erro
 
 func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *common.Cluster) error {
 	kubeadmConfig := p.getKubeadmConfig(c)
-	exptectCertSANs := GetAPIServerCertSANs(c.Cluster)
+	exptectCertSANs := k8sutil.GetAPIServerCertSANs(c.Cluster)
 
 	needUpload := false
 	for _, machine := range c.Spec.Machines {

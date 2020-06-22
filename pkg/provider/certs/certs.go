@@ -1,11 +1,10 @@
-package helper
+package certs
 
 import (
 	"crypto"
 	"crypto/x509"
 
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
-	kubeadmconstants "github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/constants"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
 	"k8s.io/klog"
@@ -94,14 +93,14 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 	}
 
 	// Write .key and .pub files to remote
-	klog.Infof("[certs] Generating %q key and public key\n", kubeadmconstants.ServiceAccountKeyBaseName)
-	keyPath, keyByte, err := pkiutil.BuildKeyByte(certsDir, kubeadmconstants.ServiceAccountKeyBaseName, key)
+	klog.Infof("[certs] Generating %q key and public key\n", pkiutil.ServiceAccountKeyBaseName)
+	keyPath, keyByte, err := pkiutil.BuildKeyByte(certsDir, pkiutil.ServiceAccountKeyBaseName, key)
 	if err != nil {
 		return err
 	}
 	cfgMaps[keyPath] = keyByte
 
-	publicPath, publicByte, err := pkiutil.BuildPublicKeyByte(certsDir, kubeadmconstants.ServiceAccountKeyBaseName, key.Public())
+	publicPath, publicByte, err := pkiutil.BuildPublicKeyByte(certsDir, pkiutil.ServiceAccountKeyBaseName, key.Public())
 	if err != nil {
 		return err
 	}

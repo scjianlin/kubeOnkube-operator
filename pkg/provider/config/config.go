@@ -54,7 +54,11 @@ func (r *Registry) ImageFullName(Name, Tag string) string {
 	b := new(bytes.Buffer)
 	b.WriteString(Name)
 	if Tag != "" {
-		b.WriteString(":" + Tag)
+		if !strings.Contains(Tag, "v") {
+			b.WriteString(":" + "v" + Tag)
+		} else {
+			b.WriteString(":" + Tag)
+		}
 	}
 
 	return path.Join(r.Domain, r.Namespace, b.String())

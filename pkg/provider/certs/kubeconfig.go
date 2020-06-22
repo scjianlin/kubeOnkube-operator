@@ -1,4 +1,4 @@
-package helper
+package certs
 
 import (
 	"crypto"
@@ -15,7 +15,6 @@ import (
 	"strconv"
 
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
-	kubeadmconstants "github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/constants"
 	kubeconfigutil "github.com/gostship/kunkka/pkg/util/kubeconfig"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
@@ -101,36 +100,36 @@ func getKubeConfigSpecs(CAKey, CACert []byte, localEndpoint *kubeadmv1beta2.APIE
 
 	controlPlaneEndpoint := controlPlaneURL.String()
 	var kubeConfigSpec = map[string]*kubeConfigSpec{
-		kubeadmconstants.AdminKubeConfigFileName: {
+		pkiutil.AdminKubeConfigFileName: {
 			CACert:     caCert,
 			APIServer:  controlPlaneEndpoint,
 			ClientName: "kubernetes-admin",
 			ClientCertAuth: &clientCertAuth{
 				CAKey:         caKey,
-				Organizations: []string{kubeadmconstants.SystemPrivilegedGroup},
+				Organizations: []string{pkiutil.SystemPrivilegedGroup},
 			},
 		},
-		kubeadmconstants.KubeletKubeConfigFileName: {
+		pkiutil.KubeletKubeConfigFileName: {
 			CACert:     caCert,
 			APIServer:  controlPlaneEndpoint,
-			ClientName: fmt.Sprintf("%s%s", kubeadmconstants.NodesUserPrefix, localEndpoint.AdvertiseAddress),
+			ClientName: fmt.Sprintf("%s%s", pkiutil.NodesUserPrefix, localEndpoint.AdvertiseAddress),
 			ClientCertAuth: &clientCertAuth{
 				CAKey:         caKey,
-				Organizations: []string{kubeadmconstants.NodesGroup},
+				Organizations: []string{pkiutil.NodesGroup},
 			},
 		},
-		kubeadmconstants.ControllerManagerKubeConfigFileName: {
+		pkiutil.ControllerManagerKubeConfigFileName: {
 			CACert:     caCert,
 			APIServer:  controlPlaneEndpoint,
-			ClientName: kubeadmconstants.ControllerManagerUser,
+			ClientName: pkiutil.ControllerManagerUser,
 			ClientCertAuth: &clientCertAuth{
 				CAKey: caKey,
 			},
 		},
-		kubeadmconstants.SchedulerKubeConfigFileName: {
+		pkiutil.SchedulerKubeConfigFileName: {
 			CACert:     caCert,
 			APIServer:  controlPlaneEndpoint,
-			ClientName: kubeadmconstants.SchedulerUser,
+			ClientName: pkiutil.SchedulerUser,
 			ClientCertAuth: &clientCertAuth{
 				CAKey: caKey,
 			},
@@ -221,11 +220,23 @@ func CreateKubeConfigFile(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint,
 	return CreateKubeConfigFiles(CAKey, CACert, cfg, clusterName, GetDefaultKubeconfigList()...)
 }
 
+func CreateMasterKubeConfigFile(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, cfg, clusterName, GetMasterKubeConfigList()...)
+}
+
 func GetDefaultKubeconfigList() []string {
 	return []string{
-		kubeadmconstants.AdminKubeConfigFileName,
-		kubeadmconstants.ControllerManagerKubeConfigFileName,
-		kubeadmconstants.SchedulerKubeConfigFileName,
-		kubeadmconstants.KubeletKubeConfigFileName,
+		pkiutil.AdminKubeConfigFileName,
+		pkiutil.ControllerManagerKubeConfigFileName,
+		pkiutil.SchedulerKubeConfigFileName,
+		pkiutil.KubeletKubeConfigFileName,
+	}
+}
+
+func GetMasterKubeConfigList() []string {
+	return []string{
+		pkiutil.AdminKubeConfigFileName,
+		pkiutil.ControllerManagerKubeConfigFileName,
+		pkiutil.SchedulerKubeConfigFileName,
 	}
 }

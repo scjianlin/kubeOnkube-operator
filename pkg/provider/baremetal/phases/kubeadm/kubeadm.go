@@ -20,7 +20,8 @@ import (
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm/helper"
+
+	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"k8s.io/klog"
@@ -102,7 +103,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 }
 
 func InitCustomCerts(cfg *Config, c *common.Cluster) error {
-	var lastCACert *helper.CaAll
+	var lastCACert *certs.CaAll
 	cfgMaps := make(map[string][]byte)
 
 	warp := &kubeadmv1beta2.WarpperConfiguration{
@@ -111,9 +112,9 @@ func InitCustomCerts(cfg *Config, c *common.Cluster) error {
 		IPs:                  c.IPs(),
 	}
 
-	for _, cert := range helper.GetDefaultCertList() {
+	for _, cert := range certs.GetDefaultCertList() {
 		if cert.CAName == "" {
-			ret, err := helper.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
+			ret, err := certs.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
 			if err != nil {
 				return err
 			}
@@ -122,14 +123,14 @@ func InitCustomCerts(cfg *Config, c *common.Cluster) error {
 			if lastCACert == nil {
 				return fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
 			}
-			err := helper.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
+			err := certs.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
 			if err != nil {
 				return errors.Wrapf(err, "create cert: %s", cert.Name)
 			}
 		}
 	}
 
-	err := helper.CreateServiceAccountKeyAndPublicKeyFiles(cfg.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
+	err := certs.CreateServiceAccountKeyAndPublicKeyFiles(cfg.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
 	if err != nil {
 		return errors.Wrapf(err, "create sa public key")
 	}
@@ -163,7 +164,7 @@ func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error
 		IPs:                  c.IPs(),
 	}
 
-	cfgMaps, err := helper.CreateKubeConfigFile(c.ClusterCredential.CAKey,
+	cfgMaps, err := certs.CreateKubeConfigFile(c.ClusterCredential.CAKey,
 		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
 			AdvertiseAddress: s.HostIP(),
 			BindPort:         warp.LocalAPIEndpoint.BindPort,
@@ -175,7 +176,7 @@ func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error
 
 	klog.Infof("node: %s start write kubeconfig ...", s.HostIP())
 	for noPathFile, v := range cfgMaps {
-		by, err := helper.BuildKubeConfigByte(v)
+		by, err := certs.BuildKubeConfigByte(v)
 		if err != nil {
 			return err
 		}
