@@ -11,16 +11,23 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
+	"bytes"
+
+	"os"
+
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
+	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
+	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
+	"k8s.io/klog"
 )
 
 func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
@@ -159,22 +166,20 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 	return nil
 }
 
-func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	masterEndpoint, err := GetMasterEndpoint(cluster.Cluster.Status.Addresses)
-	if err != nil {
-		return err
-	}
+func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 
 	machineSSH, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+
 	option := &kubeconfig.Option{
-		MasterEndpoint: masterEndpoint,
-		ClusterName:    cluster.Name,
-		CACert:         cluster.ClusterCredential.CACert,
-		Token:          *cluster.ClusterCredential.Token,
+		MasterEndpoint: apiserver,
+		ClusterName:    c.Cluster.Name,
+		CACert:         c.ClusterCredential.CACert,
+		Token:          *c.ClusterCredential.Token,
 	}
 	err = kubeconfig.Install(machineSSH, option)
 	if err != nil {
@@ -184,23 +189,73 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 	return nil
 }
 
-func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	host, err := cluster.Host()
-	if err != nil {
-		return err
+func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	ip := machine.Spec.Machine.IP
+	nodeOpt := &kubeadmv1beta2.NodeRegistrationOptions{
+		Name: ip,
 	}
-	machineSSH, err := machine.Spec.SSH()
+	flagsEnv := BuildKubeletDynamicEnvFile(p.Cfg.Registry.Prefix, nodeOpt)
+	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	option := &kubeadm.JoinNodeOption{
-		NodeName:             machine.Spec.Machine.IP,
-		BootstrapToken:       *cluster.ClusterCredential.BootstrapToken,
-		ControlPlaneEndpoint: host,
-	}
-	err = kubeadm.JoinNode(machineSSH, option)
+	err = sh.WriteFile(strings.NewReader(flagsEnv), constants.KubeletEnvFileName)
 	if err != nil {
+		return err
+	}
+
+	kubeletCfg := p.getKubeletConfiguration(c)
+	cfgYaml, err := KubeletMarshal(kubeletCfg)
+	if err != nil {
+		return err
+	}
+
+	err = sh.WriteFile(bytes.NewReader(cfgYaml), constants.KubeletConfigurationFileName)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("node: %s start waite ca: %s", ip, constants.CACertName)
+	err = sh.WriteFile(bytes.NewReader(c.ClusterCredential.CACert), constants.CACertName)
+	if err != nil {
+		return err
+	}
+
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
+		apiserver, ip, c.Cluster.Name, pkiutil.KubeletKubeConfigFileName)
+	if err != nil {
+		klog.Errorf("create node: %s kubelet kubeconfg err: %+v", ip, err)
+		return err
+	}
+
+	klog.Infof("[%s/%s] start build node: %s kubelet kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name, ip)
+	for _, v := range cfgMaps {
+		kubeletConf, err := certs.BuildKubeConfigByte(v)
+		if err != nil {
+			klog.Errorf("covert node: %s kubelet kubeconfg err: %+v", ip, err)
+			return err
+		}
+		err = sh.WriteFile(bytes.NewReader(kubeletConf), constants.KubeletKubeConfigFileName)
+		if err != nil {
+			return err
+		}
+
+		klog.Infof("node: %s write kubelet kubeconfg success", ip)
+		break
+	}
+
+	err = sh.WriteFile(strings.NewReader(kubeletEnvironmentTemplate), constants.KubeletServiceRunConfig)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("node: %s start kubelet ... ", ip)
+	cmd := fmt.Sprintf("systemctl enable kubelet && systemctl daemon-reload && systemctl restart kubelet")
+	exit, err := sh.ExecStream(cmd, os.Stdout, os.Stderr)
+	if err != nil {
+		klog.Errorf("%q %+v", exit, err)
 		return err
 	}
 	return nil
@@ -219,8 +274,9 @@ func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine
 	return nil
 }
 
-func (p *Provider) EnsureNodeReady(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	clientset, err := cluster.Clientset()
+func (p *Provider) EnsureNodeReady(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	clientset, err := InClusterClientset(c, apiserver)
 	if err != nil {
 		return err
 	}

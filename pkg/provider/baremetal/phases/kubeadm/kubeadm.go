@@ -164,11 +164,9 @@ func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error
 		IPs:                  c.IPs(),
 	}
 
+	apiserver := certs.BuildApiserverEndpoint(s.HostIP(), int(warp.LocalAPIEndpoint.BindPort))
 	cfgMaps, err := certs.CreateKubeConfigFile(c.ClusterCredential.CAKey,
-		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
-			AdvertiseAddress: s.HostIP(),
-			BindPort:         warp.LocalAPIEndpoint.BindPort,
-		}, warp.ClusterName)
+		c.ClusterCredential.CACert, apiserver, "", warp.ClusterName)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err

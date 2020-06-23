@@ -1,6 +1,8 @@
 package constants
 
 import (
+	"fmt"
+	"strings"
 	"time"
 )
 
@@ -60,7 +62,12 @@ const (
 
 	// KubeletKubeConfigFileName defines the file name for the kubeconfig that the control-plane kubelet will use for talking
 	// to the API server
-	KubeletKubeConfigFileName = KubernetesDir + "kubelet.conf"
+	KubeletKubeConfigFileName    = KubernetesDir + "kubelet.conf"
+	KubeletRunDirectory          = "/var/lib/kubelet/"
+	KubeletServiceRunConfig      = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	KubeletConfigurationFileName = KubeletRunDirectory + "config.yaml"
+	KubeletEnvFileName           = KubeletRunDirectory + "kubeadm-flags.env"
+	KubeletEnvFileVariableName   = "KUBELET_KUBEADM_ARGS"
 
 	// LabelNodeRoleMaster specifies that a node is a control-plane
 	// This is a duplicate definition of the constant in pkg/controller/service/service_controller.go
@@ -77,3 +84,44 @@ const (
 	CniHostLocalFile = CNIConfDIr + "/net.d/10-host-local.conf"
 	CniLoopBack      = CNIConfDIr + "/net.d/99-loopback.conf"
 )
+
+const (
+	// DefaultDockerCRISocket defines the default Docker CRI socket
+	DefaultDockerCRISocket = "/var/run/dockershim.sock"
+
+	// PauseVersion indicates the default pause image version for kubeadm
+	PauseVersion = "3.2"
+
+	// CoreDNSConfigMap specifies in what ConfigMap in the kube-system namespace the CoreDNS config should be stored
+	CoreDNSConfigMap = "coredns"
+
+	// CoreDNSDeploymentName specifies the name of the Deployment for CoreDNS add-on
+	CoreDNSDeploymentName = "coredns"
+
+	// CoreDNSImageName specifies the name of the image for CoreDNS add-on
+	CoreDNSImageName = "coredns"
+
+	// CoreDNSVersion is the version of CoreDNS to be deployed if it is used
+	CoreDNSVersion = "1.6.7"
+
+	KubeProxyImageName = "kube-proxy"
+
+	// KubeProxyConfigMap specifies in what ConfigMap in the kube-system namespace the kube-proxy configuration should be stored
+	KubeProxyConfigMap = "kube-proxy"
+
+	// KubeProxyConfigMapKey specifies in what ConfigMap key the component config of kube-proxy should be stored
+	KubeProxyConfigMapKey = "config.conf"
+
+	// NodeBootstrapTokenAuthGroup specifies which group a Node Bootstrap Token should be authenticated in
+	NodeBootstrapTokenAuthGroup = "system:bootstrappers:kubeadm:default-node-token"
+)
+
+// GetGenericImage generates and returns a platform agnostic image (backed by manifest list)
+func GetGenericImage(prefix, image, tag string) string {
+	if strings.HasPrefix(image, "kube") {
+		if !strings.Contains(tag, "v") {
+			tag = "v" + tag
+		}
+	}
+	return fmt.Sprintf("%s/%s:%s", prefix, image, tag)
+}

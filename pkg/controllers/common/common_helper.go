@@ -8,6 +8,7 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/controllers/k8smanager"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -27,9 +28,10 @@ type Cluster struct {
 	*devopsv1.Cluster
 	ClusterCredential *devopsv1.ClusterCredential
 	client.Client
+	*k8smanager.ClusterManager
 }
 
-func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluster) (*Cluster, error) {
+func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluster, mgr *k8smanager.ClusterManager) (*Cluster, error) {
 	result := new(Cluster)
 	result.Cluster = cluster
 
@@ -63,6 +65,7 @@ func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluste
 
 	result.ClusterCredential = clusterCredential
 	result.Client = cli
+	result.ClusterManager = mgr
 	return result, nil
 }
 

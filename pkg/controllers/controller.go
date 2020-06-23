@@ -18,7 +18,9 @@ package controllers
 
 import (
 	"github.com/gostship/kunkka/pkg/controllers/cluster"
+	"github.com/gostship/kunkka/pkg/controllers/k8smanager"
 	"github.com/gostship/kunkka/pkg/controllers/machine"
+	"github.com/gostship/kunkka/pkg/gmanager"
 	"github.com/gostship/kunkka/pkg/option"
 	"github.com/gostship/kunkka/pkg/provider"
 	"k8s.io/klog"
@@ -28,7 +30,7 @@ import (
 // AddToManagerFuncs is a list of functions to add all Controllers to the Manager
 var AddToManagerFuncs []func(manager.Manager) error
 
-var AddToManagerWithProviderFuncs []func(manager.Manager, *provider.ProviderManager) error
+var AddToManagerWithProviderFuncs []func(manager.Manager, *gmanager.GManager) error
 
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, opt *option.ControllersManagerOption) error {
@@ -46,6 +48,15 @@ func AddToManager(m manager.Manager, opt *option.ControllersManagerOption) error
 		klog.Errorf("NewProvider err: %v", err)
 		return err
 	}
+
+	k8sMgr, _ := k8smanager.NewManager(k8smanager.MasterClient{
+		Manager: m,
+	})
+
+	var gMgr = &gmanager.GManager{
+		ProviderManager: pMgr,
+		ClusterManager:  k8sMgr,
+	}
 	for _, f := range AddToManagerFuncs {
 		if err := f(m); err != nil {
 			return err
@@ -53,10 +64,11 @@ func AddToManager(m manager.Manager, opt *option.ControllersManagerOption) error
 	}
 
 	for _, f := range AddToManagerWithProviderFuncs {
-		if err := f(m, pMgr); err != nil {
+		if err := f(m, gMgr); err != nil {
 			return err
 		}
 	}
 
+	m.Add(gMgr.ClusterManager)
 	return nil
 }

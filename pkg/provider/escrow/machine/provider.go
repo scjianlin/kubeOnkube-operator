@@ -33,11 +33,6 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 		Cfg: cfg,
 	}
 
-	cfg, err := config.NewDefaultConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	p.DelegateProvider = &machineprovider.DelegateProvider{
 		ProviderName: "Escrow",
 		CreateHandlers: []machineprovider.Handler{

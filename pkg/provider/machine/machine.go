@@ -47,7 +47,7 @@ func (p *MpManager) Providers() []string {
 // GetProvider returns provider by name
 func (p *MpManager) GetProvider(name string) (Provider, error) {
 	p.RLock()
-	defer p.Unlock()
+	defer p.RUnlock()
 	provider, ok := p.Mp[name]
 	if !ok {
 		return nil, fmt.Errorf("machine: unknown provider %q (forgotten import?)", name)

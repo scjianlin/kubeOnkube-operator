@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"strconv"
 
-	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	kubeconfigutil "github.com/gostship/kunkka/pkg/util/kubeconfig"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
@@ -85,24 +84,17 @@ func LoadCertAndKeyFromByte(CAKey, CACert []byte) (*x509.Certificate, crypto.Sig
 
 // getKubeConfigSpecs returns all KubeConfigSpecs actualized to the context of the current InitConfiguration
 // NB. this methods holds the information about how kubeadm creates kubeconfig files.
-func getKubeConfigSpecs(CAKey, CACert []byte, localEndpoint *kubeadmv1beta2.APIEndpoint) (map[string]*kubeConfigSpec, error) {
+func getKubeConfigSpecs(CAKey, CACert []byte, apiserver string, advertiseAddress string) (map[string]*kubeConfigSpec, error) {
 
 	caCert, caKey, err := LoadCertAndKeyFromByte(CAKey, CACert)
 	if err != nil {
 		return nil, errors.Wrap(err, "couldn't create a kubeconfig; the CA files couldn't be loaded")
 	}
 
-	bindPortString := strconv.Itoa(int(localEndpoint.BindPort))
-	controlPlaneURL := &url.URL{
-		Scheme: "https",
-		Host:   net.JoinHostPort(localEndpoint.AdvertiseAddress, bindPortString),
-	}
-
-	controlPlaneEndpoint := controlPlaneURL.String()
 	var kubeConfigSpec = map[string]*kubeConfigSpec{
 		pkiutil.AdminKubeConfigFileName: {
 			CACert:     caCert,
-			APIServer:  controlPlaneEndpoint,
+			APIServer:  apiserver,
 			ClientName: "kubernetes-admin",
 			ClientCertAuth: &clientCertAuth{
 				CAKey:         caKey,
@@ -111,8 +103,8 @@ func getKubeConfigSpecs(CAKey, CACert []byte, localEndpoint *kubeadmv1beta2.APIE
 		},
 		pkiutil.KubeletKubeConfigFileName: {
 			CACert:     caCert,
-			APIServer:  controlPlaneEndpoint,
-			ClientName: fmt.Sprintf("%s%s", pkiutil.NodesUserPrefix, localEndpoint.AdvertiseAddress),
+			APIServer:  apiserver,
+			ClientName: fmt.Sprintf("%s%s", pkiutil.NodesUserPrefix, advertiseAddress),
 			ClientCertAuth: &clientCertAuth{
 				CAKey:         caKey,
 				Organizations: []string{pkiutil.NodesGroup},
@@ -120,7 +112,7 @@ func getKubeConfigSpecs(CAKey, CACert []byte, localEndpoint *kubeadmv1beta2.APIE
 		},
 		pkiutil.ControllerManagerKubeConfigFileName: {
 			CACert:     caCert,
-			APIServer:  controlPlaneEndpoint,
+			APIServer:  apiserver,
 			ClientName: pkiutil.ControllerManagerUser,
 			ClientCertAuth: &clientCertAuth{
 				CAKey: caKey,
@@ -128,7 +120,7 @@ func getKubeConfigSpecs(CAKey, CACert []byte, localEndpoint *kubeadmv1beta2.APIE
 		},
 		pkiutil.SchedulerKubeConfigFileName: {
 			CACert:     caCert,
-			APIServer:  controlPlaneEndpoint,
+			APIServer:  apiserver,
 			ClientName: pkiutil.SchedulerUser,
 			ClientCertAuth: &clientCertAuth{
 				CAKey: caKey,
@@ -188,10 +180,10 @@ func BuildKubeConfigByte(config *clientcmdapi.Config) ([]byte, error) {
 
 // createKubeConfigFiles creates all the requested kubeconfig files.
 // If kubeconfig files already exists, they are used only if evaluated equal; otherwise an error is returned.
-func CreateKubeConfigFiles(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint, clusterName string, kubeConfigFileNames ...string) (map[string]*clientcmdapi.Config, error) {
+func CreateKubeConfigFiles(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string, kubeConfigFileNames ...string) (map[string]*clientcmdapi.Config, error) {
 	cfgMaps := make(map[string]*clientcmdapi.Config)
 	// gets the KubeConfigSpecs, actualized for the current InitConfiguration
-	specs, err := getKubeConfigSpecs(CAKey, CACert, cfg)
+	specs, err := getKubeConfigSpecs(CAKey, CACert, apiserver, advertiseAddress)
 	if err != nil {
 		return nil, err
 	}
@@ -216,12 +208,22 @@ func CreateKubeConfigFiles(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint
 	return cfgMaps, nil
 }
 
-func CreateKubeConfigFile(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint, clusterName string) (map[string]*clientcmdapi.Config, error) {
-	return CreateKubeConfigFiles(CAKey, CACert, cfg, clusterName, GetDefaultKubeconfigList()...)
+func BuildApiserverEndpoint(ipOrDns string, bindPort int) string {
+	bindPortString := strconv.Itoa(bindPort)
+	controlPlaneURL := &url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(ipOrDns, bindPortString),
+	}
+
+	return controlPlaneURL.String()
 }
 
-func CreateMasterKubeConfigFile(CAKey, CACert []byte, cfg *kubeadmv1beta2.APIEndpoint, clusterName string) (map[string]*clientcmdapi.Config, error) {
-	return CreateKubeConfigFiles(CAKey, CACert, cfg, clusterName, GetMasterKubeConfigList()...)
+func CreateKubeConfigFile(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, apiserver, advertiseAddress, clusterName, GetDefaultKubeconfigList()...)
+}
+
+func CreateMasterKubeConfigFile(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, apiserver, advertiseAddress, clusterName, GetMasterKubeConfigList()...)
 }
 
 func GetDefaultKubeconfigList() []string {

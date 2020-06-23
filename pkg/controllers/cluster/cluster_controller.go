@@ -27,8 +27,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/gmanager"
+	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -39,10 +41,11 @@ import (
 // clusterReconciler reconciles a Cluster object
 type clusterReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Mgr    manager.Manager
-	Scheme *runtime.Scheme
-	*provider.ProviderManager
+	*gmanager.GManager
+	Log            logr.Logger
+	Mgr            manager.Manager
+	Scheme         *runtime.Scheme
+	ClusterStarted map[string]bool
 }
 
 type clusterContext struct {
@@ -51,13 +54,14 @@ type clusterContext struct {
 	Cluster *devopsv1.Cluster
 }
 
-func Add(mgr manager.Manager, pMgr *provider.ProviderManager) error {
+func Add(mgr manager.Manager, pMgr *gmanager.GManager) error {
 	reconciler := &clusterReconciler{
-		Client:          mgr.GetClient(),
-		Mgr:             mgr,
-		Log:             ctrl.Log.WithName("controllers").WithName("cluster"),
-		Scheme:          mgr.GetScheme(),
-		ProviderManager: pMgr,
+		Client:         mgr.GetClient(),
+		Mgr:            mgr,
+		Log:            ctrl.Log.WithName("controllers").WithName("cluster"),
+		Scheme:         mgr.GetScheme(),
+		GManager:       pMgr,
+		ClusterStarted: make(map[string]bool),
 	}
 
 	err := reconciler.SetupWithManager(mgr)
@@ -129,21 +133,40 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
+func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterContext) error {
+	if _, ok := r.ClusterStarted[rc.Cluster.Name]; ok {
+		return nil
+	}
+	cfgMap := &corev1.ConfigMap{}
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: rc.Cluster.Namespace, Name: "kube-apiserver-config"}, cfgMap)
+	if err != nil {
+		klog.Warningf("failed get kube-apiserver-config cluster: %s", rc.Cluster.Name)
+		return errors.Wrapf(err, "get certs cfgMap err: %v", err)
+	}
+
+	if extKubeconfig, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+		_, err := r.GManager.AddNewClusters(rc.Cluster.Name, extKubeconfig)
+		if err != nil {
+			klog.Infof("add cluster: %s to manager cache", rc.Cluster.Name)
+			r.ClusterStarted[rc.Cluster.Name] = true
+		}
+		return nil
+	}
+
+	klog.Warningf("can't find %s", pkiutil.ExternalAdminKubeConfigFileName)
+	return nil
+}
+
 func (r *clusterReconciler) reconcile(ctx context.Context, rc *clusterContext) error {
-	var err error
 	switch rc.Cluster.Status.Phase {
 	case devopsv1.ClusterInitializing:
 		rc.Logger.Info("onCreate")
-		err = r.onCreate(ctx, rc)
+		return r.onCreate(ctx, rc)
 	case devopsv1.ClusterRunning:
 		rc.Logger.Info("onUpdate")
-		err = r.onUpdate(ctx, rc)
-		if err == nil {
-			// c.ensureHealthCheck(ctx, key, cluster) // after update to avoid version conflict
-		}
+		r.addClusterCheck(ctx, rc)
+		return r.onUpdate(ctx, rc)
 	default:
-		err = fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
+		return fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
 	}
-
-	return nil
 }

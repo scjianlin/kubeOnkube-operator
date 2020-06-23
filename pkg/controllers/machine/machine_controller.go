@@ -27,7 +27,7 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/gmanager"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +42,7 @@ type machineReconciler struct {
 	Log    logr.Logger
 	Mgr    manager.Manager
 	Scheme *runtime.Scheme
-	*provider.ProviderManager
+	*gmanager.GManager
 }
 
 type manchineContext struct {
@@ -53,12 +53,13 @@ type manchineContext struct {
 	*devopsv1.ClusterCredential
 }
 
-func Add(mgr manager.Manager, pMgr *provider.ProviderManager) error {
+func Add(mgr manager.Manager, pMgr *gmanager.GManager) error {
 	reconciler := &machineReconciler{
-		Client: mgr.GetClient(),
-		Mgr:    mgr,
-		Log:    ctrl.Log.WithName("controllers").WithName("machine"),
-		Scheme: mgr.GetScheme(),
+		Client:   mgr.GetClient(),
+		Mgr:      mgr,
+		Log:      ctrl.Log.WithName("controllers").WithName("machine"),
+		Scheme:   mgr.GetScheme(),
+		GManager: pMgr,
 	}
 
 	err := reconciler.SetupWithManager(mgr)
@@ -66,7 +67,6 @@ func Add(mgr manager.Manager, pMgr *provider.ProviderManager) error {
 		return errors.Wrapf(err, "unable to create machine controller")
 	}
 
-	reconciler.ProviderManager = pMgr
 	return nil
 }
 

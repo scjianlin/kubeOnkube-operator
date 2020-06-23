@@ -15,6 +15,8 @@ import (
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/addons/coredns"
+	"github.com/gostship/kunkka/pkg/provider/addons/kubeproxy"
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
@@ -207,11 +209,6 @@ func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) error {
-	warp := &kubeadmv1beta2.WarpperConfiguration{
-		InitConfiguration:    p.getInitConfiguration(c),
-		ClusterConfiguration: p.getClusterConfiguration(c),
-	}
-
 	if c.ClusterCredential.CACert == nil {
 		certsMap := &corev1.ConfigMap{}
 		err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerCerts}, certsMap)
@@ -221,11 +218,8 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) erro
 		c.ClusterCredential.CACert = certsMap.BinaryData["ca.crt"]
 		c.ClusterCredential.CAKey = certsMap.BinaryData["ca.key"]
 	}
-	cfgMaps, err := certs.CreateMasterKubeConfigFile(c.ClusterCredential.CAKey,
-		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
-			AdvertiseAddress: "kube-apiserver",
-			BindPort:         6443,
-		}, warp.ClusterName)
+	cfgMaps, err := certs.CreateMasterKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
+		certs.BuildApiserverEndpoint("kube-apiserver", 6443), "", c.Cluster.Name)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err
@@ -290,27 +284,23 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 }
 
 func (p *Provider) EnsureTemp(ctx context.Context, c *common.Cluster) error {
-	warp := &kubeadmv1beta2.WarpperConfiguration{
-		InitConfiguration:    p.getInitConfiguration(c),
-		ClusterConfiguration: p.getClusterConfiguration(c),
-	}
-
-	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey,
-		c.ClusterCredential.CACert, &kubeadmv1beta2.APIEndpoint{
-			AdvertiseAddress: c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP,
-			BindPort:         c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort,
-		}, warp.ClusterName, pkiutil.AdminKubeConfigFileName)
-	if err != nil {
-		klog.Errorf("create kubeconfg err: %+v", err)
-		return err
-	}
-
 	cfgMap := &corev1.ConfigMap{}
-	err = c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
+	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
 	if err != nil {
 		return errors.Wrapf(err, "get certs cfgMap err: %v", err)
 	}
 
+	if _, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+		return nil
+	}
+
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
+		apiserver, "", c.Cluster.Name, pkiutil.AdminKubeConfigFileName)
+	if err != nil {
+		klog.Errorf("create kubeconfg err: %+v", err)
+		return err
+	}
 	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
 	for _, v := range cfgMaps {
 		by, err := certs.BuildKubeConfigByte(v)
@@ -324,6 +314,37 @@ func (p *Provider) EnsureTemp(ctx context.Context, c *common.Cluster) error {
 	err = k8sutil.Reconcile(logger, c.Client, cfgMap, k8sutil.DesiredStatePresent)
 	if err != nil {
 		return errors.Wrapf(err, "create k8sSecret err: %v", err)
+	}
+	return nil
+}
+
+func (p *Provider) EnsureAddons(ctx context.Context, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
+	if err != nil {
+		return nil
+	}
+	kubeproxyObjs, err := kubeproxy.BuildKubeproxyAddon(p.Cfg, c)
+	if err != nil {
+		return errors.Wrapf(err, "build kube-proxy err: %v", err)
+	}
+
+	logger := ctrl.Log.WithValues("cluster", c.Name)
+	for _, obj := range kubeproxyObjs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		if err != nil {
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
+	}
+
+	corednsObjs, err := coredns.BuildCoreDNSAddon(p.Cfg, c)
+	if err != nil {
+		return errors.Wrapf(err, "build kube-proxy err: %v", err)
+	}
+	for _, obj := range corednsObjs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		if err != nil {
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
 	}
 	return nil
 }

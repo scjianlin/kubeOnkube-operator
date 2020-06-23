@@ -103,7 +103,7 @@ func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) er
 		return err
 	}
 
-	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster)
+	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster, r.ClusterManager)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext) er
 		return err
 	}
 
-	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster)
+	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster, r.ClusterManager)
 	if err != nil {
 		return err
 	}

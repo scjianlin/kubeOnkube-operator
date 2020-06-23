@@ -136,6 +136,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	cmds := []string{
 		"kube-apiserver",
 		"--advertise-address=$(INSTANCE_IP)",
+		"--allow-privileged=true",
 		"--authorization-mode=Node,RBAC",
 		"--client-ca-file=/etc/kubernetes/pki/ca.crt",
 		"--enable-admission-plugins=NodeRestriction",
