@@ -87,19 +87,6 @@ func GetAdvertiseAddress(obj *common.Cluster) string {
 	return advertiseAddress
 }
 
-func (r *Reconciler) apiServerCertSecret() runtime.Object {
-	secret := &corev1.Secret{
-		TypeMeta:   metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{},
-		Immutable:  nil,
-		Data:       nil,
-		StringData: nil,
-		Type:       "",
-	}
-
-	return secret
-}
-
 func (r *Reconciler) apiServerDeployment() runtime.Object {
 	containers := []corev1.Container{}
 	vms := []corev1.VolumeMount{
@@ -222,7 +209,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",
-					Port:   intstr.FromInt(int(bindPort)),
+					Port:   intstr.FromString("https"),
 					Scheme: corev1.URISchemeHTTPS,
 				},
 			},
@@ -374,6 +361,7 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 		cmds = append(cmds, fmt.Sprintf("--node-cidr-mask-size=%d", r.Obj.Cluster.Status.NodeCIDRMaskSize))
 	}
 
+	healthPortName := "https-healthz"
 	c := corev1.Container{
 		Name:            KubeControllerManager,
 		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
@@ -386,7 +374,7 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 				Protocol:      corev1.ProtocolTCP,
 			},
 			{
-				Name:          "https-healthz",
+				Name:          healthPortName,
 				ContainerPort: 10257,
 				Protocol:      corev1.ProtocolTCP,
 			},
@@ -395,7 +383,7 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",
-					Port:   intstr.FromInt(10257),
+					Port:   intstr.FromString(healthPortName),
 					Scheme: corev1.URISchemeHTTPS,
 				},
 			},
@@ -479,6 +467,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 		"--leader-elect=true",
 	}
 
+	healthPortName := "https-healthz"
 	c := corev1.Container{
 		Name:            KubeKubeScheduler,
 		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
@@ -491,7 +480,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 				Protocol:      corev1.ProtocolTCP,
 			},
 			{
-				Name:          "https-healthz",
+				Name:          healthPortName,
 				ContainerPort: 10259,
 				Protocol:      corev1.ProtocolTCP,
 			},
@@ -500,7 +489,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",
-					Port:   intstr.FromInt(10259),
+					Port:   intstr.FromString(healthPortName),
 					Scheme: corev1.URISchemeHTTPS,
 				},
 			},

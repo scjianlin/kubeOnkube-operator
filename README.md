@@ -1,28 +1,64 @@
 # Kunkka
-Step lively now, your Admiral is on board!
 
-# init tool
+Kunkka 是一个自动化部署高可用kubernetes的operator
 
-~~~shell
-# 初始化二进制文件, 进入tools目录
+# 特性
+
+- 云原生架构，crd+controller，采用声明式api描述一个集群的最终状态
+- 可以启用一个fake-cluster，解决裸金属第一次部署集群没有元集群问题
+- 无坑版100年集群证书
+- 除kubelet外集群组件全部容器化部署，componentstatuses可以发现三个etcd
+- 支持coredns, flannel，metrics-server等基础组件模板化部署
+- 支持部署master托管集群
+
+# 安装部署
+
+## 准备
+
+下载fake-cluster需要二进制文件，启动fake-cluster
+
+```bash
+# 下载二进制文件, 进入tools目录
 $ cd tools
 $ ./init.sh
 
-# 进入项目根目录 
-# 运行 fake apiserver
-go run cmd/admin-controller/main.go fake -v 4 
+# 进入项目根目录  运行 fake apiserver
+$ cd ..
+$ go run cmd/admin-controller/main.go fake -v 4 
 
 # 运行正常后
-$ ls -l k8s/cfg/fake-kubeconfig.yaml
--rw-------  1 xk  staff  276  6  3 10:23 k8s/cfg/fake-kubeconfig.yaml
+$ cat k8s/cfg/fake-kubeconfig.yaml
+apiVersion: v1
+clusters:
+- cluster:
+    server: 127.0.0.1:18080
+  name: fake-cluster
+contexts:
+- context:
+    cluster: fake-cluster
+    user: devops
+  name: devops@fake-cluster
+current-context: devops@fake-cluster
+kind: Config
+preferences: {}
+users:
+- name: devops
+  user: {}
+```
 
+## 运行
+
+```bash
 # apply crd
-$ export KUBECONFIG=k8s/cfg/fake-kubeconfig.yaml && kubectl apply -f config/crd/bases/ 
+$ export KUBECONFIG=k8s/cfg/fake-kubeconfig.yaml && kubectl apply -f manifests/crds/
 customresourcedefinition.apiextensions.k8s.io/clustercredentials.devops.gostship.io created
 customresourcedefinition.apiextensions.k8s.io/clusters.devops.gostship.io created
 customresourcedefinition.apiextensions.k8s.io/machines.devops.gostship.io created
 
+# 运行
+$ go run cmd/admin-controller/main.go ctrl -v 4 --kubeconfig=k8s/cfg/fake-kubeconfig.yaml
+```
 
-# 运行 ctrl
-go run cmd/admin-controller/main.go ctrl -v 4 --kubeconfig=k8s/cfg/fake-kubeconfig.yaml
-~~~
+# 计划
+
+- [x]  master组件托管

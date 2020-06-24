@@ -227,13 +227,8 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) erro
 		c.ClusterCredential.CAKey = certsMap.BinaryData["ca.key"]
 	}
 
-	bindPort := 6443
-	if c.Cluster.Spec.Features.HA != nil && c.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
-		bindPort = int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
-	}
-
 	cfgMaps, err := certs.CreateMasterKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
-		certs.BuildApiserverEndpoint(KubeApiServer, bindPort), "", c.Cluster.Name)
+		certs.BuildApiserverEndpoint(KubeApiServer, int(GetBindPort(c))), "", c.Cluster.Name)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err
