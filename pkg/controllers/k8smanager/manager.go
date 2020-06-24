@@ -21,9 +21,7 @@ var (
 
 // key config
 const (
-	KeyKubeconfig = "kubeconfig.yaml"
-	KeyStauts     = "status"
-	ClustersAll   = "all"
+	ClustersAll = "all"
 )
 
 // MasterClient ...

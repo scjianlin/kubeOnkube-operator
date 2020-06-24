@@ -8,6 +8,7 @@ import (
 
 	"sort"
 
+	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	appsv1 "k8s.io/api/apps/v1"
@@ -66,6 +67,24 @@ func GetHPAReplicaCountOrDefault(client client.Client, name types.NamespacedName
 	}
 
 	return hpa.Status.DesiredReplicas
+}
+
+func GetBindPort(obj *common.Cluster) int32 {
+	bindPort := 6443
+	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		bindPort = int(obj.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
+	}
+
+	return int32(bindPort)
+}
+
+func GetAdvertiseAddress(obj *common.Cluster) string {
+	advertiseAddress := "$(INSTANCE_IP)"
+	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		advertiseAddress = obj.Cluster.Spec.Features.HA.ThirdPartyHA.VIP
+	}
+
+	return advertiseAddress
 }
 
 func (r *Reconciler) apiServerCertSecret() runtime.Object {
@@ -135,7 +154,6 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 
 	cmds := []string{
 		"kube-apiserver",
-		"--advertise-address=$(INSTANCE_IP)",
 		"--allow-privileged=true",
 		"--authorization-mode=Node,RBAC",
 		"--client-ca-file=/etc/kubernetes/pki/ca.crt",
@@ -151,13 +169,16 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 		"--requestheader-extra-headers-prefix=X-Remote-Extra-",
 		"--requestheader-group-headers=X-Remote-Group",
 		"--requestheader-username-headers=X-Remote-User",
-		"--secure-port=6443",
 		"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
 		"--tls-cert-file=/etc/kubernetes/pki/apiserver.crt",
 		"--tls-private-key-file=/etc/kubernetes/pki/apiserver.key",
 		"--token-auth-file=/etc/kubernetes/pki/known_tokens.csv",
 	}
 
+	bindPort := GetBindPort(r.Obj)
+	advertiseAddress := GetAdvertiseAddress(r.Obj)
+	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", bindPort))
+	cmds = append(cmds, fmt.Sprintf("--advertise-address=%s", advertiseAddress))
 	if r.Obj.Cluster.Spec.APIServerExtraArgs != nil {
 		extraArgs := []string{}
 		for k, v := range r.Obj.Cluster.Spec.APIServerExtraArgs {
@@ -170,9 +191,9 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	svcCidr := "10.96.0.0/16"
 	if r.Obj.Cluster.Spec.ServiceCIDR != nil {
 		svcCidr = *r.Obj.Cluster.Spec.ServiceCIDR
-		cmds = append(cmds, fmt.Sprintf("--service-cluster-ip-range=%s", svcCidr))
 	}
 
+	cmds = append(cmds, fmt.Sprintf("--service-cluster-ip-range=%s", svcCidr))
 	if r.Obj.Cluster.Spec.Etcd != nil && r.Obj.Cluster.Spec.Etcd.External != nil {
 		cmds = append(cmds, fmt.Sprintf("--etcd-servers=%s", strings.Join(r.Obj.Cluster.Spec.Etcd.External.Endpoints, ",")))
 		// tode check
@@ -187,13 +208,13 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 
 	c := corev1.Container{
 		Name:            KubeApiServer,
-		Image:           r.Provider.Cfg.Registry.ImageFullName(KubeApiServer, r.Obj.Cluster.Spec.Version),
+		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
-				ContainerPort: 6443,
+				ContainerPort: bindPort,
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
@@ -201,7 +222,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 			Handler: corev1.Handler{
 				HTTPGet: &corev1.HTTPGetAction{
 					Path:   "/healthz",
-					Port:   intstr.FromInt(6443),
+					Port:   intstr.FromInt(int(bindPort)),
 					Scheme: corev1.URISchemeHTTPS,
 				},
 			},
@@ -253,6 +274,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 }
 
 func (r *Reconciler) apiServerSvc() runtime.Object {
+	bindPort := GetBindPort(r.Obj)
 	svc := &corev1.Service{
 		ObjectMeta: k8sutil.ObjectMeta(KubeApiServer, KubeApiServerLabels, r.Obj.Cluster),
 		Spec: corev1.ServiceSpec{
@@ -260,7 +282,7 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 				{
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
-					Port:       6443,
+					Port:       bindPort,
 					NodePort:   30443,
 					TargetPort: intstr.FromString("https"),
 				},
@@ -354,7 +376,7 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 
 	c := corev1.Container{
 		Name:            KubeControllerManager,
-		Image:           r.Provider.Cfg.Registry.ImageFullName(KubeControllerManager, r.Obj.Cluster.Spec.Version),
+		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
 		Ports: []corev1.ContainerPort{
@@ -459,7 +481,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 
 	c := corev1.Container{
 		Name:            KubeKubeScheduler,
-		Image:           r.Provider.Cfg.Registry.ImageFullName(KubeKubeScheduler, r.Obj.Cluster.Spec.Version),
+		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
 		Ports: []corev1.ContainerPort{

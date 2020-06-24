@@ -16,7 +16,9 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/addons/coredns"
+	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
 	"github.com/gostship/kunkka/pkg/provider/addons/kubeproxy"
+	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
@@ -32,6 +34,12 @@ import (
 
 const (
 	tokenFileTemplate = `%s,admin,admin,system:masters
+`
+	additPolicy = `
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+- level: Metadata
 `
 )
 
@@ -218,8 +226,14 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) erro
 		c.ClusterCredential.CACert = certsMap.BinaryData["ca.crt"]
 		c.ClusterCredential.CAKey = certsMap.BinaryData["ca.key"]
 	}
+
+	bindPort := 6443
+	if c.Cluster.Spec.Features.HA != nil && c.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		bindPort = int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
+	}
+
 	cfgMaps, err := certs.CreateMasterKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
-		certs.BuildApiserverEndpoint("kube-apiserver", 6443), "", c.Cluster.Name)
+		certs.BuildApiserverEndpoint(KubeApiServer, bindPort), "", c.Cluster.Name)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err
@@ -238,13 +252,6 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) erro
 		}
 		k8sconfigmap.Data[noPathFile] = string(by)
 	}
-
-	additPolicy := `
-apiVersion: audit.k8s.io/v1
-kind: Policy
-rules:
-- level: Metadata
-`
 
 	k8sconfigmap.Data["audit-policy.yaml"] = additPolicy
 
@@ -346,5 +353,49 @@ func (p *Provider) EnsureAddons(ctx context.Context, c *common.Cluster) error {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}
 	}
+	return nil
+}
+
+func (p *Provider) EnsureFlannel(ctx context.Context, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
+	if err != nil {
+		return nil
+	}
+	objs, err := flannel.BuildFlannelAddon(p.Cfg, c)
+	if err != nil {
+		return errors.Wrapf(err, "build flannel err: %v", err)
+	}
+
+	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "flannel")
+	logger.Info("start reconcile ...")
+	for _, obj := range objs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		if err != nil {
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
+	if err != nil {
+		return nil
+	}
+	objs, err := metricsserver.BuildMetricsServerAddon(c)
+	if err != nil {
+		return errors.Wrapf(err, "build flannel err: %v", err)
+	}
+
+	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
+	logger.Info("start reconcile ...")
+	for _, obj := range objs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStateAbsent)
+		if err != nil {
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
+	}
+
 	return nil
 }

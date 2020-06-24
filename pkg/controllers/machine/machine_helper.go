@@ -43,6 +43,8 @@ func (r *machineReconciler) onCreate(ctx context.Context, rc *manchineContext) e
 	clusterWrapper := &common.Cluster{
 		Cluster:           rc.Cluster,
 		ClusterCredential: rc.ClusterCredential,
+		Client:            r.Client,
+		ClusterManager:    r.ClusterManager,
 	}
 	err = p.OnCreate(ctx, rc.Machine, clusterWrapper)
 	if err != nil {
@@ -79,6 +81,8 @@ func (r *machineReconciler) onUpdate(ctx context.Context, rc *manchineContext) e
 	clusterWrapper := &common.Cluster{
 		Cluster:           rc.Cluster,
 		ClusterCredential: rc.ClusterCredential,
+		Client:            r.Client,
+		ClusterManager:    r.ClusterManager,
 	}
 
 	err = p.OnUpdate(ctx, rc.Machine, clusterWrapper)

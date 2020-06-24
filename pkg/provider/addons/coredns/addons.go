@@ -195,9 +195,6 @@ metadata:
   annotations:
     prometheus.io/port: "9153"
     prometheus.io/scrape: "true"
-  # Without this resourceVersion value, an update of the Service between versions will yield:
-  #   Service "kube-dns" is invalid: metadata.resourceVersion: Invalid value: "": must be specified for an update
-  resourceVersion: "0"
 spec:
   clusterIP: {{ .DNSIP }}
   ports:

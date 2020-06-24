@@ -454,7 +454,7 @@ func (p *Provider) EnsureMarkControlPlane(ctx context.Context, c *common.Cluster
 }
 
 func (p *Provider) EnsureRegistryHosts(ctx context.Context, c *common.Cluster) error {
-	if !p.Cfg.Registry.NeedSetHosts() {
+	if !p.Cfg.NeedSetHosts() {
 		return nil
 	}
 

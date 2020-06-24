@@ -114,10 +114,22 @@ const (
 
 	// NodeBootstrapTokenAuthGroup specifies which group a Node Bootstrap Token should be authenticated in
 	NodeBootstrapTokenAuthGroup = "system:bootstrappers:kubeadm:default-node-token"
+
+	KubernetesAllImageName = "kubernetes"
 )
 
 // GetGenericImage generates and returns a platform agnostic image (backed by manifest list)
 func GetGenericImage(prefix, image, tag string) string {
+	if strings.HasPrefix(image, "kube") {
+		if !strings.Contains(tag, "v") {
+			tag = "v" + tag
+		}
+	}
+	return fmt.Sprintf("%s/%s:%s", prefix, image, tag)
+}
+
+// GetKubeImage base centes images all kube
+func GetKubeImage(prefix, image, tag string) string {
 	if strings.HasPrefix(image, "kube") {
 		if !strings.Contains(tag, "v") {
 			tag = "v" + tag

@@ -110,7 +110,7 @@ func (p *Provider) EnsurePreflight(ctx context.Context, machine *devopsv1.Machin
 }
 
 func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	if !p.Cfg.Registry.NeedSetHosts() {
+	if !p.Cfg.NeedSetHosts() {
 		return nil
 	}
 

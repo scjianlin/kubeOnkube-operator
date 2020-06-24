@@ -117,7 +117,7 @@ func (p *Provider) EnsurePreflight(ctx context.Context, machine *devopsv1.Machin
 }
 
 func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	if !p.Cfg.Registry.NeedSetHosts() {
+	if !p.Cfg.NeedSetHosts() {
 		return nil
 	}
 
@@ -261,13 +261,13 @@ func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine
 	return nil
 }
 
-func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	clientset, err := cluster.Clientset()
+func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
 	if err != nil {
-		return err
+		return nil
 	}
 
-	err = apiclient.MarkNode(ctx, clientset, machine.Spec.Machine.IP, machine.Spec.Machine.Labels, machine.Spec.Machine.Taints)
+	err = apiclient.MarkNode(ctx, clusterCtx.KubeCli, machine.Spec.Machine.IP, machine.Spec.Machine.Labels, machine.Spec.Machine.Taints)
 	if err != nil {
 		return err
 	}
@@ -275,14 +275,13 @@ func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine
 }
 
 func (p *Provider) EnsureNodeReady(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
-	clientset, err := InClusterClientset(c, apiserver)
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
 	if err != nil {
-		return err
+		return nil
 	}
 
 	return wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
-		node, err := clientset.CoreV1().Nodes().Get(ctx, machine.Spec.Machine.IP, metav1.GetOptions{})
+		node, err := clusterCtx.KubeCli.CoreV1().Nodes().Get(ctx, machine.Spec.Machine.IP, metav1.GetOptions{})
 		if err != nil {
 			return false, nil
 		}

@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientsetscheme "k8s.io/client-go/kubernetes/scheme"
+	componentbaseconfigv1alpha1 "k8s.io/component-base/config/v1alpha1"
 	"k8s.io/klog"
 )
 
@@ -155,7 +156,11 @@ func getKubeProxyConfiguration(c *common.Cluster) *kubeproxyv1alpha1.KubeProxyCo
 	}
 
 	return &kubeproxyv1alpha1.KubeProxyConfiguration{
-		Mode: kubeproxyv1alpha1.ProxyMode(kubeProxyMode),
+		BindAddress: "0.0.0.0",
+		Mode:        kubeproxyv1alpha1.ProxyMode(kubeProxyMode),
+		ClientConnection: componentbaseconfigv1alpha1.ClientConnectionConfiguration{
+			Kubeconfig: "/var/lib/kube-proxy/kubeconfig.conf",
+		},
 	}
 }
 
@@ -182,7 +187,7 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	if err != nil {
 		return nil, errors.Wrap(err, "error when kubeproxyMarshal")
 	}
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
 	proxyConfigMapBytes, err := template.ParseString(KubeProxyConfigMap19,
 		struct {
 			ControlPlaneEndpoint string
@@ -207,7 +212,7 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	objs = append(objs, kubeproxyConfigMap)
 
 	proxyDaemonSetBytes, err := template.ParseString(KubeProxyDaemonSet19, struct{ Image, ProxyConfigMap, ProxyConfigMapKey string }{
-		Image:             constants.GetGenericImage(cfg.Registry.Prefix, constants.KubeProxyImageName, c.Cluster.Spec.Version),
+		Image:             cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version),
 		ProxyConfigMap:    constants.KubeProxyConfigMap,
 		ProxyConfigMapKey: constants.KubeProxyConfigMapKey,
 	})
@@ -222,6 +227,13 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	// Propagate the http/https proxy host environment variables to the container
 	env := &kubeproxyDaemonSet.Spec.Template.Spec.Containers[0].Env
 	*env = append(*env, GetProxyEnvVars()...)
+
+	kubeproxyDaemonSet.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
+		{
+			IP:        c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP,
+			Hostnames: []string{c.Cluster.Spec.PublicAlternativeNames[0]},
+		},
+	}
 
 	objs = append(objs, kubeproxyDaemonSet)
 
@@ -276,8 +288,9 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 		},
 		Subjects: []rbacv1.Subject{
 			{
-				Kind: rbacv1.GroupKind,
-				Name: constants.NodeBootstrapTokenAuthGroup,
+				Kind:     rbacv1.GroupKind,
+				APIGroup: rbacv1.GroupName,
+				Name:     constants.NodeBootstrapTokenAuthGroup,
 			},
 		},
 	}

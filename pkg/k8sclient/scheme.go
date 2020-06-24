@@ -22,6 +22,7 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	apiregistrationv1beta1 "k8s.io/kube-aggregator/pkg/apis/apiregistration/v1beta1"
 	//  monitorv1 "github.com/coreos/prometheus-operator/pkg/apis/monitoring/v1"
 )
 
@@ -32,7 +33,7 @@ var (
 func init() {
 	_ = clientgoscheme.AddToScheme(scheme)
 	_ = apiextensionsv1beta1.AddToScheme(scheme)
-
+	_ = apiregistrationv1beta1.AddToScheme(scheme)
 	_ = devopsv1.AddToScheme(scheme)
 	// _ = monitorv1.AddToScheme(scheme)
 }

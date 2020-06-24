@@ -147,9 +147,11 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterCont
 	if extKubeconfig, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
 		_, err := r.GManager.AddNewClusters(rc.Cluster.Name, extKubeconfig)
 		if err != nil {
-			klog.Infof("add cluster: %s to manager cache", rc.Cluster.Name)
-			r.ClusterStarted[rc.Cluster.Name] = true
+			klog.Errorf("failed add cluster: %s manager cache", rc.Cluster.Name)
+			return nil
 		}
+		klog.Infof("#######  add cluster: %s to manager cache success", rc.Cluster.Name)
+		r.ClusterStarted[rc.Cluster.Name] = true
 		return nil
 	}
 

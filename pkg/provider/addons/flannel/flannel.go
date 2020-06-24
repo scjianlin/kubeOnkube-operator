@@ -2,14 +2,10 @@ package flannel
 
 import (
 	"bytes"
-	"fmt"
 
-	"os"
-
-	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/config"
-	"github.com/gostship/kunkka/pkg/util/ssh"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog"
@@ -187,7 +183,7 @@ spec:
       serviceAccountName: flannel
       initContainers:
       - name: install-cni
-        image: quay.io/coreos/flannel:v0.12.0-amd64
+        image: "{{ default "quay.io/coreos/flannel:v0.12.0-amd64" .ImageName }}"
         command:
         - cp
         args:
@@ -201,7 +197,7 @@ spec:
           mountPath: /etc/kube-flannel/
       containers:
       - name: kube-flannel
-        image: quay.io/coreos/flannel:v0.12.0-amd64
+        image: "{{ default "quay.io/coreos/flannel:v0.12.0-amd64" .ImageName }}"
         command:
         - /opt/bin/flanneld
         args:
@@ -248,29 +244,25 @@ spec:
 type Option struct {
 	ClusterPodCidr string
 	BackendType    string
-}
-
-func Install(s ssh.Interface, option *Option) error {
-	data, err := template.ParseString(flannelTemplate, option)
-	if err != nil {
-		return err
-	}
-
-	err = s.WriteFile(bytes.NewReader(data), constants.FlannelDirFile)
-	if err != nil {
-		return err
-	}
-
-	cmd := fmt.Sprintf("kubectl apply -f %s", constants.FlannelDirFile)
-	exit, err := s.ExecStream(cmd, os.Stdout, os.Stderr)
-	if err != nil {
-		klog.Errorf("%q %+v", exit, err)
-		return err
-	}
-
-	return nil
+	ImageName      string
 }
 
 func BuildFlannelAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Object, error) {
+	opt := &Option{
+		ClusterPodCidr: c.Cluster.Spec.ClusterCIDR,
+		BackendType:    "vxlan",
+		ImageName:      "",
+	}
+	data, err := template.ParseString(flannelTemplate, opt)
+	if err != nil {
+		return nil, err
+	}
 
+	objs, err := k8sutil.LoadObjs(bytes.NewReader(data))
+	if err != nil {
+		klog.Errorf("flannel load objs err: %v", err)
+		return nil, err
+	}
+
+	return objs, nil
 }

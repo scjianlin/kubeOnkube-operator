@@ -15,7 +15,7 @@ spec:
   tenantID: k8s
   displayName: demo
   type: Escrow
-  version: 1.18.2
+  version: 1.18.4
   networkType: eth0
   clusterCIDR: 10.97.0.0/16
   serviceCIDR: 10.96.0.0/16
@@ -23,15 +23,13 @@ spec:
   publicAlternativeNames:
     - escrow-cluster.dke.k8s.io
     - kube-apiserver
-    - kube-apiserver.escrow-cluster
-    - kube-apiserver.escrow-cluster.svc
   features:
     ipvs: true
     internalLB: true
     enableMasterSchedule: true
     ha:
       thirdParty:
-        vip: "escrow-cluster.dke.k8s.io"
+        vip: "10.248.224.183"
         vport: 30443
     hooks:
       PostCniInstall: flannel

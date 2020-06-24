@@ -3,15 +3,17 @@ package config
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"path"
 	"strings"
 )
 
 type Config struct {
-	Registry    Registry
-	Audit       Audit
-	Feature     Feature
-	CustomeCert bool
+	Registry       Registry
+	Audit          Audit
+	Feature        Feature
+	CustomRegistry string
+	CustomeCert    bool
 }
 
 type Registry struct {
@@ -34,6 +36,7 @@ func NewDefaultConfig() (*Config, error) {
 		Registry: Registry{
 			Prefix: "registry.aliyuncs.com/google_containers",
 		},
+		CustomRegistry: "symcn.tencentcloudcr.com/symcn",
 	}
 
 	s := strings.Split(config.Registry.Prefix, "/")
@@ -46,20 +49,28 @@ func NewDefaultConfig() (*Config, error) {
 	return config, nil
 }
 
-func (r *Registry) NeedSetHosts() bool {
-	return r.IP != ""
+func (r *Config) NeedSetHosts() bool {
+	return r.Registry.IP != ""
 }
 
-func (r *Registry) ImageFullName(Name, Tag string) string {
+func (r *Config) ImageFullName(name, tag string) string {
 	b := new(bytes.Buffer)
-	b.WriteString(Name)
-	if Tag != "" {
-		if !strings.Contains(Tag, "v") {
-			b.WriteString(":" + "v" + Tag)
+	b.WriteString(name)
+	if tag != "" {
+		if !strings.Contains(tag, "v") {
+			b.WriteString(":" + "v" + tag)
 		} else {
-			b.WriteString(":" + Tag)
+			b.WriteString(":" + tag)
 		}
 	}
 
-	return path.Join(r.Domain, r.Namespace, b.String())
+	return path.Join(r.Registry.Domain, r.Registry.Namespace, b.String())
+}
+
+func (r *Config) KubeAllImageFullName(name, tag string) string {
+	if !strings.Contains(tag, "v") {
+		tag = "v" + tag
+	}
+
+	return fmt.Sprintf("%s/%s:%s", r.CustomRegistry, name, tag)
 }
