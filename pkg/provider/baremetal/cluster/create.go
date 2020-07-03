@@ -373,7 +373,7 @@ func (p *Provider) EnsureStoreCredential(ctx context.Context, c *common.Cluster)
 }
 
 func (p *Provider) EnsureSystem(ctx context.Context, c *common.Cluster) error {
-	dockerVersion := "19.03.8"
+	dockerVersion := "19.03.9"
 	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
 		dockerVersion = v
 	}

@@ -24,7 +24,7 @@ $ ./init.sh
 
 # 进入项目根目录  运行 fake apiserver
 $ cd ..
-$ go run cmd/admin-controller/main.go fake -v 4 
+$ go run cmd/admin-controller/main.go fake --baseBinDir k8s/bin --rootDir k8s -v 4 
 
 # 运行正常后
 $ cat k8s/cfg/fake-kubeconfig.yaml
@@ -48,6 +48,7 @@ users:
 
 ## 运行
 
+本地运行
 ```bash
 # apply crd
 $ export KUBECONFIG=k8s/cfg/fake-kubeconfig.yaml && kubectl apply -f manifests/crds/
@@ -58,7 +59,24 @@ customresourcedefinition.apiextensions.k8s.io/machines.devops.gostship.io create
 # 运行
 $ go run cmd/admin-controller/main.go ctrl -v 4 --kubeconfig=k8s/cfg/fake-kubeconfig.yaml
 ```
+docker 运行
+```bash
+docker run --name fake-cluster -d --restart=always \
+   --net="host" \
+   --pid="host" \
+   -v /root/kunkka/k8s:/k8s \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.1-dev1 \
+   kunkka-controller fake -v 4
 
+docker run --name kunkka-controller -d --restart=always \
+   --net="host" \
+   --pid="host" \
+   -v /root/kunkka/k8s:/k8s \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.1-dev1 \
+   kunkka-controller ctrl -v 4 --kubeconfig=/k8s/cfg/fake-kubeconfig.yaml
+
+export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
+```
 # 计划
 
 - [x]  master组件托管

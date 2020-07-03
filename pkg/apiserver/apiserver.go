@@ -64,6 +64,7 @@ type ServerWarpper struct {
 	AttachControlPlaneOutput bool
 
 	BasePath string
+	RootDir  string
 	*option.ApiServerOption
 }
 
@@ -73,6 +74,7 @@ func New(o *option.ApiServerOption) *ServerWarpper {
 		AttachControlPlaneOutput: true,
 		BasePath:                 o.BaseBinDir,
 		ApiServerOption:          o,
+		RootDir:                  o.RootDir,
 	}
 }
 
@@ -128,7 +130,7 @@ func (te *ServerWarpper) Start(stopCh <-chan struct{}) (*rest.Config, error) {
 	if te.ControlPlane.Etcd == nil {
 		te.ControlPlane.Etcd = &internal.Etcd{
 			Path:    te.fillAssetPath("etcd"),
-			DataDir: "k8s/data/etcd",
+			DataDir: te.RootDir + "/data/etcd",
 			URL: &url.URL{
 				Scheme: "http",
 				Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(12379)),

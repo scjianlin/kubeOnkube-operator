@@ -75,7 +75,7 @@ func tryRun(opt *option.ApiServerOption, stopCh <-chan struct{}) error {
 			return err
 		}
 
-		err = CreateKubeConfigFile("k8s/cfg", "fake-kubeconfig.yaml", cfg)
+		err = CreateKubeConfigFile(opt.RootDir+"/cfg", "fake-kubeconfig.yaml", cfg)
 		if err != nil {
 			return err
 		}
