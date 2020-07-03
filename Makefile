@@ -1,8 +1,20 @@
-
+VERSION ?= v0.0.1-dev1
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG_REG ?= symcn.tencentcloudcr.com/symcn
+IMG_CTL := $(IMG_REG)/kunkka
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
+
+# This repo's root import path (under GOPATH).
+ROOT := github.com/gostship/kunkka
+
+GO_VERSION := 1.14.4
+ARCH     ?= $(shell go env GOARCH)
+BUILD_DATE = $(shell date +'%Y-%m-%dT%H:%M:%SZ')
+COMMIT    = $(shell git rev-parse --short HEAD)
+GOENV    := CGO_ENABLED=0 GOOS=$(shell uname -s | tr A-Z a-z) GOARCH=$(ARCH) GOPROXY=https://goproxy.io,direct
+#GO       := $(GOENV) go build -mod=vendor
+GO       := $(GOENV) go build
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -18,8 +30,10 @@ test: generate fmt vet manifests
 	go test ./... -coverprofile cover.out
 
 # Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager main.go
+manager: manager-controller
+
+manager-controller: generate fmt
+	GOOS=linux GOARCH=amd64 go build -o bin/admin-controller -ldflags "-s -w -X $(ROOT)/pkg/version.Release=$(VERSION) -X $(ROOT)/pkg/version.Commit=$(COMMIT) -X $(ROOT)/pkg/version.BuildDate=$(BUILD_DATE)" cmd/admin-controller/main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
 run: generate fmt vet manifests
@@ -55,12 +69,20 @@ pre-build:
 #	go generate ./pkg/... ./cmd/...
 
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+docker-build-controller:
+	docker run --rm -v "$$PWD":/go/src/${ROOT} -v ${GOPATH}/pkg/mod:/go/pkg/mod -w /go/src/${ROOT} golang:${GO_VERSION} make build-controller
+
+build: build-controller
+
+build-controller:
+	$(GO) -v -o bin/kunkka-controller -ldflags "-s -w -X $(ROOT)/pkg/version.Release=$(VERSION) -X  $(ROOT)/pkg/version.Commit=$(COMMIT)   \
+	-X  $(ROOT)/pkg/version.BuildDate=$(BUILD_DATE)" cmd/admin-controller/main.go
+
 
 # Push the docker image
 docker-push:
-	docker push ${IMG}
+	docker build -t ${IMG_CTL}:${VERSION} -f ./docker/kunkka/Dockerfile .
+	docker push ${IMG_CTL}:${VERSION}
 
 # find or download controller-gen
 # download controller-gen if necessary

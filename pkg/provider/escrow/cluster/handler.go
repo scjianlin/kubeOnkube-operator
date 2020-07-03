@@ -380,13 +380,13 @@ func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) e
 	}
 	objs, err := metricsserver.BuildMetricsServerAddon(c)
 	if err != nil {
-		return errors.Wrapf(err, "build flannel err: %v", err)
+		return errors.Wrapf(err, "build metrics-server err: %v", err)
 	}
 
 	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
 	logger.Info("start reconcile ...")
 	for _, obj := range objs {
-		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStateAbsent)
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}
