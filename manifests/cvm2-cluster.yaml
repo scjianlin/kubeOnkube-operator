@@ -17,39 +17,32 @@ spec:
   type: Baremetal
   version: 1.18.2
   networkType: eth0
-  clusterCIDR: 10.49.255.0/24
-  serviceCIDR: 10.90.0.0/16
+  clusterCIDR: 10.27.184.0/21
+  serviceCIDR: 172.27.248.0/22
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - vip2.dke.k8s.io
+    - apivip2.dke.k8s.io
   features:
     ipvs: true
     internalLB: true
     enableMasterSchedule: true
-    ha:
-      thirdParty:
-        vip: "10.248.224.217"
-        vport: 443
-    files:
-      - src: "k8s/linuxbin/k9s"
-        dst: "/usr/local/bin/k9s"
     hooks:
       PostCniInstall: flannel
   properties:
     maxNodePodNum: 64
   machines:
-    - ip: 10.248.224.183
+    - ip: 10.27.187.242
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
-    - ip: 10.248.224.201
+      password: "123456"
+    - ip: 10.27.187.241
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
-    - ip: 10.248.224.199
+      password: "123456"
+    - ip: 10.27.187.243
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+      password: "123456"
   apiServerExtraArgs:
     audit-log-maxage: "30"
     audit-log-maxbackup: "3"
