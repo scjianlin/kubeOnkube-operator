@@ -10,6 +10,41 @@ import (
 )
 
 const (
+	initShellTemplate = `
+#!/usr/bin/env bash
+
+set -xeuo pipefail
+
+function Bridge_network(){
+#cni0
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-cni0
+TYPE=bridge
+ONBOOT=yes
+DEVICE=cni0
+BOOTPROTO=static
+IPV4_FAILURE_FATAL=no
+NAME=cni0
+BRIDGE_STP=yes
+EOF
+egrep -i "IPADDR|PREFIX|NETMASK|GATEWAY" /etc/sysconfig/network-scripts/ifcfg-eth1 >> /etc/sysconfig/network-scripts/ifcfg-cni0
+ 
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
+#ifcfg-eth1
+TYPE=Ethernet
+PROXY_METHOD=none
+BROWSER_ONLY=no
+BOOTPROTO=none
+DEFROUTE=yes
+IPV4_FAILURE_FATAL=no
+NAME=eth1
+DEVICE=eth1
+ONBOOT=yes
+BRIDGE=cni0
+EOF
+systemctl restart NetworkManager
+}
+`
+
 	hostLocalTemplate = `
 {
  "cniVersion": "{{ default "0.3.1" .CniVersion}}",

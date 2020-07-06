@@ -5,48 +5,22 @@ const (
 #!/usr/bin/env bash
 
 set -xeuo pipefail
-function Bridge_network(){
-#cni0
-cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-cni0
-TYPE=bridge
-ONBOOT=yes
-DEVICE=cni0
-BOOTPROTO=static
-IPV4_FAILURE_FATAL=no
-NAME=cni0
-BRIDGE_STP=yes
-EOF
-egrep -i "IPADDR|PREFIX|NETMASK|GATEWAY" /etc/sysconfig/network-scripts/ifcfg-eth1 >> /etc/sysconfig/network-scripts/ifcfg-cni0
- 
-cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
-#ifcfg-eth1
-TYPE=Ethernet
-PROXY_METHOD=none
-BROWSER_ONLY=no
-BOOTPROTO=none
-DEFROUTE=yes
-IPV4_FAILURE_FATAL=no
-NAME=eth1
-DEVICE=eth1
-ONBOOT=yes
-BRIDGE=cni0
-EOF
-systemctl restart NetworkManager
-}
+
 function Update_yumrepo(){
 	rm -rvf /etc/yum.repos.d/*.repo
     curl https://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel-7.repo
     curl https://mirrors.aliyun.com/repo/Centos-7.repo -o /etc/yum.repos.d/Centos-7.repo
     cat << EOF | tee /etc/yum.repos.d/{{ .KernelRepo }}.repo
 [kernel]
-name= Linux Kernel Repository - el7
+name=Linux Kernel Repository - el7
 baseurl=http://{{ .KernelRepo }}/centos/7/kernel/el7/x86_64/RPMS
 enabled=1
 gpgcheck=0
 EOF
 }
+
 function Update_kernel() {
-     echo -e "\033[32;32m 列出可用内核... \033[0m \n"
+    echo -e "\033[32;32m 列出可用内核... \033[0m \n"
     yum --disablerepo="*" --enablerepo="kernel" list available
     echo -e "\033[32;32m 安装稳定版内核... \033[0m \n"
     yum --enablerepo=kernel install kernel-ml kernel-ml-devel kernel-ml-headers  -y
@@ -72,6 +46,7 @@ function Firewalld_process() {
     echo -e "\033[32;32m 关闭swap \033[0m \n"
     swapoff -a && sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
 }
+
 function Install_depend_software(){
     echo -e "\033[32;32m 开始安装依赖环境包 \033[0m \n" 
     yum makecache fast
@@ -81,22 +56,23 @@ function Install_depend_software(){
            tcpdump bash-completion sysstat chrony jq psmisc socat \
            cri-o sysstat conntrack  iproute dstat lsof perl bind-utils cgroup
 }
+
 function Install_depend_environment(){
     if [ -f /etc/sysctl.d/k8s.conf ]; then
       echo -e "\033[32;32m  k8s.conf已存在；备份文件为k8s.conf.bak \033[0m \n" 
       cp /etc/sysctl.d/k8s.conf{,.bak}
     fi
     echo -e "\033[32;32m 开始优化 k8s 内核参数 \033[0m \n"
-    #set kernel
-echo "* soft nofile 1024000">>/etc/security/limits.conf
-echo "* hard nofile 1024000">>/etc/security/limits.conf
-echo "* soft nproc 1024000">>/etc/security/limits.conf
-echo "* hard nproc 1024000">>/etc/security/limits.conf
->/etc/security/limits.d/90-nproc.conf
-echo "* soft nproc 1024000">>/etc/security/limits.d/90-nproc.conf
-echo "root soft nproc unlimited">>/etc/security/limits.d/90-nproc.conf
+
+    echo "* soft nofile 1024000" >> /etc/security/limits.conf
+    echo "* hard nofile 1024000" >> /etc/security/limits.conf
+    echo "* soft nproc 1024000" >> /etc/security/limits.conf
+    echo "* hard nproc 1024000" >> /etc/security/limits.conf
+
+    echo "* soft nproc 1024000" > /etc/security/limits.d/90-nproc.conf
+    echo "root soft nproc unlimited" >> /etc/security/limits.d/90-nproc.conf
  
-echo > /etc/sysctl.conf
+    echo > /etc/sysctl.conf
 cat << EOF | tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
@@ -149,24 +125,25 @@ vm.dirty_ratio = 10
 net.ipv4.tcp_fastopen = 3
 kernel.pid_max = 245760
 EOF
-chattr +i /etc/sysctl.d/k8s.conf
-sysctl --system
-sysctl -p /etc/sysctl.d/k8s.conf
-systemctl enable chronyd && systemctl start chronyd && chronyc sources
+    chattr +i /etc/sysctl.d/k8s.conf
+    sysctl --system
+    sysctl -p /etc/sysctl.d/k8s.conf
+    systemctl enable chronyd && systemctl start chronyd && chronyc sources
 }
+
 function Install_ipvs(){
     echo -e "\033[32;32m 开始配置系统ipvs \033[0m \n"
-	cat <<EOF |tee /etc/sysconfig/modules/ipvs.modules
+	cat <<EOF | tee /etc/sysconfig/modules/ipvs.modules
 #!/bin/bash
 ipvs_modules="ip_vs ip_vs_lc ip_vs_wlc ip_vs_rr ip_vs_wrr ip_vs_lblc ip_vs_lblcr ip_vs_dh ip_vs_sh ip_vs_fo ip_vs_nq ip_vs_sed ip_vs_ftp nf_conntrack"
-for kernel_module in \${ipvs_modules}; do
-    /sbin/modinfo -F filename \${kernel_module} > /dev/null 2>&1
+for kernel_module in ${ipvs_modules}; do
+   /sbin/modinfo -F filename ${kernel_module} > /dev/null 2>&1
    if [ \$? -eq 0 ]; then
-        /sbin/modprobe \${kernel_module}
+        /sbin/modprobe ${kernel_module}
    fi
 done
 EOF
-chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep ip_vs
+    chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep ip_vs
 }
 
 function Install_docker(){
