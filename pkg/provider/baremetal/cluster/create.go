@@ -626,7 +626,7 @@ func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *common.Cluster
 			return err
 		}
 
-		_, _, _, err = sh.Execf("systemctl restart kubelet")
+		_, _, _, err = sh.Execf("systemctl enable kubelet && systemctl restart kubelet")
 		if err != nil {
 			return err
 		}

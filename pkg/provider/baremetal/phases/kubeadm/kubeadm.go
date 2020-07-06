@@ -99,6 +99,10 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	}
 	klog.Info(string(out))
 
+	_, _, _, err = s.Execf("systemctl enable kubelet && systemctl restart kubelet")
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -166,7 +170,7 @@ func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error
 
 	apiserver := certs.BuildApiserverEndpoint(s.HostIP(), int(warp.LocalAPIEndpoint.BindPort))
 	cfgMaps, err := certs.CreateKubeConfigFile(c.ClusterCredential.CAKey,
-		c.ClusterCredential.CACert, apiserver, "", warp.ClusterName)
+		c.ClusterCredential.CACert, apiserver, s.HostIP(), warp.ClusterName)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err
