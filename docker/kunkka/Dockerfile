@@ -10,14 +10,10 @@ RUN curl -fsSL https://github.com/derailed/k9s/releases/download/$K9S_SERVER_VER
 
 ENV CNI_PLUGINS_VERSION v0.8.6
 RUN curl -fsSL https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGINS_VERSION/cni-plugins-linux-amd64-$CNI_PLUGINS_VERSION.tgz -o cni.tgz \
-    && mkdir -p /opt/cni/bin/ \
-    && tar -C /opt/cni/bin/ -xzf cni.tgz \
-    && rm cni.tgz
+    && mv cni.tgz /opt/
 
 FROM symcn.tencentcloudcr.com/symcn/kubernetes:${K8S_BASE_VERSION}
 
-COPY --from=default /opt/cni/bin /opt/cni/bin
+COPY --from=default /opt/cni.tgz /opt/
 COPY --from=default /usr/local/k9s /usr/local/bin/
 COPY bin/kunkka-controller /usr/local/bin/
-
-COPY Dockerfile /Dockerfile

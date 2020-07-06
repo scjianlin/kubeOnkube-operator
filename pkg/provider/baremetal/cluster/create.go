@@ -50,6 +50,13 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, c *common.Cluster) error
 			if err != nil {
 				return err
 			}
+
+			if strings.Contains(file.Dst, "bin") {
+				_, _, _, err = machineSSH.Execf("chmod a+x %s", file.Dst)
+				if err != nil {
+					return err
+				}
+			}
 		}
 	}
 
@@ -212,16 +219,8 @@ func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *co
 	if err != nil {
 		return err
 	}
-	err = kubeadm.Init(machineSSH, p.getKubeadmConfig(c),
+	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c),
 		fmt.Sprintf("kubelet-start --node-name=%s", c.Spec.Machines[0].IP))
-	if err != nil {
-		return err
-	}
-
-	if !p.Cfg.CustomeImages {
-		return nil
-	}
-	return kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
 }
 
 func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *common.Cluster) error {
@@ -333,13 +332,11 @@ func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluste
 			return errors.Wrap(err, machine.IP)
 		}
 
-		if !p.Cfg.CustomeImages {
-			continue
-		}
-
-		err = kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
-		if err != nil {
-			return errors.Wrap(err, machine.IP)
+		if p.Cfg.CustomeImages {
+			err = kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
+			if err != nil {
+				return errors.Wrap(err, machine.IP)
+			}
 		}
 	}
 
@@ -436,8 +433,19 @@ func (p *Provider) EnsureSystem(ctx context.Context, c *common.Cluster) error {
 }
 
 func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c *common.Cluster) error {
-	start := time.Now()
+	if p.Cfg.CustomeImages {
+		machineSSH, err := c.Spec.Machines[0].SSH()
+		if err != nil {
+			return err
+		}
+		err = kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
+		if err != nil {
+			klog.Errorf("ApplyCustomImagesMaster err: %v", err)
+			return err
+		}
+	}
 
+	start := time.Now()
 	return wait.PollImmediate(5*time.Second, 5*time.Minute, func() (bool, error) {
 		healthStatus := 0
 		clientset, err := c.ClientsetForBootstrap()
