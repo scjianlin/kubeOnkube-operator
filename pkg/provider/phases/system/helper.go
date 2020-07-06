@@ -9,10 +9,10 @@ set -xeuo pipefail
 function Update_yumrepo(){
 	rm -rvf /etc/yum.repos.d/*.repo
     curl https://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel-7.repo
-    curl https://mirrors.aliyun.com/repo/Centos-7.repo -o /etc/yum.repos.d/Centos-7.repo
+    curl https://mirrors.aliyun.com/repo/Centos-{{ default "7" .CentosVersion }}.repo -o /etc/yum.repos.d/Centos-Base.repo
     cat << EOF | tee /etc/yum.repos.d/{{ .KernelRepo }}.repo
 [kernel]
-name=Linux Kernel Repository - el7
+name=Linux Kernel Repository
 baseurl=http://{{ .KernelRepo }}/centos/7/kernel/el7/x86_64/RPMS
 enabled=1
 gpgcheck=0
@@ -73,7 +73,7 @@ function Install_depend_environment(){
     echo "root soft nproc unlimited" >> /etc/security/limits.d/90-nproc.conf
  
     echo > /etc/sysctl.conf
-cat << EOF | tee /etc/sysctl.d/k8s.conf
+    cat << EOF | tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
 net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-arptables = 1
@@ -199,11 +199,11 @@ EOF
 # 初始化顺序
 echo -e "\033[32;32m 开始初始化结点 @{{ .HostIP }}@ \033[0m \n"
 Update_yumrepo && \
-Update_kernel && \
 Firewalld_process && \
 Install_depend_software && \
 Install_depend_environment && \
 Install_ipvs && \
-Install_docker
+Install_docker && \
+Update_kernel 
 `
 )

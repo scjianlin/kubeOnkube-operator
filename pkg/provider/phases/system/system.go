@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/gostship/kunkka/pkg/constants"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"github.com/pkg/errors"
@@ -27,7 +28,20 @@ type Option struct {
 	ExtraArgs          map[string]string
 }
 
-func Install(s ssh.Interface, option *Option) error {
+func Install(s ssh.Interface, c *common.Cluster) error {
+	dockerVersion := "19.03.9"
+	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
+		dockerVersion = v
+	}
+	option := &Option{
+		K8sVersion:    c.Spec.Version,
+		DockerVersion: dockerVersion,
+		Cgroupdriver:  "systemd", // cgroupfs or systemd
+		ExtraArgs:     c.Spec.KubeletExtraArgs,
+		HostIP:        s.HostIP(),
+		KernelRepo:    "yum-mirrors.dmall.com",
+	}
+
 	initData, err := template.ParseString(initShellTemplate, option)
 	if err != nil {
 		return err

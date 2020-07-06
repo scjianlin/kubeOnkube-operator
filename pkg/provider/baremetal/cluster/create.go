@@ -405,25 +405,13 @@ func (p *Provider) EnsureK8sComponent(ctx context.Context, c *common.Cluster) er
 }
 
 func (p *Provider) EnsureSystem(ctx context.Context, c *common.Cluster) error {
-	dockerVersion := "19.03.9"
-	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
-		dockerVersion = v
-	}
-	option := &system.Option{
-		K8sVersion:    c.Spec.Version,
-		DockerVersion: dockerVersion,
-		Cgroupdriver:  "systemd", // cgroupfs or systemd
-		ExtraArgs:     c.Spec.KubeletExtraArgs,
-	}
-
 	for _, machine := range c.Spec.Machines {
 		machineSSH, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
-		option.HostIP = machine.IP
-		err = system.Install(machineSSH, option)
+		err = system.Install(machineSSH, c)
 		if err != nil {
 			return errors.Wrap(err, machine.IP)
 		}
