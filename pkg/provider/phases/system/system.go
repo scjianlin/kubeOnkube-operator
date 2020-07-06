@@ -22,6 +22,8 @@ type Option struct {
 	DockerVersion      string
 	Cgroupdriver       string
 	HostIP             string
+	KernelRepo         string
+	ResolvConf         string
 	ExtraArgs          map[string]string
 }
 
