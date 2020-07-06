@@ -34,7 +34,6 @@ var AddToManagerWithProviderFuncs []func(manager.Manager, *gmanager.GManager) er
 
 // AddToManager adds all Controllers to the Manager
 func AddToManager(m manager.Manager, opt *option.ControllersManagerOption) error {
-
 	if opt.EnableCluster {
 		AddToManagerWithProviderFuncs = append(AddToManagerWithProviderFuncs, cluster.Add)
 	}

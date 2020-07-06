@@ -2,8 +2,8 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    name: escrow-cluster
-  name: escrow-cluster
+    name: hosted-cluster
+  name: hosted-cluster
 ---
 apiVersion: devops.gostship.io/v1
 kind: Cluster

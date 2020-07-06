@@ -1,4 +1,4 @@
-VERSION ?= v0.0.1-dev3
+VERSION ?= v0.0.1-dev4
 # Image URL to use all building/pushing image targets
 IMG_REG ?= symcn.tencentcloudcr.com/symcn
 IMG_CTL := $(IMG_REG)/kunkka

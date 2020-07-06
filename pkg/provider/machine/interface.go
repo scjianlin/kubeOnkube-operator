@@ -18,10 +18,11 @@ import (
 )
 
 const (
-	ReasonFailedProcess     = "FailedProcess"
-	ReasonWaitingProcess    = "WaitingProcess"
-	ReasonSuccessfulProcess = "SuccessfulProcess"
-	ReasonSkipProcess       = "SkipProcess"
+	ReasonWaiting      = "Waiting"
+	ReasonSkip         = "Skip"
+	ReasonFailedInit   = "FailedInit"
+	ReasonFailedUpdate = "FailedUpdate"
+	ReasonFailedDelete = "FailedDelete"
 
 	ConditionTypeDone = "EnsureDone"
 )
@@ -64,6 +65,15 @@ func (p *DelegateProvider) Name() string {
 	return p.ProviderName
 }
 
+func (h Handler) Name() string {
+	name := runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name()
+	i := strings.Index(name, "Ensure")
+	if i == -1 {
+		return ""
+	}
+	return strings.TrimSuffix(name[i:], "-fm")
+}
+
 func (p *DelegateProvider) Validate(machine *devopsv1.Machine) field.ErrorList {
 	if p.ValidateFunc != nil {
 		return p.ValidateFunc(machine)
@@ -102,7 +112,8 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 			Status:             devopsv1.ConditionTrue,
 			LastProbeTime:      now,
 			LastTransitionTime: now,
-			Reason:             ReasonSkipProcess,
+			Reason:             ReasonSkip,
+			Message:            "Skip current condition",
 		})
 	} else {
 		f := p.getCreateHandler(condition.Type)
@@ -117,11 +128,10 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 				Status:        devopsv1.ConditionFalse,
 				LastProbeTime: now,
 				Message:       err.Error(),
-				Reason:        ReasonFailedProcess,
+				Reason:        ReasonFailedInit,
 			})
-			machine.Status.Reason = ReasonFailedProcess
-			machine.Status.Message = err.Error()
-			return nil
+
+			return err
 		}
 
 		machine.SetCondition(devopsv1.MachineCondition{
@@ -129,7 +139,6 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 			Status:             devopsv1.ConditionTrue,
 			LastProbeTime:      now,
 			LastTransitionTime: now,
-			Reason:             ReasonSuccessfulProcess,
 		})
 	}
 
@@ -142,8 +151,8 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 			Status:             devopsv1.ConditionUnknown,
 			LastProbeTime:      now,
 			LastTransitionTime: now,
-			Message:            "waiting process",
-			Reason:             ReasonWaitingProcess,
+			Message:            "waiting execute",
+			Reason:             ReasonWaiting,
 		})
 	}
 	return nil
@@ -158,6 +167,8 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, machine *devopsv1.Machi
 		}
 	}
 
+	machine.Status.Reason = ""
+	machine.Status.Message = ""
 	return nil
 }
 
@@ -171,15 +182,6 @@ func (p *DelegateProvider) OnDelete(ctx context.Context, machine *devopsv1.Machi
 	}
 
 	return nil
-}
-
-func (h Handler) Name() string {
-	name := runtime.FuncForPC(reflect.ValueOf(h).Pointer()).Name()
-	i := strings.Index(name, "Ensure")
-	if i == -1 {
-		return ""
-	}
-	return strings.TrimSuffix(name[i:], "-fm")
 }
 
 func (p *DelegateProvider) getNextConditionType(conditionType string) string {
@@ -225,7 +227,7 @@ func (p *DelegateProvider) getCreateCurrentCondition(c *devopsv1.Machine) (*devo
 			Status:        devopsv1.ConditionUnknown,
 			LastProbeTime: metav1.Now(),
 			Message:       "waiting process",
-			Reason:        ReasonWaitingProcess,
+			Reason:        ReasonWaiting,
 		}, nil
 	}
 

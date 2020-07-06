@@ -14,6 +14,7 @@ type Config struct {
 	Feature        Feature
 	CustomRegistry string
 	CustomeCert    bool
+	CustomeImages  bool
 }
 
 type Registry struct {
@@ -46,6 +47,7 @@ func NewDefaultConfig() (*Config, error) {
 	config.Registry.Domain = s[0]
 	config.Registry.Namespace = s[1]
 	config.CustomeCert = true
+	config.CustomeImages = true
 	return config, nil
 }
 

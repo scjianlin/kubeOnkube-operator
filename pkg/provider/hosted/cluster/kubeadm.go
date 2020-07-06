@@ -7,7 +7,7 @@ import (
 	kubeletv1beta1 "github.com/gostship/kunkka/pkg/apis/kubelet/config/v1beta1"
 	kubeproxyv1alpha1 "github.com/gostship/kunkka/pkg/apis/kubeproxy/config/v1alpha1"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/json"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

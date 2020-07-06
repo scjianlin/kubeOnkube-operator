@@ -5,10 +5,10 @@ metadata:
     name: 10.248.224.171
     clusterName: escrow-cluster
   name: 10.248.224.171
-  namespace: escrow-cluster
+  namespace: hosted-cluster
 spec:
-  clusterName: escrow-cluster
-  type: Escrow
+  clusterName: hosted-cluster
+  type: Hosted
   machine:
     ip: 10.248.224.171
     port: 22

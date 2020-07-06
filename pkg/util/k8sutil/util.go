@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	"k8s.io/klog"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 func StrPointer(s string) *string {
@@ -205,16 +205,19 @@ func GetIndexedIP(subnet string, index int) (net.IP, error) {
 
 // GetAPIServerCertSANs returns extra APIServer's certSANs need to pass kubeadm
 func GetAPIServerCertSANs(c *devopsv1.Cluster) []string {
-	certSANs := []string{
-		"127.0.0.1",
-		"localhost",
+	certSANs := sets.NewString("127.0.0.1", "localhost")
+	certSANs = certSANs.Insert(c.Spec.PublicAlternativeNames...)
+	if c.Spec.Features.HA != nil {
+		if c.Spec.Features.HA.DKEHA != nil {
+			certSANs.Insert(c.Spec.Features.HA.DKEHA.VIP)
+		}
+		if c.Spec.Features.HA.ThirdPartyHA != nil {
+			certSANs.Insert(c.Spec.Features.HA.ThirdPartyHA.VIP)
+		}
 	}
-	certSANs = append(certSANs, c.Spec.PublicAlternativeNames...)
-
 	for _, address := range c.Status.Addresses {
-		certSANs = append(certSANs, address.Host)
+		certSANs.Insert(address.Host)
 	}
 
-	klog.Infof("cluster: %s CertSANs: %q", c.Name, certSANs)
-	return certSANs
+	return certSANs.List()
 }

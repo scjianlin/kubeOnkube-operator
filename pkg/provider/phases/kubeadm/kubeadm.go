@@ -22,8 +22,11 @@ import (
 	"github.com/gostship/kunkka/pkg/controllers/common"
 
 	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
 )
 
@@ -99,10 +102,6 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	}
 	klog.Info(string(out))
 
-	_, _, _, err = s.Execf("systemctl enable kubelet && systemctl restart kubelet")
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -335,4 +334,50 @@ func RestartContainerByFilter(s ssh.Interface, filter string) error {
 	}
 
 	return nil
+}
+
+func ApplyCustomImages(s ssh.Interface, image string, podManifestFile string) error {
+	podBytes, err := s.ReadFile(podManifestFile)
+	if err != nil {
+		return fmt.Errorf("node: %s ReadFile: %s failed error: %v", s.HostIP(), podManifestFile, err)
+	}
+
+	obj, err := k8sutil.UnmarshalFromYaml(podBytes, corev1.SchemeGroupVersion)
+	if err != nil {
+		return fmt.Errorf("node: %s marshalling %s failed error: %v", s.HostIP(), podManifestFile, err)
+	}
+
+	switch obj.(type) {
+	case *corev1.Pod:
+		ins := obj.(*corev1.Pod)
+		if len(ins.Spec.Containers) > 0 {
+			ins.Spec.Containers[0].Image = image
+		}
+	case *appsv1.Deployment:
+		ins := obj.(*appsv1.Deployment)
+		if len(ins.Spec.Template.Spec.Containers) > 0 {
+			ins.Spec.Template.Spec.Containers[0].Image = image
+		}
+	default:
+		return fmt.Errorf("unknown type")
+	}
+
+	serialized, err := k8sutil.MarshalToYaml(obj, corev1.SchemeGroupVersion)
+	if err != nil {
+		return errors.Wrapf(err, "node: %s failed to marshal manifest for %s to YAML", s.HostIP(), podManifestFile)
+	}
+
+	err = s.WriteFile(bytes.NewReader(serialized), podManifestFile)
+	if err != nil {
+		return errors.Wrapf(err, "node: %s failed to write manifest for %s ", s.HostIP(), podManifestFile)
+	}
+	return nil
+}
+
+func ApplyCustomImagesMaster(s ssh.Interface, images string) error {
+	err := ApplyCustomImages(s, images, constants.EtcdPodManifestFile)
+	err = ApplyCustomImages(s, images, constants.KubeAPIServerPodManifestFile)
+	err = ApplyCustomImages(s, images, constants.KubeControllerManagerPodManifestFile)
+	err = ApplyCustomImages(s, images, constants.KubeSchedulerPodManifestFile)
+	return err
 }
