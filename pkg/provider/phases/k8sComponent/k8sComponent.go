@@ -56,23 +56,16 @@ var CopyList = []devopsv1.File{
 		Src: constants.DstBinDir + "kubelet",
 		Dst: "/usr/bin/kubelet",
 	},
+	{
+		Src: "/opt/cni.tgz",
+		Dst: "/opt/cni.tgz",
+	},
 }
 
 func Install(s ssh.Interface, c *common.Cluster) error {
 	for _, ls := range CopyList {
 		if ok, err := s.Exist(ls.Dst); err == nil && ok {
-			backupFile, err := ssh.BackupFile(s, ls.Dst)
-			if err != nil {
-				return fmt.Errorf("backup file %q error: %w", ls.Dst, err)
-			}
-			defer func() {
-				if err == nil {
-					return
-				}
-				if err = ssh.RestoreFile(s, backupFile); err != nil {
-					err = fmt.Errorf("restore file %q error: %w", backupFile, err)
-				}
-			}()
+			continue
 		}
 
 		err := s.CopyFile(ls.Src, ls.Dst)
@@ -80,12 +73,20 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 			klog.Errorf("node: %s copy %s err: %v", s.HostIP(), ls.Src)
 			return err
 		}
+
+		if strings.Contains(ls.Dst, "bin") {
+			_, _, _, err = s.Execf("chmod a+x %s", ls.Dst)
+			if err != nil {
+				return err
+			}
+		}
+		klog.Errorf("node: %s copy %s success", s.HostIP(), ls.Dst)
 	}
 
-	s.Execf("mkdir -p %s", constants.CNIBinDir)
-	err := s.CopyFile(constants.CNIBinDir+"*", constants.CNIBinDir)
+	cmd := fmt.Sprintf("mkdir -p %s && tar -C %s -xzf /opt/cni.tgz && rm /opt/cni.tgz", constants.CNIBinDir, constants.CNIBinDir)
+	_, err := s.CombinedOutput(cmd)
 	if err != nil {
-		klog.Errorf("node: %s copy %s err: %v", s.HostIP(), constants.CNIBinDir)
+		klog.Errorf("node: %s exec cmd %s err: %v", s.HostIP(), cmd, err)
 		return err
 	}
 
@@ -102,7 +103,7 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	unitName := fmt.Sprintf("%s.service", "kubelet")
-	cmd := fmt.Sprintf("systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
+	cmd = fmt.Sprintf("systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
 	if _, stderr, exit, err := s.Execf(cmd); err != nil || exit != 0 {
 		cmd = fmt.Sprintf("journalctl --unit %s -n10 --no-pager", unitName)
 		jStdout, _, jExit, jErr := s.Execf(cmd)

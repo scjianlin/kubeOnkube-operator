@@ -64,7 +64,7 @@ const (
 	// to the API server
 	KubeletKubeConfigFileName    = KubernetesDir + "kubelet.conf"
 	KubeletRunDirectory          = "/var/lib/kubelet/"
-	DefaultSystemdUnitFilePath   = "/etc/systemd/system/"
+	DefaultSystemdUnitFilePath   = "/usr/lib/systemd/system/"
 	KubeletSystemdUnitFilePath   = DefaultSystemdUnitFilePath + "kubelet.service"
 	KubeletServiceRunConfig      = DefaultSystemdUnitFilePath + "kubelet.service.d/10-kubeadm.conf"
 	KubeletConfigurationFileName = KubeletRunDirectory + "config.yaml"
