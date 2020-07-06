@@ -1,27 +1,16 @@
 ARG CENTOS_BASE_VERSION=7.8
 ARG K8S_BASE_VERSION=v1.18.5
-ARG ETCD_BASE_VERSION=v3.4.9
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION} as default
-ENV K8S_SERVER_VERSION v1.18.5
-RUN curl -fsSL https://dl.k8s.io/$K8S_SERVER_VERSION/kubernetes-server-linux-amd64.tar.gz -o kubernetes-server-linux-amd64.tar.gz \
-    && tar -C /usr/local -xzf kubernetes-server-linux-amd64.tar.gz \
-    && rm kubernetes-server-linux-amd64.tar.gz
 
-FROM quay.io/coreos/etcd:${ETCD_BASE_VERSION} as etcd-default
-FROM k8s.gcr.io/kube-apiserver:${K8S_BASE_VERSION} as kube-apiserver-default
+ENV K9S_SERVER_VERSION v0.21.2
+RUN curl -fsSL https://github.com/derailed/k9s/releases/download/$K9S_SERVER_VERSION/k9s_Linux_x86_64.tar.gz -o k9s.tar.gz \
+    && tar -C /usr/local -xzf k9s.tar.gz \
+    && rm k9s.tar.gz
 
-FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION}
+FROM symcn.tencentcloudcr.com/symcn/kubernetes:${K8S_BASE_VERSION}
 
-COPY --from=etcd-default /usr/local/bin/etcd /usr/local/bin/
-COPY --from=etcd-default /usr/local/bin/etcdctl /usr/local/bin/
-COPY --from=kube-apiserver-default /usr/local/bin/kube-apiserver /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kubeadm /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kubectl /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kubelet /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kube-proxy /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kube-scheduler /usr/local/bin/
-COPY --from=default /usr/local/kubernetes/server/bin/kube-controller-manager /usr/local/bin/
-
-COPY bin/k9s /usr/local/bin/
+COPY --from=default /usr/local/k9s /usr/local/bin/
 COPY bin/kunkka-controller /usr/local/bin/
+
+COPY Dockerfile /Dockerfile
