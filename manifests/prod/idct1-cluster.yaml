@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    name: kunkka-system
+  name: kunkka-system
+---
+apiVersion: devops.gostship.io/v1
+kind: Cluster
+metadata:
+  name: idct1-cluster
+  namespace: kunkka-system
+spec:
+  pause: false
+  tenantID: kunkka
+  displayName: kunkka-idct1
+  type: Baremetal
+  version: 1.18.4
+  networkType: eth0
+  clusterCIDR: 10.27.184.0/21
+  serviceCIDR: 172.27.248.0/22
+  dnsDomain: cluster.local
+  publicAlternativeNames:
+    - idct1-cluster.dke.k8s.io
+  features:
+    ipvs: true
+    internalLB: true
+    enableMasterSchedule: true
+    ha:
+      thirdParty:
+        vip: "10.28.255.252"
+        vport: 6443
+    files:
+      - src: "/usr/local/bin/k9s"
+        dst: "/usr/local/bin/k9s"
+  properties:
+    maxNodePodNum: 128
+  machines:
+    - ip: 10.27.187.242
+      port: 22
+      username: root
+      password: "123456"
+    - ip: 10.27.187.241
+      port: 22
+      username: root
+      password: "123456"
+    - ip: 10.27.187.243
+      port: 22
+      username: root
+      password: "123456"
+  apiServerExtraArgs:
+    audit-log-maxage: "30"
+    audit-log-maxbackup: "3"
+    audit-log-maxsize: "100"
+    audit-log-truncate-enabled: "true"
+    audit-log-path: "/var/log/kubernetes/k8s-audit.log"
+  controllerManagerExtraArgs:
+    "bind-address": "0.0.0.0"
+  schedulerExtraArgs:
+    "bind-address": "0.0.0.0"
+  dockerExtraArgs:
+    registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
+    version: 19.03.9
