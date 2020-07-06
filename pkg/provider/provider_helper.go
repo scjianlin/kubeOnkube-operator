@@ -6,8 +6,8 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/cluster"
 	clusterprovider "github.com/gostship/kunkka/pkg/provider/cluster"
 	"github.com/gostship/kunkka/pkg/provider/config"
-	escrowcluster "github.com/gostship/kunkka/pkg/provider/escrow/cluster"
-	escrowmachine "github.com/gostship/kunkka/pkg/provider/escrow/machine"
+	hostedcluster "github.com/gostship/kunkka/pkg/provider/hosted/cluster"
+	hostedmachine "github.com/gostship/kunkka/pkg/provider/hosted/machine"
 	"github.com/gostship/kunkka/pkg/provider/machine"
 	machineprovider "github.com/gostship/kunkka/pkg/provider/machine"
 )
@@ -23,10 +23,10 @@ var AddToMpManagerFuncs []func(*machineprovider.MpManager, *config.Config) error
 
 func NewProvider() (*ProviderManager, error) {
 	AddToCpManagerFuncs = append(AddToCpManagerFuncs, baremetalcluster.Add)
-	AddToCpManagerFuncs = append(AddToCpManagerFuncs, escrowcluster.Add)
+	AddToCpManagerFuncs = append(AddToCpManagerFuncs, hostedcluster.Add)
 
 	AddToMpManagerFuncs = append(AddToMpManagerFuncs, baremetalmachine.Add)
-	AddToMpManagerFuncs = append(AddToMpManagerFuncs, escrowmachine.Add)
+	AddToMpManagerFuncs = append(AddToMpManagerFuncs, hostedmachine.Add)
 
 	cfg, _ := config.NewDefaultConfig()
 	mgr := &ProviderManager{

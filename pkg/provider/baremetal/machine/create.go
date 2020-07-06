@@ -14,22 +14,23 @@ import (
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
+	"github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/system"
+	"github.com/gostship/kunkka/pkg/provider/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
 	"github.com/pkg/errors"
 )
 
-func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
+func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	machineSSH, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	for _, file := range cluster.Spec.Features.Files {
+	for _, file := range c.Spec.Features.Files {
 		err = machineSSH.CopyFile(file.Src, file.Dst)
 		if err != nil {
 			return err
@@ -81,7 +82,7 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, machine *devopsv1.
 	return nil
 }
 
-func (p *Provider) EnsureClean(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
+func (p *Provider) EnsureClean(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	machineSSH, err := machine.Spec.SSH()
 	if err != nil {
 		return err
@@ -95,7 +96,7 @@ func (p *Provider) EnsureClean(ctx context.Context, machine *devopsv1.Machine, c
 	return nil
 }
 
-func (p *Provider) EnsurePreflight(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
+func (p *Provider) EnsurePreflight(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	machineSSH, err := machine.Spec.SSH()
 	if err != nil {
 		return err
@@ -134,21 +135,21 @@ func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Ma
 	return nil
 }
 
-func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
+func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	dockerVersion := "19.03.8"
-	if v, ok := cluster.Spec.DockerExtraArgs["version"]; ok {
+	dockerVersion := "19.03.9"
+	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
 		dockerVersion = v
 	}
 	option := &system.Option{
-		K8sVersion:    cluster.Spec.Version,
+		K8sVersion:    c.Spec.Version,
 		DockerVersion: dockerVersion,
 		Cgroupdriver:  "systemd", // cgroupfs or systemd
-		ExtraArgs:     cluster.Spec.KubeletExtraArgs,
+		ExtraArgs:     c.Spec.KubeletExtraArgs,
 	}
 
 	err = system.Install(sh, option)
@@ -159,8 +160,24 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 	return nil
 }
 
-func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	masterEndpoint, err := GetMasterEndpoint(cluster.Cluster.Status.Addresses)
+func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	for _, machine := range c.Spec.Machines {
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		err = k8sComponent.Install(machineSSH, c)
+		if err != nil {
+			return errors.Wrap(err, machine.IP)
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	masterEndpoint, err := GetMasterEndpoint(c.Cluster.Status.Addresses)
 	if err != nil {
 		return err
 	}
@@ -172,9 +189,9 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 
 	option := &kubeconfig.Option{
 		MasterEndpoint: masterEndpoint,
-		ClusterName:    cluster.Name,
-		CACert:         cluster.ClusterCredential.CACert,
-		Token:          *cluster.ClusterCredential.Token,
+		ClusterName:    c.Name,
+		CACert:         c.ClusterCredential.CACert,
+		Token:          *c.ClusterCredential.Token,
 	}
 	err = kubeconfig.Install(machineSSH, option)
 	if err != nil {
@@ -184,8 +201,8 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 	return nil
 }
 
-func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	host, err := cluster.Host()
+func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	host, err := c.Host()
 	if err != nil {
 		return err
 	}
@@ -196,7 +213,7 @@ func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine
 
 	option := &kubeadm.JoinNodeOption{
 		NodeName:             machine.Spec.Machine.IP,
-		BootstrapToken:       *cluster.ClusterCredential.BootstrapToken,
+		BootstrapToken:       *c.ClusterCredential.BootstrapToken,
 		ControlPlaneEndpoint: host,
 	}
 	err = kubeadm.JoinNode(machineSSH, option)
@@ -206,8 +223,8 @@ func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine
 	return nil
 }
 
-func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	clientset, err := cluster.Clientset()
+func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	clientset, err := c.Clientset()
 	if err != nil {
 		return err
 	}
@@ -219,8 +236,8 @@ func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine
 	return nil
 }
 
-func (p *Provider) EnsureNodeReady(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	clientset, err := cluster.Clientset()
+func (p *Provider) EnsureNodeReady(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	clientset, err := c.Clientset()
 	if err != nil {
 		return err
 	}

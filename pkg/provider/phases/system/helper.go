@@ -120,23 +120,6 @@ EOF
     systemctl enable docker && systemctl daemon-reload && systemctl restart docker
 }
 
-function Install_kubernetes_component(){
-    rpm -qa | grep kubelet && echo -e "\033[32;32m 已安装kubernetes组件 \033[0m \n" && return
-    
-    echo -e "\033[32;32m 开始安装k8s组件 \033[0m \n"
-    cat <<EOF > /etc/yum.repos.d/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://mirrors.aliyun.com/kubernetes/yum/repos/kubernetes-el7-x86_64/
-enabled=1
-gpgcheck=1
-repo_gpgcheck=1
-gpgkey=https://mirrors.aliyun.com/kubernetes/yum/doc/yum-key.gpg https://mirrors.aliyun.com/kubernetes/yum/doc/rpm-package-key.gpg
-EOF
-    yum install -y --nogpgcheck  kubelet-{{ .K8sVersion }} kubeadm-{{ .K8sVersion }} kubectl-{{ .K8sVersion }} kubernetes-cni
-    echo "source <(kubectl completion bash)" >> ~/.bashrc
-}
-
 function Update_kernel(){
     uname -r | grep 5.7 &> /dev/null && echo -e "\033[32;32m 已完成内核升级 \033[0m \n" && return 
 
@@ -158,7 +141,6 @@ echo -e "\033[32;32m 开始初始化结点 @{{ .HostIP }}@ \033[0m \n"
 Firewalld_process && \
 Install_depend_environment && \
 Install_docker && \
-Install_kubernetes_component  && \
 Update_kernel
 `
 )

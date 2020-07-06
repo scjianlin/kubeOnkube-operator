@@ -21,19 +21,21 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/system"
+	"github.com/gostship/kunkka/pkg/provider/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
 
 	"bytes"
 
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/addons/flannel"
+	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
+	"github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 func (p *Provider) EnsureCopyFiles(ctx context.Context, c *common.Cluster) error {
@@ -210,8 +212,16 @@ func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *co
 	if err != nil {
 		return err
 	}
-	return kubeadm.Init(machineSSH, p.getKubeadmConfig(c),
+	err = kubeadm.Init(machineSSH, p.getKubeadmConfig(c),
 		fmt.Sprintf("kubelet-start --node-name=%s", c.Spec.Machines[0].IP))
+	if err != nil {
+		return err
+	}
+
+	if !p.Cfg.CustomeImages {
+		return nil
+	}
+	return kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
 }
 
 func (p *Provider) EnsureKubeadmInitCertsPhase(ctx context.Context, c *common.Cluster) error {
@@ -322,6 +332,15 @@ func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluste
 		if err != nil {
 			return errors.Wrap(err, machine.IP)
 		}
+
+		if !p.Cfg.CustomeImages {
+			continue
+		}
+
+		err = kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
+		if err != nil {
+			return errors.Wrap(err, machine.IP)
+		}
 	}
 
 	return nil
@@ -368,6 +387,22 @@ func (p *Provider) EnsureStoreCredential(ctx context.Context, c *common.Cluster)
 		return err
 	}
 	c.ClusterCredential.ETCDAPIClientKey = data
+
+	return nil
+}
+
+func (p *Provider) EnsureK8sComponent(ctx context.Context, c *common.Cluster) error {
+	for _, machine := range c.Spec.Machines {
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		err = k8sComponent.Install(machineSSH, c)
+		if err != nil {
+			return errors.Wrap(err, machine.IP)
+		}
+	}
 
 	return nil
 }
@@ -647,31 +682,22 @@ func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *common.Cluster
 	return nil
 }
 
-func (p *Provider) EnsureMakeCni(ctx context.Context, c *common.Cluster) error {
-	if c.Spec.Features.Hooks == nil {
+func (p *Provider) EnsureFlannel(ctx context.Context, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
+	if err != nil {
 		return nil
 	}
-
-	hook := c.Spec.Features.Hooks[devopsv1.HookPostCniInstall]
-	if hook == "" {
-		return nil
+	objs, err := flannel.BuildFlannelAddon(p.Cfg, c)
+	if err != nil {
+		return errors.Wrapf(err, "build flannel err: %v", err)
 	}
 
-	if hook == "flannel" {
-		opt := &flannel.Option{
-			ClusterPodCidr: c.Spec.ClusterCIDR,
-			BackendType:    "vxlan",
-		}
-
-		machine := c.Spec.Machines[0]
-		machineSSH, err := machine.SSH()
+	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "flannel")
+	logger.Info("start reconcile ...")
+	for _, obj := range objs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
-			return err
-		}
-
-		err = flannel.Install(machineSSH, opt)
-		if err != nil {
-			return err
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}
 	}
 

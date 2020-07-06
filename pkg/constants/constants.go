@@ -22,7 +22,7 @@ const (
 	KeepavlivedManifestFile              = KubeletPodManifestDir + "keepalived.yaml"
 
 	DstTmpDir  = "/tmp/k8s/"
-	DstBinDir  = "/usr/bin/"
+	DstBinDir  = "/usr/local/bin/"
 	CNIBinDir  = "/opt/cni/bin/"
 	CNIDataDir = "/var/lib/cni/"
 	CNIConfDIr = "/etc/cni"
@@ -64,7 +64,9 @@ const (
 	// to the API server
 	KubeletKubeConfigFileName    = KubernetesDir + "kubelet.conf"
 	KubeletRunDirectory          = "/var/lib/kubelet/"
-	KubeletServiceRunConfig      = "/usr/lib/systemd/system/kubelet.service.d/10-kubeadm.conf"
+	DefaultSystemdUnitFilePath   = "/etc/systemd/system/"
+	KubeletSystemdUnitFilePath   = DefaultSystemdUnitFilePath + "kubelet.service"
+	KubeletServiceRunConfig      = DefaultSystemdUnitFilePath + "kubelet.service.d/10-kubeadm.conf"
 	KubeletConfigurationFileName = KubeletRunDirectory + "config.yaml"
 	KubeletEnvFileName           = KubeletRunDirectory + "kubeadm-flags.env"
 	KubeletEnvFileVariableName   = "KUBELET_KUBEADM_ARGS"

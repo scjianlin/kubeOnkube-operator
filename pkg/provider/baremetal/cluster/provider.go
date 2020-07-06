@@ -48,6 +48,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
 			p.EnsureSystem,
+			p.EnsureK8sComponent,
 			p.EnsurePreflight, // wait basic setting done
 			p.EnsureClusterComplete,
 
@@ -66,10 +67,8 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureKubeadmInitAddonPhase,
 			p.EnsureJoinControlePlane,
 			p.EnsureMarkControlPlane,
-
 			p.EnsureMakeEtcd,
 			p.EnsureMakeControlPlane,
-			p.EnsureMakeCni,
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
@@ -79,6 +78,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureRenewCerts,
 			p.EnsureAPIServerCert,
 			p.EnsureStoreCredential,
+			p.EnsureFlannel,
 		},
 	}
 

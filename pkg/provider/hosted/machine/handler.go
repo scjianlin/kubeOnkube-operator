@@ -19,10 +19,11 @@ import (
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeconfig"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/system"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/preflight"
 	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/system"
+	"github.com/gostship/kunkka/pkg/provider/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
@@ -141,21 +142,21 @@ func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Ma
 	return nil
 }
 
-func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
+func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	dockerVersion := "19.03.8"
-	if v, ok := cluster.Spec.DockerExtraArgs["version"]; ok {
+	dockerVersion := "19.03.9"
+	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
 		dockerVersion = v
 	}
 	option := &system.Option{
-		K8sVersion:    cluster.Spec.Version,
+		K8sVersion:    c.Spec.Version,
 		DockerVersion: dockerVersion,
 		Cgroupdriver:  "systemd", // cgroupfs or systemd
-		ExtraArgs:     cluster.Spec.KubeletExtraArgs,
+		ExtraArgs:     c.Spec.KubeletExtraArgs,
 	}
 
 	err = system.Install(sh, option)
@@ -166,8 +167,23 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 	return nil
 }
 
-func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	for _, machine := range c.Spec.Machines {
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
 
+		err = k8sComponent.Install(machineSSH, c)
+		if err != nil {
+			return errors.Wrap(err, machine.IP)
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
 	machineSSH, err := machine.Spec.SSH()
 	if err != nil {
 		return err

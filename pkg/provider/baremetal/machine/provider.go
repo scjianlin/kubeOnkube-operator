@@ -43,6 +43,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 			p.EnsureRegistryHosts,
 
 			p.EnsureSystem,
+			p.EnsureK8sComponent,
 			p.EnsurePreflight, // wait basic setting done
 
 			p.EnsureJoinNode,

@@ -8,7 +8,7 @@ import (
 
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"

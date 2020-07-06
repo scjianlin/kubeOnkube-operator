@@ -11,7 +11,7 @@ import (
 	kubeproxyv1alpha1 "github.com/gostship/kunkka/pkg/apis/kubeproxy/config/v1alpha1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/baremetal/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/json"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	corev1 "k8s.io/api/core/v1"
@@ -127,6 +127,7 @@ func (p *Provider) getKubeletConfiguration(c *common.Cluster) *kubeletv1beta1.Ku
 			"cpu":    "100m",
 			"memory": "500Mi",
 		},
+		MaxPods: *c.Spec.Properties.MaxNodePodNum,
 	}
 }
 
