@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/ssh"
@@ -83,5 +84,21 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 
 	klog.Infof("node: %s now kernel: %s,  start reboot ... ", option.HostIP, string(result))
 	_, _ = s.CombinedOutput("reboot")
+	return nil
+}
+
+func CopyFile(s ssh.Interface, file *devopsv1.File) error {
+	err := s.CopyFile(file.Src, file.Dst)
+	if err != nil {
+		return err
+	}
+
+	if strings.Contains(file.Dst, "bin") {
+		_, _, _, err = s.Execf("chmod a+x %s", file.Dst)
+		if err != nil {
+			return err
+		}
+	}
+
 	return nil
 }

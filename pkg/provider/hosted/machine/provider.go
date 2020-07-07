@@ -34,7 +34,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 	}
 
 	p.DelegateProvider = &machineprovider.DelegateProvider{
-		ProviderName: "Escrow",
+		ProviderName: "Hosted",
 		CreateHandlers: []machineprovider.Handler{
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
@@ -54,6 +54,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []machineprovider.Handler{
+			p.EnsureK8sComponent,
 			p.EnsurePostInstallHook,
 		},
 	}

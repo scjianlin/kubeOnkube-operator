@@ -212,7 +212,7 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	objs = append(objs, kubeproxyConfigMap)
 
 	proxyDaemonSetBytes, err := template.ParseString(KubeProxyDaemonSet19, struct{ Image, ProxyConfigMap, ProxyConfigMapKey string }{
-		Image:             cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version),
+		Image:             cfg.KubeProxyImagesName(c.Cluster.Spec.Version),
 		ProxyConfigMap:    constants.KubeProxyConfigMap,
 		ProxyConfigMapKey: constants.KubeProxyConfigMapKey,
 	})
@@ -224,9 +224,6 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	if err := runtime.DecodeInto(clientsetscheme.Codecs.UniversalDecoder(), proxyDaemonSetBytes, kubeproxyDaemonSet); err != nil {
 		return nil, errors.Wrap(err, "unable to decode kube-proxy daemonset")
 	}
-	// Propagate the http/https proxy host environment variables to the container
-	env := &kubeproxyDaemonSet.Spec.Template.Spec.Containers[0].Env
-	*env = append(*env, GetProxyEnvVars()...)
 
 	kubeproxyDaemonSet.Spec.Template.Spec.HostAliases = []corev1.HostAlias{
 		{

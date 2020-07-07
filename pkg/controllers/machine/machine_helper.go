@@ -108,12 +108,9 @@ func (r *machineReconciler) reconcile(ctx context.Context, rc *manchineContext) 
 	case devopsv1.MachineRunning:
 		rc.Logger.Info("onUpdate")
 		err = r.onUpdate(ctx, rc)
-		if err == nil {
-			// c.ensureHealthCheck(ctx, key, cluster) // after update to avoid version conflict
-		}
 	default:
 		err = fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
 	}
 
-	return nil
+	return err
 }

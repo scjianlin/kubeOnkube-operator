@@ -25,6 +25,8 @@ import (
 	"github.com/pkg/errors"
 	"github.com/segmentio/ksuid"
 	corev1 "k8s.io/api/core/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
@@ -285,11 +287,21 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 	return nil
 }
 
-func (p *Provider) EnsureTemp(ctx context.Context, c *common.Cluster) error {
+func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) error {
 	cfgMap := &corev1.ConfigMap{}
 	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
 	if err != nil {
-		return errors.Wrapf(err, "get certs cfgMap err: %v", err)
+		if apierrors.IsNotFound(err) {
+			cfgMap = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      KubeApiServerConfig,
+					Namespace: c.Cluster.Namespace,
+				},
+				Data: map[string]string{},
+			}
+		} else {
+			return errors.Wrapf(err, "get certs cfgMap")
+		}
 	}
 
 	if _, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {

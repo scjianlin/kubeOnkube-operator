@@ -38,7 +38,7 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machin
 	}
 
 	for _, file := range cluster.Spec.Features.Files {
-		err = machineSSH.CopyFile(file.Src, file.Dst)
+		err = system.CopyFile(machineSSH, &file)
 		if err != nil {
 			return err
 		}
@@ -157,16 +157,14 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 }
 
 func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
-	for _, machine := range c.Spec.Machines {
-		machineSSH, err := machine.SSH()
-		if err != nil {
-			return err
-		}
+	sh, err := machine.Spec.SSH()
+	if err != nil {
+		return err
+	}
 
-		err = k8sComponent.Install(machineSSH, c)
-		if err != nil {
-			return errors.Wrap(err, machine.IP)
-		}
+	err = k8sComponent.Install(sh, c)
+	if err != nil {
+		return errors.Wrap(err, sh.HostIP())
 	}
 
 	return nil

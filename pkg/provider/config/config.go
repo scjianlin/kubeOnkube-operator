@@ -76,3 +76,11 @@ func (r *Config) KubeAllImageFullName(name, tag string) string {
 
 	return fmt.Sprintf("%s/%s:%s", r.CustomRegistry, name, tag)
 }
+
+func (r *Config) KubeProxyImagesName(tag string) string {
+	if !strings.Contains(tag, "v") {
+		tag = "v" + tag
+	}
+
+	return fmt.Sprintf("%s/%s:%s", r.CustomRegistry, "kube-proxy", tag)
+}

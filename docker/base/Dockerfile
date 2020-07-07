@@ -9,7 +9,8 @@ RUN yum update -y && yum install -y \
     tree \
     tcpdump \
     vim \
-    netstat \
+    netsgtat \
+    ipset \
     tcptraceroute \
     && yum clean all \
     && rm -rf /var/cache/yum/*

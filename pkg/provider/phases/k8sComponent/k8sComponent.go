@@ -40,7 +40,8 @@ ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELE
 )
 
 func Install(s ssh.Interface, c *common.Cluster) error {
-	// dir := "k8s/linuxbin/"  # local debug config dir
+	// dir := "k8s/linuxbin/" // local debug config dir
+
 	dir := constants.DstBinDir
 	var CopyList = []devopsv1.File{
 		{

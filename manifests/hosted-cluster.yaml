@@ -8,14 +8,16 @@ metadata:
 apiVersion: devops.gostship.io/v1
 kind: Cluster
 metadata:
-  name: escrow-cluster
-  namespace: escrow-cluster
+  name: hosted-cluster
+  namespace: hosted-cluster
+  annotations:
+    k8s.io/action: EnsureExtKubeconfig,EnsureAddons,EnsureFlannel
 spec:
   pause: false
-  tenantID: k8s
+  tenantID: kunkka
   displayName: demo
-  type: Escrow
-  version: 1.18.4
+  type: Hosted
+  version: 1.18.5
   networkType: eth0
   clusterCIDR: 10.97.0.0/16
   serviceCIDR: 10.96.0.0/16
@@ -31,6 +33,9 @@ spec:
       thirdParty:
         vip: "10.248.224.183"
         vport: 30443
+    files:
+      - src: "k8s/linuxbin/k9s"
+        dst: "/usr/local/bin/k9s"
     hooks:
       PostCniInstall: flannel
   properties:
@@ -48,4 +53,4 @@ spec:
     "bind-address": "0.0.0.0"
   dockerExtraArgs:
     registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
-    version: 19.03.8
+    version: 19.03.9

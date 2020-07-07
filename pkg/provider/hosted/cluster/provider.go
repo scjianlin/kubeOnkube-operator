@@ -57,7 +57,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
 			p.EnsureKubeMaster,
-			p.EnsureTemp,
+			p.EnsureExtKubeconfig,
 			p.EnsureAddons,
 			p.EnsureFlannel,
 			p.EnsureMetricsServer,

@@ -3,7 +3,7 @@ kind: Machine
 metadata:
   labels:
     name: 10.248.224.171
-    clusterName: escrow-cluster
+    clusterName: hosted-cluster
   name: 10.248.224.171
   namespace: hosted-cluster
 spec:

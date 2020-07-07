@@ -57,16 +57,9 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, c *common.Cluster) error
 				return err
 			}
 
-			err = machineSSH.CopyFile(file.Src, file.Dst)
+			err = system.CopyFile(machineSSH, &file)
 			if err != nil {
 				return err
-			}
-
-			if strings.Contains(file.Dst, "bin") {
-				_, _, _, err = machineSSH.Execf("chmod a+x %s", file.Dst)
-				if err != nil {
-					return err
-				}
 			}
 		}
 	}
@@ -702,7 +695,7 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 				Data: map[string]string{},
 			}
 		} else {
-			return errors.Wrapf(err, "get certs cfgMap err: %v", err)
+			return errors.Wrapf(err, "get certs cfgMap")
 		}
 	}
 
