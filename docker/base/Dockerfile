@@ -11,6 +11,8 @@ RUN yum update -y && yum install -y \
     vim \
     netsgtat \
     ipset \
+    telnet \
+    ss \
     tcptraceroute \
     && yum clean all \
     && rm -rf /var/cache/yum/*

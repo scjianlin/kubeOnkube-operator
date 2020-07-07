@@ -31,6 +31,7 @@ import (
 	"bytes"
 
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
 	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
 	"github.com/gostship/kunkka/pkg/provider/certs"
@@ -765,6 +766,22 @@ func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) e
 		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureCni(ctx context.Context, c *common.Cluster) error {
+	for _, machine := range c.Spec.Machines {
+		machineSSH, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+
+		err = cni.Install(machineSSH, c)
+		if err != nil {
+			return err
 		}
 	}
 

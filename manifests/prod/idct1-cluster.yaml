@@ -4,6 +4,8 @@ metadata:
   labels:
     name: kunkka-system
   name: kunkka-system
+  annotations:
+    k8s.io/action: EnsureCni,EnsureExtKubeconfig,EnsureMetricsServer
 ---
 apiVersion: devops.gostship.io/v1
 kind: Cluster
@@ -24,7 +26,7 @@ spec:
     - idct1-cluster.dke.k8s.io
   features:
     ipvs: true
-    internalLB: true
+    internalLB: truecat /in
     enableMasterSchedule: true
     ha:
       thirdParty:

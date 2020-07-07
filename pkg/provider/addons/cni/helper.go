@@ -2,20 +2,29 @@ package cni
 
 import (
 	"bytes"
+	"context"
+	"encoding/json"
+	"os"
+
+	"fmt"
+	"strings"
 
 	"github.com/gostship/kunkka/pkg/constants"
-	"github.com/gostship/kunkka/pkg/provider"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
+	"github.com/pkg/errors"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/klog"
 )
 
 const (
-	initShellTemplate = `
+	cniInitShell = `
 #!/usr/bin/env bash
 
 set -xeuo pipefail
 
-function Bridge_network(){
 #cni0
 cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-cni0
 TYPE=bridge
@@ -26,10 +35,11 @@ IPV4_FAILURE_FATAL=no
 NAME=cni0
 BRIDGE_STP=yes
 EOF
+
 egrep -i "IPADDR|PREFIX|NETMASK|GATEWAY" /etc/sysconfig/network-scripts/ifcfg-eth1 >> /etc/sysconfig/network-scripts/ifcfg-cni0
  
-cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
 #ifcfg-eth1
+cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
 TYPE=Ethernet
 PROXY_METHOD=none
 BROWSER_ONLY=no
@@ -41,14 +51,12 @@ DEVICE=eth1
 ONBOOT=yes
 BRIDGE=cni0
 EOF
-systemctl restart NetworkManager
-}
 `
 
 	hostLocalTemplate = `
 {
  "cniVersion": "{{ default "0.3.1" .CniVersion}}",
- "name": "dke-cni",
+ "name": "k8s-cni",
  "type": "bridge",
  "bridge": "cni0",
  "forceAddress": false,
@@ -59,10 +67,10 @@ systemctl restart NetworkManager
   "ranges": [
    [
     {
-     "subnet": "{{ .SubnetCidr}}",
-     "rangeStart": "{{ .StartIP }}",
-     "rangeEnd": "{{ .EndIP }}",
-     "gateway": "{{ .Gw }}"
+     "subnet": "{{ .Subnet}}",
+     "rangeStart": "{{ .RangeStart }}",
+     "rangeEnd": "{{ .RangeEnd }}",
+     "gateway": "{{ .Gateway }}"
     }
    ]
   ],
@@ -71,8 +79,8 @@ systemctl restart NetworkManager
     "dst": "0.0.0.0/0"
    },
    {
-    "dst": "{{ .RouterDst }}",
-    "gw": "{{ .RouterGw }}"
+    "dst": "{{ .Dst }}",
+    "gw": "{{ .Gw }}"
    }
   ],
   "dataDir": "/opt/k8s/data/cni"
@@ -88,25 +96,55 @@ systemctl restart NetworkManager
 `
 )
 
+const (
+	CniHostLocalConfig = "cni-host-local-config"
+	Eth1CfgPath        = "/etc/sysconfig/network-scripts/ifcfg-eth1"
+	Cni0CfgPath        = "/etc/sysconfig/network-scripts/ifcfg-cni0"
+)
+
 type Option struct {
-	CniVersion string
-	SubnetCidr string
-	StartIP    string
-	EndIP      string
-	Gw         string
-	RouterDst  string
-	RouterGw   string
+	CniVersion string `json:"cniVersion,omitempty"`
+	Subnet     string `json:"subnet,omitempty"`
+	RangeStart string `json:"rangeStart,omitempty"`
+	RangeEnd   string `json:"rangeEnd,omitempty"`
+	Gateway    string `json:"gateway,omitempty"`
+	Dst        string `json:"dst,omitempty"`
+	Gw         string `json:"gw,omitempty"`
 }
 
-func Install(s ssh.Interface, c *provider.Cluster) error {
-	opt := &Option{
-		SubnetCidr: "10.49.255.0/24",
-		StartIP:    "10.49.255.1",
-		EndIP:      "10.49.255.40",
-		Gw:         "10.49.255.254",
-		RouterDst:  "10.27.248.0/24",
-		RouterGw:   "10.28.252.241",
+func Install(s ssh.Interface, c *common.Cluster) error {
+	if exist, _ := s.Exist(Eth1CfgPath); !exist {
+		klog.Warningf("node: %s file: %s not exist", s.HostIP(), Eth1CfgPath)
+		return nil
 	}
+
+	if exist, _ := s.Exist(Cni0CfgPath); exist {
+		klog.Warningf("node: %s file: %s always exist", s.HostIP(), Cni0CfgPath)
+		return nil
+	}
+
+	cfgMap := &corev1.ConfigMap{}
+	err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: CniHostLocalConfig}, cfgMap)
+	if err != nil {
+		klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
+		return nil
+	}
+
+	var objDate string
+	var ok bool
+	if objDate, ok = cfgMap.Data[s.HostIP()]; !ok {
+		klog.Warningf("cluster: %s can't find node: %s cni config ", c.Cluster.Name, s.HostIP())
+		return nil
+	}
+
+	opt := &Option{}
+	jerr := json.Unmarshal([]byte(objDate), &opt)
+	if jerr != nil {
+		klog.Warningf("node: %s failed to Unmarshal cni cfg, err: %s", s.HostIP(), jerr)
+		return nil
+	}
+
+	klog.Infof("node: %s cni cfg: %v", s.HostIP(), opt)
 	localByte, err := template.ParseString(hostLocalTemplate, opt)
 	if err != nil {
 		return err
@@ -126,5 +164,21 @@ func Install(s ssh.Interface, c *provider.Cluster) error {
 	if err != nil {
 		return err
 	}
+
+	err = s.WriteFile(strings.NewReader(cniInitShell), constants.SystemInitCniFile)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("node: %s start exec init cni ... ", s.HostIP())
+	cmd := fmt.Sprintf("chmod a+x %s && %s", constants.SystemInitCniFile, constants.SystemInitCniFile)
+	exit, err := s.ExecStream(cmd, os.Stdout, os.Stderr)
+	if err != nil {
+		klog.Errorf("%q %+v", exit, err)
+		return errors.Wrapf(err, "node: %s exec cmd: %s", s.HostIP(), cmd)
+	}
+
+	klog.Infof("node: %s restart network", s.HostIP())
+	_, _ = s.CombinedOutput("systemctl restart NetworkManager")
 	return nil
 }

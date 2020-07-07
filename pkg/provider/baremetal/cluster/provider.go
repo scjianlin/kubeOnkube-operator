@@ -72,6 +72,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []clusterprovider.Handler{
+			p.EnsureCni,
 			p.EnsureStoreCredential,
 			p.EnsureMakeEtcd,
 			p.EnsureMakeControlPlane,
