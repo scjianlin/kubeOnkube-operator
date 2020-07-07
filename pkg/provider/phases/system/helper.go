@@ -6,20 +6,22 @@ const (
 
 set -xeuo pipefail
 
-function Update_yumrepo(){
+function Update_yumrepo() {
 	rm -rvf /etc/yum.repos.d/*.repo
     curl https://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel-7.repo
     curl https://mirrors.aliyun.com/repo/Centos-{{ default "7" .CentosVersion }}.repo -o /etc/yum.repos.d/Centos-Base.repo
     cat << EOF | tee /etc/yum.repos.d/{{ .KernelRepo }}.repo
 [kernel]
 name=Linux Kernel Repository
-baseurl=http://{{ .KernelRepo }}/centos/7/kernel/el7/x86_64/RPMS
+baseurl=http://{{ .KernelRepo }}/centos/{{ default "7" .CentosVersion }}/kernel/el7/x86_64/RPMS
 enabled=1
 gpgcheck=0
 EOF
 }
 
 function Update_kernel() {
+    uname -r | grep 4.19 &> /dev/null && echo -e "\033[32;32m 已完成内核升级 \033[0m \n" && return 
+
     echo -e "\033[32;32m 列出可用内核... \033[0m \n"
     yum --disablerepo="*" --enablerepo="kernel" list available
     echo -e "\033[32;32m 安装稳定版内核... \033[0m \n"
@@ -54,7 +56,27 @@ function Install_depend_software(){
            net-tools conntrack-tools wget vim  ntpdate libseccomp libtool-ltdl telnet \
            ipvsadm tc ipset bridge-utils tree telnet wget net-tools  \
            tcpdump bash-completion sysstat chrony jq psmisc socat \
-           cri-o sysstat conntrack  iproute dstat lsof perl bind-utils cgroup
+           cri-o sysstat conntrack  iproute dstat lsof perl bind-utils 
+}
+
+function Install_ipvs(){
+    if [ -f /etc/sysconfig/modules/ipvs.modules ]; then
+      echo -e "\033[32;32m 已完成系统ipvs配置 \033[0m \n" 
+      return
+    fi
+
+    echo -e "\033[32;32m 开始配置系统ipvs \033[0m \n"
+    cat <<EOF |tee /etc/sysconfig/modules/ipvs.modules
+#!/bin/bash
+ipvs_modules="ip_vs ip_vs_lc ip_vs_wlc ip_vs_rr ip_vs_wrr ip_vs_lblc ip_vs_lblcr ip_vs_dh ip_vs_sh ip_vs_fo ip_vs_nq ip_vs_sed ip_vs_ftp nf_conntrack"
+for kernel_module in \${ipvs_modules}; do
+    /sbin/modinfo -F filename \${kernel_module} > /dev/null 2>&1
+   if [ \$? -eq 0 ]; then
+        /sbin/modprobe \${kernel_module}
+   fi
+done
+EOF
+    chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep -e ip_vs -e nf_conntrack
 }
 
 function Install_depend_environment(){
@@ -64,6 +86,7 @@ function Install_depend_environment(){
     fi
     echo -e "\033[32;32m 开始优化 k8s 内核参数 \033[0m \n"
 
+    modprobe br_netfilter
     echo "* soft nofile 1024000" >> /etc/security/limits.conf
     echo "* hard nofile 1024000" >> /etc/security/limits.conf
     echo "* soft nproc 1024000" >> /etc/security/limits.conf
@@ -71,7 +94,7 @@ function Install_depend_environment(){
 
     echo "* soft nproc 1024000" > /etc/security/limits.d/90-nproc.conf
     echo "root soft nproc unlimited" >> /etc/security/limits.d/90-nproc.conf
- 
+
     echo > /etc/sysctl.conf
     cat << EOF | tee /etc/sysctl.d/k8s.conf
 net.bridge.bridge-nf-call-iptables = 1
@@ -79,7 +102,6 @@ net.bridge.bridge-nf-call-ip6tables = 1
 net.bridge.bridge-nf-call-arptables = 1
 net.ipv4.tcp_keepalive_time = 1800
 net.ipv4.tcp_fin_timeout = 1
-net.ipv4.tcp_tw_recycle = 1
 net.core.rmem_max = 16777216
 net.core.rmem_default = 16777216
 net.core.netdev_max_backlog = 262144
@@ -129,21 +151,6 @@ EOF
     sysctl --system
     sysctl -p /etc/sysctl.d/k8s.conf
     systemctl enable chronyd && systemctl start chronyd && chronyc sources
-}
-
-function Install_ipvs(){
-    echo -e "\033[32;32m 开始配置系统ipvs \033[0m \n"
-	cat <<EOF | tee /etc/sysconfig/modules/ipvs.modules
-#!/bin/bash
-ipvs_modules="ip_vs ip_vs_lc ip_vs_wlc ip_vs_rr ip_vs_wrr ip_vs_lblc ip_vs_lblcr ip_vs_dh ip_vs_sh ip_vs_fo ip_vs_nq ip_vs_sed ip_vs_ftp nf_conntrack"
-for kernel_module in ${ipvs_modules}; do
-   /sbin/modinfo -F filename ${kernel_module} > /dev/null 2>&1
-   if [ \$? -eq 0 ]; then
-        /sbin/modprobe ${kernel_module}
-   fi
-done
-EOF
-    chmod 755 /etc/sysconfig/modules/ipvs.modules && bash /etc/sysconfig/modules/ipvs.modules && lsmod | grep ip_vs
 }
 
 function Install_docker(){
@@ -201,8 +208,8 @@ echo -e "\033[32;32m 开始初始化结点 @{{ .HostIP }}@ \033[0m \n"
 Update_yumrepo && \
 Firewalld_process && \
 Install_depend_software && \
-Install_depend_environment && \
 Install_ipvs && \
+Install_depend_environment && \
 Install_docker && \
 Update_kernel 
 `

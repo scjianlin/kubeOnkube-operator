@@ -17,7 +17,7 @@ const (
 	ipv4Forward = "/proc/sys/net/ipv4/ip_forward"
 )
 
-var tools = []string{"ipvsadm", "modinfo", "ip", "awk", "iptables"}
+var tools = []string{"ipvsadm", "modprobe", "modinfo", "ip", "awk", "iptables"}
 
 func newCommonChecks(s ssh.Interface) []Checker {
 	return []Checker{

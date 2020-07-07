@@ -141,18 +141,7 @@ func (p *Provider) EnsureSystem(ctx context.Context, machine *devopsv1.Machine, 
 		return err
 	}
 
-	dockerVersion := "19.03.9"
-	if v, ok := c.Spec.DockerExtraArgs["version"]; ok {
-		dockerVersion = v
-	}
-	option := &system.Option{
-		K8sVersion:    c.Spec.Version,
-		DockerVersion: dockerVersion,
-		Cgroupdriver:  "systemd", // cgroupfs or systemd
-		ExtraArgs:     c.Spec.KubeletExtraArgs,
-	}
-
-	err = system.Install(sh, option)
+	err = system.Install(sh, c)
 	if err != nil {
 		return errors.Wrap(err, sh.HostIP())
 	}

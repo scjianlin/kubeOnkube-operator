@@ -32,10 +32,21 @@ import (
 
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
+	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
+	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
+	"github.com/gostship/kunkka/pkg/util/pkiutil"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	KubeApiServerCerts  = "kube-apiserver-certs"
+	KubeApiServerConfig = "kube-apiserver-config"
 )
 
 func (p *Provider) EnsureCopyFiles(ctx context.Context, c *common.Cluster) error {
@@ -678,6 +689,51 @@ func (p *Provider) EnsureMakeControlPlane(ctx context.Context, c *common.Cluster
 	return nil
 }
 
+func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) error {
+	cfgMap := &corev1.ConfigMap{}
+	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			cfgMap = &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      KubeApiServerConfig,
+					Namespace: c.Cluster.Namespace,
+				},
+				Data: map[string]string{},
+			}
+		} else {
+			return errors.Wrapf(err, "get certs cfgMap err: %v", err)
+		}
+	}
+
+	if _, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+		return nil
+	}
+
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
+		apiserver, "", c.Cluster.Name, pkiutil.AdminKubeConfigFileName)
+	if err != nil {
+		klog.Errorf("create kubeconfg err: %+v", err)
+		return err
+	}
+	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
+	for _, v := range cfgMaps {
+		by, err := certs.BuildKubeConfigByte(v)
+		if err != nil {
+			return err
+		}
+		cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
+	}
+
+	logger := ctrl.Log.WithValues("cluster", c.Name)
+	err = k8sutil.Reconcile(logger, c.Client, cfgMap, k8sutil.DesiredStatePresent)
+	if err != nil {
+		return errors.Wrapf(err, "create k8s ext config err")
+	}
+	return nil
+}
+
 func (p *Provider) EnsureFlannel(ctx context.Context, c *common.Cluster) error {
 	clusterCtx, err := c.ClusterManager.Get(c.Name)
 	if err != nil {
@@ -689,6 +745,28 @@ func (p *Provider) EnsureFlannel(ctx context.Context, c *common.Cluster) error {
 	}
 
 	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "flannel")
+	logger.Info("start reconcile ...")
+	for _, obj := range objs {
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		if err != nil {
+			return errors.Wrapf(err, "Reconcile  err: %v", err)
+		}
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) error {
+	clusterCtx, err := c.ClusterManager.Get(c.Name)
+	if err != nil {
+		return nil
+	}
+	objs, err := metricsserver.BuildMetricsServerAddon(c)
+	if err != nil {
+		return errors.Wrapf(err, "build metrics-server err: %v", err)
+	}
+
+	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
 	logger.Info("start reconcile ...")
 	for _, obj := range objs {
 		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)

@@ -140,8 +140,12 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterCont
 	cfgMap := &corev1.ConfigMap{}
 	err := r.Client.Get(ctx, types.NamespacedName{Namespace: rc.Cluster.Namespace, Name: "kube-apiserver-config"}, cfgMap)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.Warningf("not find kube-apiserver-config cluster: %s", rc.Cluster.Name)
+			return nil
+		}
 		klog.Warningf("failed get kube-apiserver-config cluster: %s", rc.Cluster.Name)
-		return errors.Wrapf(err, "get certs cfgMap err: %v", err)
+		return errors.Wrapf(err, "failed get kubeconfig cfgMap")
 	}
 
 	if extKubeconfig, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {

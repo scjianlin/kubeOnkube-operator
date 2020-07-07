@@ -23,5 +23,3 @@ COPY --from=default /usr/local/kubernetes/server/bin/kube-apiserver \
                     /usr/local/kubernetes/server/bin/kube-scheduler \
                     /usr/local/kubernetes/server/bin/kube-controller-manager \
                     /usr/local/bin/
-
-COPY Dockerfile /Dockerfile

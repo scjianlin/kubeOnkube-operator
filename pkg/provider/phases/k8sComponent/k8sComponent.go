@@ -39,26 +39,28 @@ ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELE
 `
 )
 
-var CopyList = []devopsv1.File{
-	{
-		Src: constants.DstBinDir + "kubectl",
-		Dst: constants.DstBinDir + "kubectl",
-	},
-	{
-		Src: constants.DstBinDir + "kubeadm",
-		Dst: constants.DstBinDir + "kubeadm",
-	},
-	{
-		Src: constants.DstBinDir + "kubelet",
-		Dst: "/usr/bin/kubelet",
-	},
-	{
-		Src: "/opt/cni.tgz",
-		Dst: "/opt/cni.tgz",
-	},
-}
-
 func Install(s ssh.Interface, c *common.Cluster) error {
+	// dir := "k8s/linuxbin/"  # local debug config dir
+	dir := constants.DstBinDir
+	var CopyList = []devopsv1.File{
+		{
+			Src: dir + "kubectl",
+			Dst: constants.DstBinDir + "kubectl",
+		},
+		{
+			Src: dir + "kubeadm",
+			Dst: constants.DstBinDir + "kubeadm",
+		},
+		{
+			Src: dir + "kubelet",
+			Dst: "/usr/bin/kubelet",
+		},
+		{
+			Src: dir + "cni.tgz",
+			Dst: "/opt/cni.tgz",
+		},
+	}
+
 	for _, ls := range CopyList {
 		if ok, err := s.Exist(ls.Dst); err == nil && ok {
 			continue

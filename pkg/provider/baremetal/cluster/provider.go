@@ -78,7 +78,9 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureRenewCerts,
 			p.EnsureAPIServerCert,
 			p.EnsureStoreCredential,
+			p.EnsureExtKubeconfig,
 			p.EnsureFlannel,
+			p.EnsureMetricsServer,
 		},
 	}
 

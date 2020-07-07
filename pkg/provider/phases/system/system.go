@@ -25,6 +25,7 @@ type Option struct {
 	HostIP             string
 	KernelRepo         string
 	ResolvConf         string
+	CentosVersion      string
 	ExtraArgs          map[string]string
 }
 

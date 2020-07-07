@@ -1,6 +1,7 @@
 package cluster
 
 const (
-	tokenFileTemplate = `%s,admin,admin,system:masters
+	tokenFileTemplate = `
+%s,admin,admin,system:masters
 `
 )
