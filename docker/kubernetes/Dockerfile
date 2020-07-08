@@ -1,4 +1,4 @@
-ARG CENTOS_BASE_VERSION=7.8
+ARG CENTOS_BASE_VERSION=v7.8.1
 ARG ETCD_BASE_VERSION=v3.4.9
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION} as default
@@ -19,7 +19,6 @@ COPY --from=default /usr/local/kubernetes/server/bin/kube-apiserver \
                     /usr/local/kubernetes/server/bin/kubeadm  \
                     /usr/local/kubernetes/server/bin/kubectl \
                     /usr/local/kubernetes/server/bin/kubelet \
-                    /usr/local/kubernetes/server/bin/kube-proxy \
                     /usr/local/kubernetes/server/bin/kube-scheduler \
                     /usr/local/kubernetes/server/bin/kube-controller-manager \
                     /usr/local/bin/
