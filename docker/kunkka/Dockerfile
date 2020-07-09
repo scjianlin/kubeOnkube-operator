@@ -1,4 +1,4 @@
-ARG CENTOS_BASE_VERSION=7.8.1
+ARG CENTOS_BASE_VERSION=v7.8.1
 ARG K8S_BASE_VERSION=v1.18.5
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION} as default

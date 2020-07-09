@@ -46,11 +46,11 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	var CopyList = []devopsv1.File{
 		{
 			Src: dir + "kubectl",
-			Dst: constants.DstBinDir + "kubectl",
+			Dst: "/usr/bin/kubectl",
 		},
 		{
 			Src: dir + "kubeadm",
-			Dst: constants.DstBinDir + "kubeadm",
+			Dst: "/usr/bin/kubeadm",
 		},
 		{
 			Src: dir + "kubelet",
@@ -63,9 +63,9 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	for _, ls := range CopyList {
-		if ok, err := s.Exist(ls.Dst); err == nil && ok {
-			continue
-		}
+		// if ok, err := s.Exist(ls.Dst); err == nil && ok {
+		// 	continue
+		// }
 
 		err := s.CopyFile(ls.Src, ls.Dst)
 		if err != nil {

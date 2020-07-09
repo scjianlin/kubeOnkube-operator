@@ -11,6 +11,7 @@ RUN yum update -y && yum install -y --nogpgcheck \
     net-tools \
     tree \
     tcpdump \
+    ipvsadm \
     vim \
     netstat \
     ipset \

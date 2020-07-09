@@ -1,4 +1,4 @@
-ARG CENTOS_BASE_VERSION=v7.8.1
+ARG CENTOS_BASE_VERSION=v7.8.2
 ARG ETCD_BASE_VERSION=v3.4.9
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION} as default

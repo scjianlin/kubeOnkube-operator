@@ -319,26 +319,36 @@ func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *common.Cl
 }
 
 func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluster) error {
-
 	option := &kubeadm.JoinControlPlaneOption{
 		BootstrapToken:       *c.ClusterCredential.BootstrapToken,
 		CertificateKey:       *c.ClusterCredential.CertificateKey,
 		ControlPlaneEndpoint: fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP),
 	}
 	for _, machine := range c.Spec.Machines[1:] {
-		machineSSH, err := machine.SSH()
+		sh, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
+		clientset, err := c.ClientsetForBootstrap()
+		if err != nil {
+			klog.Errorf("ClientsetForBootstrap err: %v", clientset)
+			return err
+		}
+
+		_, err = clientset.CoreV1().Nodes().Get(context.TODO(), sh.HostIP(), metav1.GetOptions{})
+		if err == nil {
+			return nil
+		}
+
 		option.NodeName = machine.IP
-		err = kubeadm.JoinControlPlane(machineSSH, option)
+		err = kubeadm.JoinControlPlane(sh, option)
 		if err != nil {
 			return errors.Wrap(err, machine.IP)
 		}
 
 		if p.Cfg.CustomeImages {
-			err = kubeadm.ApplyCustomImagesMaster(machineSSH, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
+			err = kubeadm.ApplyCustomImagesMaster(sh, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
 			if err != nil {
 				return errors.Wrap(err, machine.IP)
 			}

@@ -113,16 +113,6 @@ type Option struct {
 }
 
 func Install(s ssh.Interface, c *common.Cluster) error {
-	if exist, _ := s.Exist(Eth1CfgPath); !exist {
-		klog.Warningf("node: %s file: %s not exist", s.HostIP(), Eth1CfgPath)
-		return nil
-	}
-
-	if exist, _ := s.Exist(Cni0CfgPath); exist {
-		klog.Warningf("node: %s file: %s always exist", s.HostIP(), Cni0CfgPath)
-		return nil
-	}
-
 	cfgMap := &corev1.ConfigMap{}
 	err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: CniHostLocalConfig}, cfgMap)
 	if err != nil {
@@ -168,6 +158,16 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	err = s.WriteFile(strings.NewReader(cniInitShell), constants.SystemInitCniFile)
 	if err != nil {
 		return err
+	}
+
+	if exist, _ := s.Exist(Eth1CfgPath); !exist {
+		klog.Warningf("node: %s file: %s not exist", s.HostIP(), Eth1CfgPath)
+		return nil
+	}
+
+	if exist, _ := s.Exist(Cni0CfgPath); exist {
+		klog.Warningf("node: %s file: %s always exist", s.HostIP(), Cni0CfgPath)
+		return nil
 	}
 
 	klog.Infof("node: %s start exec init cni ... ", s.HostIP())
