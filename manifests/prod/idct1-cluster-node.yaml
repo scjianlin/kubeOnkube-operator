@@ -1,0 +1,19 @@
+apiVersion: devops.gostship.io/v1
+kind: Machine
+metadata:
+  labels:
+    name: 10.27.191.241
+    clusterName: idct1-cluster
+  name: 10.27.191.241
+  namespace: kunkka-system
+spec:
+  clusterName: idct1-cluster
+  type: Baremetal
+  machine:
+    ip: 10.27.191.241
+    port: 22
+    username: root
+    password: "123456"
+  feature:
+    hooks:
+      installType: kubeadm
