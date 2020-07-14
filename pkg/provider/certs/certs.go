@@ -52,7 +52,7 @@ func CreateCACertAndKeyFiles(certSpec *KubeadmCert, cfg *kubeadmv1beta2.WarpperC
 		Cfg:    certSpec}, nil
 }
 
-func CreateCertAndKeyFilesWithCA(certSpec *KubeadmCert, ca *CaAll, cfg *kubeadmv1beta2.WarpperConfiguration, cfgMaps map[string][]byte) error {
+func CreateCertAndKeyFilesWithCA(certSpec *KubeadmCert, ca *CaAll, cfg *kubeadmv1beta2.WarpperConfiguration, certsMaps map[string][]byte) error {
 	if certSpec.CAName != ca.Cfg.Name {
 		return errors.Errorf("expected CAname for %s to be %q, but was %s", certSpec.Name, certSpec.CAName, ca.Cfg.Name)
 	}
@@ -72,18 +72,18 @@ func CreateCertAndKeyFilesWithCA(certSpec *KubeadmCert, ca *CaAll, cfg *kubeadmv
 		return err
 	}
 
-	cfgMaps[keyPath] = keyByte
+	certsMaps[keyPath] = keyByte
 	certPath, certByte, err := pkiutil.BuildCertByte(cfg.CertificatesDir, certSpec.BaseName, cert)
 	if err != nil {
 		return err
 	}
-	cfgMaps[certPath] = certByte
+	certsMaps[certPath] = certByte
 	return nil
 }
 
 // CreateServiceAccountKeyAndPublicKeyFiles creates new public/private key files for signing service account users.
 // If the sa public/private key files already exist in the target folder, they are used only if evaluated equals; otherwise an error is returned.
-func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.PublicKeyAlgorithm, cfgMaps map[string][]byte) error {
+func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.PublicKeyAlgorithm, certsMaps map[string][]byte) error {
 	klog.V(1).Infoln("creating new public/private key files for signing service account users")
 
 	// The key does NOT exist, let's generate it now
@@ -98,12 +98,12 @@ func CreateServiceAccountKeyAndPublicKeyFiles(certsDir string, keyType x509.Publ
 	if err != nil {
 		return err
 	}
-	cfgMaps[keyPath] = keyByte
+	certsMaps[keyPath] = keyByte
 
 	publicPath, publicByte, err := pkiutil.BuildPublicKeyByte(certsDir, pkiutil.ServiceAccountKeyBaseName, key.Public())
 	if err != nil {
 		return err
 	}
-	cfgMaps[publicPath] = publicByte
+	certsMaps[publicPath] = publicByte
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/thoas/go-funk"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -193,7 +194,7 @@ func (p *DelegateProvider) OnUpdate(ctx context.Context, cluster *common.Cluster
 
 	var key string
 	var ok bool
-	if key, ok = cluster.Cluster.Annotations[devopsv1.ClusterAnnotationAction]; !ok {
+	if key, ok = cluster.Cluster.Annotations[constants.ClusterAnnotationAction]; !ok {
 		return nil
 	}
 

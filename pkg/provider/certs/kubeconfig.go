@@ -84,7 +84,7 @@ func LoadCertAndKeyFromByte(CAKey, CACert []byte) (*x509.Certificate, crypto.Sig
 
 // getKubeConfigSpecs returns all KubeConfigSpecs actualized to the context of the current InitConfiguration
 // NB. this methods holds the information about how kubeadm creates kubeconfig files.
-func getKubeConfigSpecs(CAKey, CACert []byte, apiserver string, advertiseAddress string) (map[string]*kubeConfigSpec, error) {
+func getKubeConfigSpecs(CAKey, CACert []byte, apiserver string, kubeletNodeAddr string) (map[string]*kubeConfigSpec, error) {
 
 	caCert, caKey, err := LoadCertAndKeyFromByte(CAKey, CACert)
 	if err != nil {
@@ -104,7 +104,7 @@ func getKubeConfigSpecs(CAKey, CACert []byte, apiserver string, advertiseAddress
 		pkiutil.KubeletKubeConfigFileName: {
 			CACert:     caCert,
 			APIServer:  apiserver,
-			ClientName: fmt.Sprintf("%s%s", pkiutil.NodesUserPrefix, advertiseAddress),
+			ClientName: fmt.Sprintf("%s%s", pkiutil.NodesUserPrefix, kubeletNodeAddr),
 			ClientCertAuth: &clientCertAuth{
 				CAKey:         caKey,
 				Organizations: []string{pkiutil.NodesGroup},
@@ -180,10 +180,10 @@ func BuildKubeConfigByte(config *clientcmdapi.Config) ([]byte, error) {
 
 // createKubeConfigFiles creates all the requested kubeconfig files.
 // If kubeconfig files already exists, they are used only if evaluated equal; otherwise an error is returned.
-func CreateKubeConfigFiles(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string, kubeConfigFileNames ...string) (map[string]*clientcmdapi.Config, error) {
+func CreateKubeConfigFiles(CAKey, CACert []byte, apiserver string, kubeletNodeAddr string, clusterName string, kubeConfigFileNames ...string) (map[string]*clientcmdapi.Config, error) {
 	cfgMaps := make(map[string]*clientcmdapi.Config)
 	// gets the KubeConfigSpecs, actualized for the current InitConfiguration
-	specs, err := getKubeConfigSpecs(CAKey, CACert, apiserver, advertiseAddress)
+	specs, err := getKubeConfigSpecs(CAKey, CACert, apiserver, kubeletNodeAddr)
 	if err != nil {
 		return nil, err
 	}
@@ -218,20 +218,27 @@ func BuildApiserverEndpoint(ipOrDns string, bindPort int) string {
 	return controlPlaneURL.String()
 }
 
-func CreateKubeConfigFile(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string) (map[string]*clientcmdapi.Config, error) {
-	return CreateKubeConfigFiles(CAKey, CACert, apiserver, advertiseAddress, clusterName, GetDefaultKubeconfigList()...)
+func CreateKubeletKubeConfigFile(CAKey, CACert []byte, apiserver string, kubeletNodeAddr string, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, apiserver, kubeletNodeAddr, clusterName, GetKubeletKubeconfigList()...)
 }
 
-func CreateMasterKubeConfigFile(CAKey, CACert []byte, apiserver string, advertiseAddress string, clusterName string) (map[string]*clientcmdapi.Config, error) {
-	return CreateKubeConfigFiles(CAKey, CACert, apiserver, advertiseAddress, clusterName, GetMasterKubeConfigList()...)
+func CreateMasterKubeConfigFile(CAKey, CACert []byte, apiserver string, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, apiserver, "", clusterName, GetMasterKubeConfigList()...)
 }
 
-func GetDefaultKubeconfigList() []string {
+func CreateApiserverKubeConfigFile(CAKey, CACert []byte, apiserver string, clusterName string) (map[string]*clientcmdapi.Config, error) {
+	return CreateKubeConfigFiles(CAKey, CACert, apiserver, "", clusterName, GetApiserverKubeconfigList()...)
+}
+
+func GetKubeletKubeconfigList() []string {
+	return []string{
+		pkiutil.KubeletKubeConfigFileName,
+	}
+}
+
+func GetApiserverKubeconfigList() []string {
 	return []string{
 		pkiutil.AdminKubeConfigFileName,
-		pkiutil.ControllerManagerKubeConfigFileName,
-		pkiutil.SchedulerKubeConfigFileName,
-		pkiutil.KubeletKubeConfigFileName,
 	}
 }
 

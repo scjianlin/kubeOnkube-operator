@@ -8,7 +8,9 @@ import (
 
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
@@ -48,7 +50,9 @@ func (p *Provider) EnsureRenewCerts(ctx context.Context, c *common.Cluster) erro
 }
 
 func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *common.Cluster) error {
-	kubeadmConfig := p.getKubeadmConfig(c)
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+
+	kubeadmConfig := kubeadm.GetKubeadmConfig(c, p.Cfg, apiserver)
 	exptectCertSANs := k8sutil.GetAPIServerCertSANs(c.Cluster)
 
 	needUpload := false
@@ -62,12 +66,12 @@ func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *common.Cluster) e
 		if err != nil {
 			return err
 		}
-		certs, err := certutil.ParseCertsPEM(data)
+		certList, err := certutil.ParseCertsPEM(data)
 		if err != nil {
 			return err
 		}
-		actualCertSANs := certs[0].DNSNames
-		for _, ip := range certs[0].IPAddresses {
+		actualCertSANs := certList[0].DNSNames
+		for _, ip := range certList[0].IPAddresses {
 			actualCertSANs = append(actualCertSANs, ip.String())
 		}
 		if reflect.DeepEqual(funk.IntersectString(actualCertSANs, exptectCertSANs), exptectCertSANs) {

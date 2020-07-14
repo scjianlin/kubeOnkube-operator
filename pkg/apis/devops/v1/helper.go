@@ -25,10 +25,6 @@ const (
 	ConditionUnknown ConditionStatus = "Unknown"
 )
 
-const (
-	ClusterAnnotationAction = "k8s.io/action"
-)
-
 // ClusterMachine is the master machine definition of cluster.
 type ClusterMachine struct {
 	IP       string `json:"ip" protobuf:"bytes,1,opt,name=ip"`

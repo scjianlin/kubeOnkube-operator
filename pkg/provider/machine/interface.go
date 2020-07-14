@@ -120,9 +120,11 @@ func (p *DelegateProvider) OnCreate(ctx context.Context, machine *devopsv1.Machi
 		if f == nil {
 			return fmt.Errorf("can't get handler by %s", condition.Type)
 		}
-		klog.Infof("machineName: %s OnCreate handler: %s", machine.Name, f.Name())
+		handlerName := f.Name()
+		klog.Infof("machineName: %s OnCreate handler: %s", machine.Name, handlerName)
 		err = f(ctx, machine, cluster)
 		if err != nil {
+			klog.Errorf("cluster: %s OnCreate handler: %s err: %+v", cluster.Name, handlerName, err)
 			machine.SetCondition(devopsv1.MachineCondition{
 				Type:          condition.Type,
 				Status:        devopsv1.ConditionFalse,
