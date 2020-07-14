@@ -20,7 +20,7 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/certs"
-	"github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+	k8scomponent "github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
@@ -162,7 +162,7 @@ func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Mac
 		return err
 	}
 
-	err = k8sComponent.Install(sh, c)
+	err = k8scomponent.Install(sh, c)
 	if err != nil {
 		return errors.Wrap(err, sh.HostIP())
 	}
@@ -176,7 +176,7 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 		return err
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
 
 	option := &kubeconfig.Option{
 		MasterEndpoint: apiserver,
@@ -184,7 +184,7 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 		CACert:         c.ClusterCredential.CACert,
 		Token:          *c.ClusterCredential.Token,
 	}
-	err = kubeconfig.Install(machineSSH, option)
+	err = kubeconfig.InstallNode(machineSSH, option)
 	if err != nil {
 		return err
 	}
@@ -225,7 +225,7 @@ func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine
 		return err
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
 	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, ip, c.Cluster.Name, pkiutil.KubeletKubeConfigFileName)
 	if err != nil {

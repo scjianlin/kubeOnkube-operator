@@ -12,8 +12,15 @@ ENV CNI_PLUGINS_VERSION v0.8.6
 RUN curl -fsSL https://github.com/containernetworking/plugins/releases/download/$CNI_PLUGINS_VERSION/cni-plugins-linux-amd64-$CNI_PLUGINS_VERSION.tgz -o cni.tgz \
     && mv cni.tgz /usr/local/bin/
 
+ENV HELM_VERSION v3.2.4
+RUN curl -fsSL https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz -o helm.tar.gz \
+    && tar -C /tmp/ -xzf helm.tar.gz \
+    && mv /tmp/linux-amd64/helm /usr/local/bin/ \
+    && rm helm.tar.gz
+
 FROM symcn.tencentcloudcr.com/symcn/kubernetes:${K8S_BASE_VERSION}
 
 COPY --from=default /usr/local/bin/cni.tgz /usr/local/bin/
 COPY --from=default /usr/local/bin/k9s /usr/local/bin/
+COPY --from=default /usr/local/bin/helm /usr/local/bin/
 COPY bin/kunkka-controller /usr/local/bin/

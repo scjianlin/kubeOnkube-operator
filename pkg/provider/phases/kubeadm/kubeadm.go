@@ -13,13 +13,13 @@ import (
 
 	"crypto/x509"
 
-	"path/filepath"
-
 	"os"
 
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+
+	"strings"
 
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
@@ -28,6 +28,13 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
+)
+
+const (
+	tokenFileTemplate = `
+%s,admin,admin,system:masters
+`
 )
 
 const (
@@ -105,7 +112,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	return nil
 }
 
-func InitCustomCerts(cfg *Config, c *common.Cluster) error {
+func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) (*corev1.ConfigMap, error) {
 	var lastCACert *certs.CaAll
 	cfgMaps := make(map[string][]byte)
 
@@ -115,82 +122,91 @@ func InitCustomCerts(cfg *Config, c *common.Cluster) error {
 		IPs:                  c.IPs(),
 	}
 
-	for _, cert := range certs.GetDefaultCertList() {
+	var certList certs.Certificates
+	if isHosted {
+		certList = certs.GetDefaultCertList()
+	} else {
+		certList = certs.GetCertsWithoutEtcd()
+	}
+
+	for _, cert := range certList {
 		if cert.CAName == "" {
 			ret, err := certs.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			lastCACert = ret
 		} else {
 			if lastCACert == nil {
-				return fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
+				return nil, fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
 			}
 			err := certs.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
 			if err != nil {
-				return errors.Wrapf(err, "create cert: %s", cert.Name)
+				return nil, errors.Wrapf(err, "create cert: %s", cert.Name)
 			}
 		}
 	}
 
 	err := certs.CreateServiceAccountKeyAndPublicKeyFiles(cfg.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
 	if err != nil {
-		return errors.Wrapf(err, "create sa public key")
+		return nil, errors.Wrapf(err, "create sa public key")
 	}
 
 	if len(cfgMaps) == 0 {
-		return fmt.Errorf("no cert build")
+		return nil, fmt.Errorf("no cert build")
 	}
 
-	for _, machine := range c.Spec.Machines {
-		sh, err := machine.SSH()
-		if err != nil {
-			return err
+	k8sconfigmap := &corev1.ConfigMap{
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServerCerts, constants.CtrlLabels, c.Cluster),
+		BinaryData: make(map[string][]byte),
+		Data:       map[string]string{},
+	}
+
+	for pathFile, v := range cfgMaps {
+
+		if pathFile == constants.CACertName {
+			c.ClusterCredential.CACert = v
 		}
 
-		klog.Infof("node: %s start write cert ...", machine.IP)
-		for pathFile, v := range cfgMaps {
-			err = sh.WriteFile(bytes.NewReader(v), pathFile)
-			if err != nil {
-				klog.Errorf("write kubeconfg: %s err: %+v", pathFile, err)
-				return err
-			}
+		if pathFile == constants.CAKeyName {
+			c.ClusterCredential.CAKey = v
 		}
-	}
-	return nil
-}
 
-func InitCustomKubeconfig(cfg *Config, s ssh.Interface, c *common.Cluster) error {
-	warp := &kubeadmv1beta2.WarpperConfiguration{
-		InitConfiguration:    cfg.InitConfiguration,
-		ClusterConfiguration: cfg.ClusterConfiguration,
-		IPs:                  c.IPs(),
+		if pathFile == constants.EtcdCACertName {
+			c.ClusterCredential.ETCDCACert = v
+		}
+
+		if pathFile == constants.EtcdCAKeyName {
+			c.ClusterCredential.ETCDCAKey = v
+		}
+
+		if pathFile == constants.APIServerEtcdClientCertName {
+			c.ClusterCredential.ETCDAPIClientCert = v
+		}
+
+		if pathFile == constants.APIServerEtcdClientKeyName {
+			c.ClusterCredential.ETCDAPIClientKey = v
+		}
+
+		key := pathFile
+		if isHosted {
+			split := strings.Split(pathFile, "/")
+			key = split[len(split)-1]
+		}
+
+		k8sconfigmap.BinaryData[key] = v
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(s.HostIP(), int(warp.LocalAPIEndpoint.BindPort))
-	cfgMaps, err := certs.CreateKubeConfigFile(c.ClusterCredential.CAKey,
-		c.ClusterCredential.CACert, apiserver, s.HostIP(), warp.ClusterName)
+	tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
+	k8sconfigmap.Data[constants.TokenFile] = tokenData
+
+	logger := ctrl.Log.WithValues("cluster", c.Name)
+	err = k8sutil.Reconcile(logger, c.Client, k8sconfigmap, k8sutil.DesiredStatePresent)
 	if err != nil {
-		klog.Errorf("create kubeconfg err: %+v", err)
-		return err
+		return nil, errors.Wrapf(err, "apply configmap: %s", k8sconfigmap.Name)
 	}
 
-	klog.Infof("node: %s start write kubeconfig ...", s.HostIP())
-	for noPathFile, v := range cfgMaps {
-		by, err := certs.BuildKubeConfigByte(v)
-		if err != nil {
-			return err
-		}
-
-		pathFile := filepath.Join(constants.KubernetesDir, noPathFile)
-		err = s.WriteFile(bytes.NewReader(by), pathFile)
-		if err != nil {
-			klog.Errorf("write kubeconfg: %s err: %+v", noPathFile, err)
-			return err
-		}
-	}
-
-	return nil
+	return k8sconfigmap, nil
 }
 
 type JoinControlPlaneOption struct {
@@ -200,7 +216,14 @@ type JoinControlPlaneOption struct {
 	ControlPlaneEndpoint string
 }
 
-func JoinControlPlane(s ssh.Interface, option *JoinControlPlaneOption) error {
+func JoinControlPlane(s ssh.Interface, c *common.Cluster) error {
+	option := &JoinControlPlaneOption{
+		BootstrapToken:       *c.ClusterCredential.BootstrapToken,
+		CertificateKey:       *c.ClusterCredential.CertificateKey,
+		ControlPlaneEndpoint: fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP),
+		NodeName:             s.HostIP(),
+	}
+
 	cmd, err := template.ParseString(joinControlPlaneCmd, option)
 	if err != nil {
 		return errors.Wrap(err, "parse joinControlePlaneCmd error")
@@ -374,10 +397,14 @@ func ApplyCustomImages(s ssh.Interface, image string, podManifestFile string) er
 	return nil
 }
 
-func ApplyCustomImagesMaster(s ssh.Interface, images string) error {
-	err := ApplyCustomImages(s, images, constants.EtcdPodManifestFile)
-	err = ApplyCustomImages(s, images, constants.KubeAPIServerPodManifestFile)
-	err = ApplyCustomImages(s, images, constants.KubeControllerManagerPodManifestFile)
-	err = ApplyCustomImages(s, images, constants.KubeSchedulerPodManifestFile)
-	return err
+func ApplyCustomImagesMaster(s ssh.Interface, images string, ls []string) error {
+	for _, name := range ls {
+		err := ApplyCustomImages(s, images, name)
+		if err != nil {
+			klog.Errorf("apply images %s err: %v", name, err)
+			return err
+		}
+	}
+
+	return nil
 }

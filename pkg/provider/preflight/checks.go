@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/gostship/kunkka/pkg/constants"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"k8s.io/klog"
 )
@@ -36,7 +37,7 @@ func newCommonChecks(s ssh.Interface) []Checker {
 }
 
 // RunMasterChecks checks for master
-func RunMasterChecks(s ssh.Interface) error {
+func RunMasterChecks(s ssh.Interface, c *common.Cluster) error {
 	checks := newCommonChecks(s)
 	checks = append(checks, []Checker{
 		NumCPUCheck{Interface: s, NumCPU: 1},

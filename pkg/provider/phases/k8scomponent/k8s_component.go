@@ -1,4 +1,4 @@
-package k8sComponent
+package k8scomponent
 
 import (
 	"fmt"
@@ -69,7 +69,7 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 
 		err := s.CopyFile(ls.Src, ls.Dst)
 		if err != nil {
-			klog.Errorf("node: %s copy %s err: %v", s.HostIP(), ls.Src)
+			klog.Errorf("node: %s copy %s err: %v", s.HostIP(), ls.Src, err)
 			return err
 		}
 

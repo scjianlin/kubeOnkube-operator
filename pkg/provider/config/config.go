@@ -35,7 +35,7 @@ type Feature struct {
 func NewDefaultConfig() (*Config, error) {
 	config := &Config{
 		Registry: Registry{
-			Prefix: "registry.aliyuncs.com/google_containers",
+			Prefix: "symcn.tencentcloudcr.com/symcn",
 		},
 		CustomRegistry: "symcn.tencentcloudcr.com/symcn",
 	}

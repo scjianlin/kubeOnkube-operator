@@ -113,9 +113,9 @@ type ClusterCondition struct {
 type HookType string
 
 const (
-	HookPreInstall     HookType = "PreInstall"
-	HookPostInstall    HookType = "PostInstall"
-	HookPostCniInstall HookType = "PostCniInstall"
+	HookPreInstall  HookType = "preInstall"
+	HookPostInstall HookType = "postInstall"
+	HookCniInstall  HookType = "cniInstall"
 )
 
 // AddressType indicates the type of cluster apiserver access address.

@@ -2,11 +2,9 @@ package cluster
 
 import (
 	"context"
-
 	"fmt"
-	"strings"
-
 	"sort"
+	"strings"
 
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
@@ -23,35 +21,14 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const (
-	KubeApiServer         = "kube-apiserver"
-	KubeKubeScheduler     = "kube-scheduler"
-	KubeControllerManager = "kube-controller-manager"
-	KubeApiServerCerts    = "kube-apiserver-certs"
-	KubeApiServerConfig   = "kube-apiserver-config"
-	KubeApiServerAudit    = "kube-apiserver-audit"
-)
-
-var KubeApiServerLabels = map[string]string{
-	"component": KubeApiServer,
-}
-
-var KubeKubeSchedulerLabels = map[string]string{
-	"component": KubeKubeScheduler,
-}
-
-var KubeControllerManagerLabels = map[string]string{
-	"component": KubeControllerManager,
-}
-
-var Labels = map[string]string{
-	"createBy": "controller",
-}
-
 type Reconciler struct {
 	Obj     *common.Cluster
 	dynamic dynamic.Interface
 	*Provider
+}
+
+func GetPodBindPort() int32 {
+	return 6443
 }
 
 // GetHPAReplicaCountOrDefault get desired replica count from HPA if exists, returns the given default otherwise
@@ -69,15 +46,6 @@ func GetHPAReplicaCountOrDefault(client client.Client, name types.NamespacedName
 	return hpa.Status.DesiredReplicas
 }
 
-func GetBindPort(obj *common.Cluster) int32 {
-	bindPort := 6443
-	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
-		bindPort = int(obj.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
-	}
-
-	return int32(bindPort)
-}
-
 func GetAdvertiseAddress(obj *common.Cluster) string {
 	advertiseAddress := "$(INSTANCE_IP)"
 	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
@@ -91,45 +59,45 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	containers := []corev1.Container{}
 	vms := []corev1.VolumeMount{
 		{
-			Name:      KubeApiServerCerts,
+			Name:      constants.KubeApiServerCerts,
 			MountPath: "/etc/kubernetes/pki/",
 			ReadOnly:  true,
 		},
 		{
-			Name:      KubeApiServerConfig,
+			Name:      constants.KubeApiServerConfig,
 			MountPath: "/etc/kubernetes/",
 		},
 		{
-			Name:      KubeApiServerAudit,
+			Name:      constants.KubeApiServerAudit,
 			MountPath: "/var/log/kubernetes",
 		},
 	}
 	hostPathType := corev1.HostPathDirectoryOrCreate
 	volumes := []corev1.Volume{
 		{
-			Name: KubeApiServerCerts,
+			Name: constants.KubeApiServerCerts,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: KubeApiServerCerts,
+						Name: constants.KubeApiServerCerts,
 					},
 					DefaultMode: k8sutil.IntPointer(420),
 				},
 			},
 		},
 		{
-			Name: KubeApiServerConfig,
+			Name: constants.KubeApiServerConfig,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: KubeApiServerConfig,
+						Name: constants.KubeApiServerConfig,
 					},
 					DefaultMode: k8sutil.IntPointer(420),
 				},
 			},
 		},
 		{
-			Name: KubeApiServerAudit,
+			Name: constants.KubeApiServerAudit,
 			VolumeSource: corev1.VolumeSource{
 				HostPath: &corev1.HostPathVolumeSource{
 					Path: fmt.Sprintf("/web/%s/kube-apiserver/audit", r.Obj.Cluster.Name),
@@ -162,9 +130,8 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 		"--token-auth-file=/etc/kubernetes/pki/known_tokens.csv",
 	}
 
-	bindPort := GetBindPort(r.Obj)
 	advertiseAddress := GetAdvertiseAddress(r.Obj)
-	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", bindPort))
+	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", GetPodBindPort()))
 	cmds = append(cmds, fmt.Sprintf("--advertise-address=%s", advertiseAddress))
 	if r.Obj.Cluster.Spec.APIServerExtraArgs != nil {
 		extraArgs := []string{}
@@ -194,14 +161,14 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	}
 
 	c := corev1.Container{
-		Name:            KubeApiServer,
+		Name:            constants.KubeApiServer,
 		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
-				ContainerPort: bindPort,
+				ContainerPort: GetPodBindPort(),
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
@@ -236,21 +203,21 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	containers = append(containers, c)
 
 	deployment := &appsv1.Deployment{
-		ObjectMeta: k8sutil.ObjectMeta(KubeApiServer, KubeApiServerLabels, r.Obj.Cluster),
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServer, constants.KubeApiServerLabels, r.Obj.Cluster),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: k8sutil.IntPointer(3),
 			Strategy: common.DefaultRollingUpdateStrategy(),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: KubeApiServerLabels,
+				MatchLabels: constants.KubeApiServerLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: KubeApiServerLabels,
+					Labels: constants.KubeApiServerLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers:  containers,
 					Volumes:     volumes,
-					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, KubeApiServerLabels),
+					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, constants.KubeApiServerLabels),
 					Tolerations: common.ComponentTolerations(),
 				},
 			},
@@ -261,23 +228,28 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 }
 
 func (r *Reconciler) apiServerSvc() runtime.Object {
-	bindPort := GetBindPort(r.Obj)
 	svc := &corev1.Service{
-		ObjectMeta: k8sutil.ObjectMeta(KubeApiServer, KubeApiServerLabels, r.Obj.Cluster),
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServer, constants.KubeApiServerLabels, r.Obj.Cluster),
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
 				{
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
-					Port:       bindPort,
+					Port:       GetPodBindPort(),
 					NodePort:   30443,
 					TargetPort: intstr.FromString("https"),
 				},
 			},
-			Selector: KubeApiServerLabels,
-			Type:     corev1.ServiceTypeNodePort,
+
+			Selector: constants.KubeApiServerLabels,
 		},
 	}
+	svcType := corev1.ServiceTypeNodePort
+	if constants.GetAnnotationKey(r.Obj.Annotations, constants.ClusterApiSvcType) == string(corev1.ServiceTypeLoadBalancer) {
+		svcType = corev1.ServiceTypeLoadBalancer
+		svc.Spec.LoadBalancerIP = constants.GetAnnotationKey(r.Obj.Annotations, constants.ClusterApiSvcVip)
+	}
+	svc.Spec.Type = svcType
 
 	if svc.Annotations == nil {
 		svc.Annotations = make(map[string]string)
@@ -285,7 +257,7 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 
 	// svc.Annotations["contour.heptio.com/upstream-protocol.tls"] = "443,https"
 	svc.Annotations["projectcontour.io/upstream-protocol.tls"] = "6443"
-	svc.Annotations["gloo.solo.io/sslService.secret"] = KubeApiServerCerts
+	svc.Annotations["gloo.solo.io/sslService.secret"] = constants.KubeApiServerCerts
 
 	return svc
 }
@@ -294,33 +266,33 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 	containers := []corev1.Container{}
 	vms := []corev1.VolumeMount{
 		{
-			Name:      KubeApiServerCerts,
+			Name:      constants.KubeApiServerCerts,
 			MountPath: "/etc/kubernetes/pki/",
 			ReadOnly:  true,
 		},
 		{
-			Name:      KubeApiServerConfig,
+			Name:      constants.KubeApiServerConfig,
 			MountPath: "/etc/kubernetes/",
 		},
 	}
 	volumes := []corev1.Volume{
 		{
-			Name: KubeApiServerCerts,
+			Name: constants.KubeApiServerCerts,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: KubeApiServerCerts,
+						Name: constants.KubeApiServerCerts,
 					},
 					DefaultMode: k8sutil.IntPointer(420),
 				},
 			},
 		},
 		{
-			Name: KubeApiServerConfig,
+			Name: constants.KubeApiServerConfig,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: KubeApiServerConfig,
+						Name: constants.KubeApiServerConfig,
 					},
 					DefaultMode: k8sutil.IntPointer(420),
 				},
@@ -363,7 +335,7 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 
 	healthPortName := "https-healthz"
 	c := corev1.Container{
-		Name:            KubeControllerManager,
+		Name:            constants.KubeControllerManager,
 		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
@@ -410,21 +382,21 @@ func (r *Reconciler) controllerManagerDeployment() runtime.Object {
 	containers = append(containers, c)
 
 	deployment := &appsv1.Deployment{
-		ObjectMeta: k8sutil.ObjectMeta(KubeControllerManager, KubeControllerManagerLabels, r.Obj.Cluster),
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeControllerManager, constants.KubeControllerManagerLabels, r.Obj.Cluster),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: k8sutil.IntPointer(3),
 			Strategy: common.DefaultRollingUpdateStrategy(),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: KubeControllerManagerLabels,
+				MatchLabels: constants.KubeControllerManagerLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: KubeControllerManagerLabels,
+					Labels: constants.KubeControllerManagerLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers:  containers,
 					Volumes:     volumes,
-					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, KubeApiServerLabels),
+					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, constants.KubeApiServerLabels),
 					Tolerations: common.ComponentTolerations(),
 				},
 			},
@@ -438,7 +410,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 	containers := []corev1.Container{}
 	vms := []corev1.VolumeMount{
 		{
-			Name:      KubeApiServerConfig,
+			Name:      constants.KubeApiServerConfig,
 			MountPath: "/etc/kubernetes/",
 		},
 	}
@@ -446,11 +418,11 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 	volumes := []corev1.Volume{
 
 		{
-			Name: KubeApiServerConfig,
+			Name: constants.KubeApiServerConfig,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: corev1.LocalObjectReference{
-						Name: KubeApiServerConfig,
+						Name: constants.KubeApiServerConfig,
 					},
 					DefaultMode: k8sutil.IntPointer(420),
 				},
@@ -469,7 +441,7 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 
 	healthPortName := "https-healthz"
 	c := corev1.Container{
-		Name:            KubeKubeScheduler,
+		Name:            constants.KubeKubeScheduler,
 		Image:           r.Provider.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, r.Obj.Cluster.Spec.Version),
 		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command:         cmds,
@@ -516,21 +488,21 @@ func (r *Reconciler) schedulerDeployment() runtime.Object {
 	containers = append(containers, c)
 
 	deployment := &appsv1.Deployment{
-		ObjectMeta: k8sutil.ObjectMeta(KubeKubeScheduler, KubeKubeSchedulerLabels, r.Obj.Cluster),
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeKubeScheduler, constants.KubeKubeSchedulerLabels, r.Obj.Cluster),
 		Spec: appsv1.DeploymentSpec{
 			Replicas: k8sutil.IntPointer(3),
 			Strategy: common.DefaultRollingUpdateStrategy(),
 			Selector: &metav1.LabelSelector{
-				MatchLabels: KubeKubeSchedulerLabels,
+				MatchLabels: constants.KubeKubeSchedulerLabels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Labels: KubeKubeSchedulerLabels,
+					Labels: constants.KubeKubeSchedulerLabels,
 				},
 				Spec: corev1.PodSpec{
 					Containers:  containers,
 					Volumes:     volumes,
-					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, KubeApiServerLabels),
+					Affinity:    common.ComponentAffinity(r.Obj.Cluster.Namespace, constants.KubeApiServerLabels),
 					Tolerations: common.ComponentTolerations(),
 				},
 			},

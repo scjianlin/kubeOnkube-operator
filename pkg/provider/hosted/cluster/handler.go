@@ -9,10 +9,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 
-	"crypto/x509"
-
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/addons/coredns"
@@ -20,13 +17,13 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/kubeproxy"
 	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
 	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
 	"github.com/segmentio/ksuid"
 	corev1 "k8s.io/api/core/v1"
-	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
@@ -155,107 +152,24 @@ func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *common.Cl
 }
 
 func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
-	tokenMap := make(map[string]string)
+	apiserver := fmt.Sprintf("%s:6443", constants.KubeApiServer)
 
-	tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
-	tokenMap["known_tokens.csv"] = tokenData
-
-	warp := &kubeadmv1beta2.WarpperConfiguration{
-		InitConfiguration:    p.getInitConfiguration(c),
-		ClusterConfiguration: p.getClusterConfiguration(c),
-	}
-
-	var lastCACert *certs.CaAll
-	cfgMaps := make(map[string][]byte)
-	for _, cert := range certs.GetCertsWithoutEtcd() {
-		if cert.CAName == "" {
-			ret, err := certs.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
-			if err != nil {
-				return err
-			}
-			lastCACert = ret
-		} else {
-			if lastCACert == nil {
-				return fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
-			}
-			err := certs.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
-			if err != nil {
-				return errors.Wrapf(err, "create cert: %s", cert.Name)
-			}
-		}
-	}
-
-	err := certs.CreateServiceAccountKeyAndPublicKeyFiles(warp.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
+	_, err := kubeadm.InitCerts(kubeadm.GetKubeadmConfig(c, p.Cfg, apiserver), c, true)
 	if err != nil {
-		return errors.Wrapf(err, "create sa public key")
-	}
-
-	if len(cfgMaps) == 0 {
-		return fmt.Errorf("no cert build")
-	}
-
-	k8sconfigmap := &corev1.ConfigMap{
-		ObjectMeta: k8sutil.ObjectMeta(KubeApiServerCerts, Labels, c.Cluster),
-		Data:       tokenMap,
-		BinaryData: make(map[string][]byte),
-	}
-
-	for fileName, v := range cfgMaps {
-		k8sconfigmap.BinaryData[fileName] = v
-		if fileName == "ca.crt" {
-			c.ClusterCredential.CACert = v
-		}
-		if fileName == "ca.key" {
-			c.ClusterCredential.CAKey = v
-		}
-	}
-
-	err = c.Client.Create(ctx, k8sconfigmap)
-	if err != nil {
-		return errors.Wrapf(err, "create pki config err: %v", err)
+		return err
 	}
 
 	return nil
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) error {
-	if c.ClusterCredential.CACert == nil {
-		certsMap := &corev1.ConfigMap{}
-		err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerCerts}, certsMap)
-		if err != nil {
-			return errors.Wrapf(err, "get certs configmap err: %v", err)
-		}
-		c.ClusterCredential.CACert = certsMap.BinaryData["ca.crt"]
-		c.ClusterCredential.CAKey = certsMap.BinaryData["ca.key"]
-	}
-
-	cfgMaps, err := certs.CreateMasterKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
-		certs.BuildApiserverEndpoint(KubeApiServer, int(GetBindPort(c))), "", c.Cluster.Name)
+	kubeMaps := make(map[string]string)
+	apiserver := certs.BuildApiserverEndpoint(constants.KubeApiServer, kubeconfig.GetBindPort(c.Cluster))
+	err := kubeconfig.ApplyMasterKubeconfig(c, apiserver, true, kubeMaps)
 	if err != nil {
-		klog.Errorf("create kubeconfg err: %+v", err)
 		return err
 	}
 
-	k8sconfigmap := &corev1.ConfigMap{
-		ObjectMeta: k8sutil.ObjectMeta(KubeApiServerConfig, Labels, c.Cluster),
-		Data:       make(map[string]string),
-	}
-
-	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
-	for noPathFile, v := range cfgMaps {
-		by, err := certs.BuildKubeConfigByte(v)
-		if err != nil {
-			return err
-		}
-		k8sconfigmap.Data[noPathFile] = string(by)
-	}
-
-	k8sconfigmap.Data["audit-policy.yaml"] = additPolicy
-
-	err = c.Client.Create(ctx, k8sconfigmap)
-	if err != nil {
-		return errors.Wrapf(err, "create kubeconfig err: %v", err)
-	}
 	return nil
 }
 
@@ -289,28 +203,18 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 
 func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) error {
 	cfgMap := &corev1.ConfigMap{}
-	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: KubeApiServerConfig}, cfgMap)
+	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: constants.KubeApiServerConfig}, cfgMap)
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			cfgMap = &corev1.ConfigMap{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      KubeApiServerConfig,
-					Namespace: c.Cluster.Namespace,
-				},
-				Data: map[string]string{},
-			}
-		} else {
-			return errors.Wrapf(err, "get certs cfgMap")
-		}
+		return errors.Wrapf(err, "failed get configmap: %s", constants.KubeApiServerConfig)
 	}
 
 	if _, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
 		return nil
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, int(c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort))
-	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
-		apiserver, "", c.Cluster.Name, pkiutil.AdminKubeConfigFileName)
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
+	cfgMaps, err := certs.CreateApiserverKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
+		apiserver, c.Cluster.Name)
 	if err != nil {
 		klog.Errorf("create kubeconfg err: %+v", err)
 		return err

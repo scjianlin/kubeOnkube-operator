@@ -27,6 +27,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/gmanager"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
@@ -138,7 +139,7 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterCont
 		return nil
 	}
 	cfgMap := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: rc.Cluster.Namespace, Name: "kube-apiserver-config"}, cfgMap)
+	err := r.Client.Get(ctx, types.NamespacedName{Namespace: rc.Cluster.Namespace, Name: constants.KubeApiServerConfig}, cfgMap)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Warningf("not find kube-apiserver-config cluster: %s", rc.Cluster.Name)

@@ -8,9 +8,10 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/k8smanager"
+	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -41,15 +42,13 @@ func GetCluster(ctx context.Context, cli client.Client, cluster *devopsv1.Cluste
 		if apierrors.IsNotFound(err) {
 			klog.V(3).Infof("cluster: %s not find credential, start create ...", cluster.Name)
 			credential := &devopsv1.ClusterCredential{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      cluster.Name,
-					Namespace: cluster.Namespace,
-				},
+				ObjectMeta: k8sutil.ObjectMeta(cluster.Name, constants.CtrlLabels, cluster),
 				CredentialInfo: devopsv1.CredentialInfo{
 					TenantID:    cluster.Spec.TenantID,
 					ClusterName: cluster.Name,
 				},
 			}
+
 			err := cli.Create(ctx, credential)
 			if err != nil && !apierrors.IsAlreadyExists(err) {
 				return nil, err
