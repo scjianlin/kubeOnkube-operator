@@ -3,7 +3,7 @@
 #
 # Generated from:
 #       examples/contour/00-common.yaml
-#       examples/contour/01-contour-config.yaml
+#       examples/contour/01-contour-config-bgp.yaml
 #       examples/contour/01-crds.yaml
 #       examples/contour/02-job-certgen.yaml
 #       examples/contour/02-rbac.yaml

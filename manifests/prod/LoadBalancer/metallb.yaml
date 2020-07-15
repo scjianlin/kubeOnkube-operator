@@ -383,6 +383,7 @@ spec:
                 - all
             readOnlyRootFilesystem: true
       nodeSelector:
+        LoadBalancer: speaker
         beta.kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
