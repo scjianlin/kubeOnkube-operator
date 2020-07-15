@@ -40,9 +40,9 @@ ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELE
 )
 
 func Install(s ssh.Interface, c *common.Cluster) error {
-	// dir := "k8s/linuxbin/" // local debug config dir
+	dir := "k8s/linuxbin/" // local debug config dir
 
-	dir := constants.DstBinDir
+	// dir := constants.DstBinDir
 	var CopyList = []devopsv1.File{
 		{
 			Src: dir + "kubectl",
@@ -63,9 +63,9 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	for _, ls := range CopyList {
-		// if ok, err := s.Exist(ls.Dst); err == nil && ok {
-		// 	continue
-		// }
+		if ok, err := s.Exist(ls.Dst); err == nil && ok {
+			continue
+		}
 
 		err := s.CopyFile(ls.Src, ls.Dst)
 		if err != nil {
@@ -79,18 +79,20 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 				return err
 			}
 		}
+
+		if strings.Contains(ls.Dst, "cni") {
+			cmd := fmt.Sprintf("mkdir -p %s && tar -C %s -xzf /opt/cni.tgz", constants.CNIBinDir, constants.CNIBinDir)
+			_, err := s.CombinedOutput(cmd)
+			if err != nil {
+				klog.Errorf("node: %s exec cmd %s err: %v", s.HostIP(), cmd, err)
+				return err
+			}
+		}
 		klog.Errorf("node: %s copy %s success", s.HostIP(), ls.Dst)
 	}
 
-	cmd := fmt.Sprintf("mkdir -p %s && tar -C %s -xzf /opt/cni.tgz && rm /opt/cni.tgz", constants.CNIBinDir, constants.CNIBinDir)
-	_, err := s.CombinedOutput(cmd)
-	if err != nil {
-		klog.Errorf("node: %s exec cmd %s err: %v", s.HostIP(), cmd, err)
-		return err
-	}
-
 	klog.Infof("node: %s start write %s ... ", s.HostIP(), constants.KubeletSystemdUnitFilePath)
-	err = s.WriteFile(strings.NewReader(kubeletService), constants.KubeletSystemdUnitFilePath)
+	err := s.WriteFile(strings.NewReader(kubeletService), constants.KubeletSystemdUnitFilePath)
 	if err != nil {
 		return err
 	}
@@ -102,7 +104,7 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	unitName := fmt.Sprintf("%s.service", "kubelet")
-	cmd = fmt.Sprintf("systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
+	cmd := fmt.Sprintf("systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
 	if _, stderr, exit, err := s.Execf(cmd); err != nil || exit != 0 {
 		cmd = fmt.Sprintf("journalctl --unit %s -n10 --no-pager", unitName)
 		jStdout, _, jExit, jErr := s.Execf(cmd)

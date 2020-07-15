@@ -7,10 +7,12 @@ const (
 set -xeuo pipefail
 
 function Update_yumrepo() {
+    mkdir -p /etc/yum.repos.d/repoBakDir
+    mv /etc/yum.repos.d/*.repo /etc/yum.repos.d/repoBakDir/
 	rm -rvf /etc/yum.repos.d/*.repo
     curl https://mirrors.aliyun.com/repo/epel-7.repo -o /etc/yum.repos.d/epel-7.repo
     curl https://mirrors.aliyun.com/repo/Centos-{{ default "7" .CentosVersion }}.repo -o /etc/yum.repos.d/Centos-Base.repo
-    cat << EOF | tee /etc/yum.repos.d/{{ .KernelRepo }}.repo
+    cat << EOF | tee /etc/yum.repos.d/Custom.repo
 [kernel]
 name=Linux Kernel Repository
 baseurl=http://{{ .KernelRepo }}/centos/{{ default "7" .CentosVersion }}/kernel/el7/x86_64/RPMS

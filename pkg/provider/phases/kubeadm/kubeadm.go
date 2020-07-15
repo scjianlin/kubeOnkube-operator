@@ -22,13 +22,12 @@ import (
 	"strings"
 
 	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/config"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
-	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -50,7 +49,8 @@ const (
 --ignore-preflight-errors=Port-10250 \
 --ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables \
 --ignore-preflight-errors=DirAvailable--etc-kubernetes-manifests \
---ignore-preflight-errors=FileAvailable--etc-kubernetes-kubelet.conf
+--ignore-preflight-errors=FileAvailable--etc-kubernetes-kubelet.conf \
+-v 9
 `
 	joinNodeCmd = `kubeadm join {{.ControlPlaneEndpoint}} \
 --node-name={{.NodeName}} \
@@ -58,7 +58,8 @@ const (
 --discovery-token-unsafe-skip-ca-verification \
 --ignore-preflight-errors=ImagePull \
 --ignore-preflight-errors=Port-10250 \
---ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables
+--ignore-preflight-errors=FileContent--proc-sys-net-bridge-bridge-nf-call-iptables \
+-v 9
 `
 )
 
@@ -101,7 +102,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 		return err
 	}
 
-	cmd := fmt.Sprintf("kubeadm init phase %s --config=%s", extraCmd, constants.KubeadmConfigFileName)
+	cmd := fmt.Sprintf("kubeadm init phase %s --config=%s -v 9", extraCmd, constants.KubeadmConfigFileName)
 	klog.Infof("init cmd: %s", cmd)
 	out, err := s.CombinedOutput(cmd)
 	if err != nil {
@@ -112,7 +113,7 @@ func Init(s ssh.Interface, kubeadmConfig *Config, extraCmd string) error {
 	return nil
 }
 
-func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) (*corev1.ConfigMap, error) {
+func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) error {
 	var lastCACert *certs.CaAll
 	cfgMaps := make(map[string][]byte)
 
@@ -123,7 +124,7 @@ func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) (*corev1.ConfigMap
 	}
 
 	var certList certs.Certificates
-	if isHosted {
+	if !isHosted {
 		certList = certs.GetDefaultCertList()
 	} else {
 		certList = certs.GetCertsWithoutEtcd()
@@ -133,37 +134,34 @@ func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) (*corev1.ConfigMap
 		if cert.CAName == "" {
 			ret, err := certs.CreateCACertAndKeyFiles(cert, warp, cfgMaps)
 			if err != nil {
-				return nil, err
+				return err
 			}
 			lastCACert = ret
 		} else {
 			if lastCACert == nil {
-				return nil, fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
+				return fmt.Errorf("not hold CertificateAuthority by create cert: %s", cert.Name)
 			}
 			err := certs.CreateCertAndKeyFilesWithCA(cert, lastCACert, warp, cfgMaps)
 			if err != nil {
-				return nil, errors.Wrapf(err, "create cert: %s", cert.Name)
+				return errors.Wrapf(err, "create cert: %s", cert.Name)
 			}
 		}
 	}
 
 	err := certs.CreateServiceAccountKeyAndPublicKeyFiles(cfg.ClusterConfiguration.CertificatesDir, x509.RSA, cfgMaps)
 	if err != nil {
-		return nil, errors.Wrapf(err, "create sa public key")
+		return errors.Wrapf(err, "create sa public key")
 	}
 
 	if len(cfgMaps) == 0 {
-		return nil, fmt.Errorf("no cert build")
+		return fmt.Errorf("no cert build")
 	}
 
-	k8sconfigmap := &corev1.ConfigMap{
-		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServerCerts, constants.CtrlLabels, c.Cluster),
-		BinaryData: make(map[string][]byte),
-		Data:       map[string]string{},
+	if c.ClusterCredential.CertsBinaryData == nil {
+		c.ClusterCredential.CertsBinaryData = make(map[string][]byte)
 	}
 
 	for pathFile, v := range cfgMaps {
-
 		if pathFile == constants.CACertName {
 			c.ClusterCredential.CACert = v
 		}
@@ -188,25 +186,13 @@ func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) (*corev1.ConfigMap
 			c.ClusterCredential.ETCDAPIClientKey = v
 		}
 
-		key := pathFile
-		if isHosted {
-			split := strings.Split(pathFile, "/")
-			key = split[len(split)-1]
-		}
-
-		k8sconfigmap.BinaryData[key] = v
+		c.ClusterCredential.CertsBinaryData[pathFile] = v
 	}
 
 	tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
-	k8sconfigmap.Data[constants.TokenFile] = tokenData
+	c.ClusterCredential.CertsBinaryData[constants.TokenFile] = []byte(tokenData)
 
-	logger := ctrl.Log.WithValues("cluster", c.Name)
-	err = k8sutil.Reconcile(logger, c.Client, k8sconfigmap, k8sutil.DesiredStatePresent)
-	if err != nil {
-		return nil, errors.Wrapf(err, "apply configmap: %s", k8sconfigmap.Name)
-	}
-
-	return k8sconfigmap, nil
+	return nil
 }
 
 type JoinControlPlaneOption struct {
@@ -359,15 +345,58 @@ func RestartContainerByFilter(s ssh.Interface, filter string) error {
 	return nil
 }
 
-func ApplyCustomImages(s ssh.Interface, image string, podManifestFile string) error {
-	podBytes, err := s.ReadFile(podManifestFile)
+type Option struct {
+	HostIP           string
+	Images           string
+	EtcdPeerCluster  string
+	TokenClusterName string
+}
+
+func BuildMasterEtcdPeerCluster(c *common.Cluster) string {
+	etcdPeerEndpoints := []string{}
+
+	for _, machine := range c.Spec.Machines {
+		etcdPeerEndpoints = append(etcdPeerEndpoints, fmt.Sprintf("%s=https://%s:2380", machine.IP, machine.IP))
+	}
+
+	return strings.Join(etcdPeerEndpoints, ",")
+}
+
+func ApplyCustomComponent(s ssh.Interface, c *common.Cluster, image string, podManifest string) error {
+	// var err error
+	// var podBytes []byte
+	// if podManifest == constants.EtcdPodManifestFile {
+	// 	opt := &Option{
+	// 		HostIP:           s.HostIP(),
+	// 		Images:           image,
+	// 		EtcdPeerCluster:  BuildMasterEtcdPeerCluster(c),
+	// 		TokenClusterName: c.Cluster.Name,
+	// 	}
+	//
+	// 	podBytes, err = template.ParseString(staticPodEtcdTemplate, opt)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	//
+	// 	c.ClusterCredential.ManifestsData[podManifest] = staticPodEtcdTemplate
+	// } else {
+	// 	podBytes, err = s.ReadFile(podManifest)
+	// 	if err != nil {
+	// 		return fmt.Errorf("node: %s ReadFile: %s failed error: %v", s.HostIP(), podManifest, err)
+	// 	}
+	//
+	// 	replaceStr := strings.Replace(string(podBytes), s.HostIP(), "{{ .HostIP }}", -1)
+	// 	c.ClusterCredential.ManifestsData[podManifest] = replaceStr
+	// }
+
+	podBytes, err := s.ReadFile(podManifest)
 	if err != nil {
-		return fmt.Errorf("node: %s ReadFile: %s failed error: %v", s.HostIP(), podManifestFile, err)
+		return fmt.Errorf("node: %s ReadFile: %s failed error: %v", s.HostIP(), podManifest, err)
 	}
 
 	obj, err := k8sutil.UnmarshalFromYaml(podBytes, corev1.SchemeGroupVersion)
 	if err != nil {
-		return fmt.Errorf("node: %s marshalling %s failed error: %v", s.HostIP(), podManifestFile, err)
+		return fmt.Errorf("node: %s marshalling %s failed error: %v", s.HostIP(), podManifest, err)
 	}
 
 	switch obj.(type) {
@@ -376,32 +405,40 @@ func ApplyCustomImages(s ssh.Interface, image string, podManifestFile string) er
 		if len(ins.Spec.Containers) > 0 {
 			ins.Spec.Containers[0].Image = image
 		}
-	case *appsv1.Deployment:
-		ins := obj.(*appsv1.Deployment)
-		if len(ins.Spec.Template.Spec.Containers) > 0 {
-			ins.Spec.Template.Spec.Containers[0].Image = image
-		}
 	default:
 		return fmt.Errorf("unknown type")
 	}
 
 	serialized, err := k8sutil.MarshalToYaml(obj, corev1.SchemeGroupVersion)
 	if err != nil {
-		return errors.Wrapf(err, "node: %s failed to marshal manifest for %s to YAML", s.HostIP(), podManifestFile)
+		return errors.Wrapf(err, "node: %s failed to marshal manifest for %s to YAML", s.HostIP(), podManifest)
 	}
 
-	err = s.WriteFile(bytes.NewReader(serialized), podManifestFile)
+	err = s.WriteFile(bytes.NewReader(serialized), podManifest)
 	if err != nil {
-		return errors.Wrapf(err, "node: %s failed to write manifest for %s ", s.HostIP(), podManifestFile)
+		return errors.Wrapf(err, "node: %s failed to write manifest for %s ", s.HostIP(), podManifest)
 	}
+
 	return nil
 }
 
-func ApplyCustomImagesMaster(s ssh.Interface, images string, ls []string) error {
-	for _, name := range ls {
-		err := ApplyCustomImages(s, images, name)
+func ApplyCustomMaster(s ssh.Interface, c *common.Cluster, cfg *config.Config) error {
+	if c.ClusterCredential.ManifestsData == nil {
+		c.ClusterCredential.ManifestsData = make(map[string]string)
+	}
+
+	manifestFileList := []string{
+		constants.EtcdPodManifestFile,
+		constants.KubeAPIServerPodManifestFile,
+		constants.KubeControllerManagerPodManifestFile,
+		constants.KubeSchedulerPodManifestFile,
+	}
+
+	images := cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version)
+	for _, name := range manifestFileList {
+		err := ApplyCustomComponent(s, c, images, name)
 		if err != nil {
-			klog.Errorf("apply images %s err: %v", name, err)
+			klog.Errorf("applyCustomComponent %s err: %v", name, err)
 			return err
 		}
 	}

@@ -23,9 +23,7 @@ import (
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
 	"github.com/segmentio/ksuid"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/types"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -152,9 +150,8 @@ func (p *Provider) EnsureClusterComplete(ctx context.Context, cluster *common.Cl
 }
 
 func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
-	apiserver := fmt.Sprintf("%s:6443", constants.KubeApiServer)
-
-	_, err := kubeadm.InitCerts(kubeadm.GetKubeadmConfig(c, p.Cfg, apiserver), c, true)
+	apiserver := certs.BuildApiserverEndpoint(constants.KubeApiServer, 6443)
+	err := kubeadm.InitCerts(kubeadm.GetKubeadmConfig(c, p.Cfg, apiserver), c, true)
 	if err != nil {
 		return err
 	}
@@ -163,13 +160,13 @@ func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) error {
-	kubeMaps := make(map[string]string)
 	apiserver := certs.BuildApiserverEndpoint(constants.KubeApiServer, kubeconfig.GetBindPort(c.Cluster))
-	err := kubeconfig.ApplyMasterKubeconfig(c, apiserver, true, kubeMaps)
+	err := kubeconfig.ApplyMasterKubeconfig(c, apiserver)
 	if err != nil {
 		return err
 	}
 
+	//
 	return nil
 }
 
@@ -202,14 +199,8 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 }
 
 func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) error {
-	cfgMap := &corev1.ConfigMap{}
-	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: constants.KubeApiServerConfig}, cfgMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed get configmap: %s", constants.KubeApiServerConfig)
-	}
-
-	if _, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
-		return nil
+	if c.ClusterCredential.ExtData == nil {
+		c.ClusterCredential.ExtData = make(map[string]string)
 	}
 
 	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
@@ -225,14 +216,9 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 		if err != nil {
 			return err
 		}
-		cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
+		c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
 	}
 
-	logger := ctrl.Log.WithValues("cluster", c.Name)
-	err = k8sutil.Reconcile(logger, c.Client, cfgMap, k8sutil.DesiredStatePresent)
-	if err != nil {
-		return errors.Wrapf(err, "create k8sSecret err: %v", err)
-	}
 	return nil
 }
 

@@ -38,10 +38,10 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 		CreateHandlers: []machineprovider.Handler{
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
-
 			p.EnsureClean,
 			p.EnsureRegistryHosts,
 
+			p.EnsureEth,
 			p.EnsureSystem,
 			p.EnsureK8sComponent,
 			p.EnsurePreflight, // wait basic setting done
@@ -49,12 +49,13 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 			p.EnsureJoinNode,
 			p.EnsureKubeconfig,
 			p.EnsureMarkNode,
+			p.EnsureCni,
 			p.EnsureNodeReady,
 
 			p.EnsurePostInstallHook,
 		},
 		UpdateHandlers: []machineprovider.Handler{
-			p.EnsureK8sComponent,
+			p.EnsureCni,
 			p.EnsurePostInstallHook,
 		},
 	}

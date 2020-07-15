@@ -11,14 +11,10 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/certs"
-	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"
-	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	"k8s.io/klog"
-	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 const (
@@ -76,7 +72,7 @@ func InstallNode(s ssh.Interface, option *Option) error {
 	return install(s, option)
 }
 
-func ApplyKubeletKubeconfig(c *common.Cluster, apiserver string, kubeletNodeAddr string, isHosted bool, kubeMaps map[string]string) error {
+func ApplyKubeletKubeconfig(c *common.Cluster, apiserver string, kubeletNodeAddr string, kubeMaps map[string]string) error {
 	if c.ClusterCredential.CACert == nil {
 		return fmt.Errorf("ca is nil")
 	}
@@ -93,18 +89,15 @@ func ApplyKubeletKubeconfig(c *common.Cluster, apiserver string, kubeletNodeAddr
 		if err != nil {
 			return err
 		}
-		key := noPathFile
-		if !isHosted {
-			key = filepath.Join(constants.KubernetesDir, key)
-		}
 
+		key := filepath.Join(constants.KubernetesDir, noPathFile)
 		kubeMaps[key] = string(by)
 	}
 
 	return nil
 }
 
-func ApplyMasterKubeconfig(c *common.Cluster, apiserver string, isHosted bool, kubeMaps map[string]string) error {
+func ApplyMasterKubeconfig(c *common.Cluster, apiserver string) error {
 	if c.ClusterCredential.CACert == nil {
 		return fmt.Errorf("ca is nil")
 	}
@@ -116,9 +109,8 @@ func ApplyMasterKubeconfig(c *common.Cluster, apiserver string, isHosted bool, k
 		return err
 	}
 
-	k8sconfigmap := &corev1.ConfigMap{
-		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServerConfig, constants.CtrlLabels, c.Cluster),
-		Data:       make(map[string]string),
+	if c.ClusterCredential.KubeData == nil {
+		c.ClusterCredential.KubeData = make(map[string]string)
 	}
 
 	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
@@ -127,28 +119,13 @@ func ApplyMasterKubeconfig(c *common.Cluster, apiserver string, isHosted bool, k
 		if err != nil {
 			return err
 		}
-		key := noPathFile
-		if !isHosted {
-			key = filepath.Join(constants.KubernetesDir, key)
-		}
 
-		kubeStr := string(by)
-		k8sconfigmap.Data[key] = kubeStr
-		kubeMaps[key] = kubeStr
+		key := filepath.Join(constants.KubernetesDir, noPathFile)
+		c.ClusterCredential.KubeData[key] = string(by)
 	}
 
-	key := "audit-policy.yaml"
-	if !isHosted {
-		key = filepath.Join(constants.KubernetesDir, key)
-	}
-	k8sconfigmap.Data[key] = additPolicy
-	kubeMaps[key] = additPolicy
-
-	logger := ctrl.Log.WithValues("cluster", c.Name)
-	err = k8sutil.Reconcile(logger, c.Client, k8sconfigmap, k8sutil.DesiredStatePresent)
-	if err != nil {
-		return errors.Wrapf(err, "apply configmap: %s", k8sconfigmap.Name)
-	}
+	key := filepath.Join(constants.KubernetesDir, "audit-policy.yaml")
+	c.ClusterCredential.KubeData[key] = additPolicy
 
 	return nil
 }

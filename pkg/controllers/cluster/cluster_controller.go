@@ -28,10 +28,10 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/gmanager"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
@@ -126,6 +126,7 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		}
 		return ctrl.Result{}, nil
 	}
+
 	r.reconcile(ctx, &clusterContext{
 		Key:     req.NamespacedName,
 		Logger:  logger,
@@ -134,29 +135,19 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	return ctrl.Result{}, nil
 }
 
-func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterContext) error {
-	if _, ok := r.ClusterStarted[rc.Cluster.Name]; ok {
+func (r *clusterReconciler) addClusterCheck(ctx context.Context, c *common.Cluster) error {
+	if _, ok := r.ClusterStarted[c.Cluster.Name]; ok {
 		return nil
 	}
-	cfgMap := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, types.NamespacedName{Namespace: rc.Cluster.Namespace, Name: constants.KubeApiServerConfig}, cfgMap)
-	if err != nil {
-		if apierrors.IsNotFound(err) {
-			klog.Warningf("not find kube-apiserver-config cluster: %s", rc.Cluster.Name)
-			return nil
-		}
-		klog.Warningf("failed get kube-apiserver-config cluster: %s", rc.Cluster.Name)
-		return errors.Wrapf(err, "failed get kubeconfig cfgMap")
-	}
 
-	if extKubeconfig, ok := cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName]; ok {
-		_, err := r.GManager.AddNewClusters(rc.Cluster.Name, extKubeconfig)
+	if extKubeconfig, ok := c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+		_, err := r.GManager.AddNewClusters(c.Cluster.Name, extKubeconfig)
 		if err != nil {
-			klog.Errorf("failed add cluster: %s manager cache", rc.Cluster.Name)
+			klog.Errorf("failed add cluster: %s manager cache", c.Cluster.Name)
 			return nil
 		}
-		klog.Infof("#######  add cluster: %s to manager cache success", rc.Cluster.Name)
-		r.ClusterStarted[rc.Cluster.Name] = true
+		klog.Infof("#######  add cluster: %s to manager cache success", c.Cluster.Name)
+		r.ClusterStarted[c.Cluster.Name] = true
 		return nil
 	}
 
@@ -165,15 +156,54 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, rc *clusterCont
 }
 
 func (r *clusterReconciler) reconcile(ctx context.Context, rc *clusterContext) error {
+	phaseRestore := constants.GetAnnotationKey(rc.Cluster.Annotations, constants.ClusterPhaseRestore)
+	if len(phaseRestore) > 0 {
+		conditions := make([]devopsv1.ClusterCondition, 0)
+		for i := range rc.Cluster.Status.Conditions {
+			if rc.Cluster.Status.Conditions[i].Type == phaseRestore {
+				break
+			} else {
+				conditions = append(conditions, rc.Cluster.Status.Conditions[i])
+			}
+		}
+		rc.Cluster.Status.Conditions = conditions
+		rc.Cluster.Status.Phase = devopsv1.ClusterInitializing
+		err := r.Client.Status().Update(ctx, rc.Cluster)
+		if err != nil {
+			return err
+		}
+
+		objBak := &devopsv1.Cluster{}
+		r.Client.Get(ctx, rc.Key, objBak)
+		delete(objBak.Annotations, constants.ClusterPhaseRestore)
+		err = r.Client.Update(ctx, objBak)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	p, err := r.CpManager.GetProvider(rc.Cluster.Spec.Type)
+	if err != nil {
+		return err
+	}
+
+	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster, r.ClusterManager)
+	if err != nil {
+		return err
+	}
+
 	switch rc.Cluster.Status.Phase {
 	case devopsv1.ClusterInitializing:
 		rc.Logger.Info("onCreate")
-		return r.onCreate(ctx, rc)
+		r.onCreate(ctx, rc, p, clusterWrapper)
 	case devopsv1.ClusterRunning:
 		rc.Logger.Info("onUpdate")
-		r.addClusterCheck(ctx, rc)
-		return r.onUpdate(ctx, rc)
+		r.addClusterCheck(ctx, clusterWrapper)
+		r.onUpdate(ctx, rc, p, clusterWrapper)
 	default:
 		return fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
 	}
+
+	return r.applyStatus(ctx, rc, clusterWrapper)
 }

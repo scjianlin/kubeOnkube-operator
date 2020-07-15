@@ -35,8 +35,8 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
 	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
 	"github.com/gostship/kunkka/pkg/provider/certs"
-	"github.com/gostship/kunkka/pkg/provider/phases/joinNode"
-	k8scomponent "github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+
+	"github.com/gostship/kunkka/pkg/provider/phases/k8scomponent"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"
@@ -204,7 +204,7 @@ func (p *Provider) EnsureKubeadmInitKubeletStartPhase(ctx context.Context, c *co
 
 func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 	cfg := kubeadm.GetKubeadmConfigByMaster0(c, p.Cfg)
-	configMap, err := kubeadm.InitCerts(cfg, c, true)
+	err := kubeadm.InitCerts(cfg, c, false)
 	if err != nil {
 		return err
 	}
@@ -215,17 +215,8 @@ func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 			return err
 		}
 
-		for pathFile, va := range configMap.Data {
-			klog.Infof("node: %s start write Data [%s] ...", machine.IP, pathFile)
-			err = sh.WriteFile(strings.NewReader(va), pathFile)
-			if err != nil {
-				klog.Errorf("write [%s] err: %v", pathFile, err)
-				return err
-			}
-		}
-
-		for pathFile, va := range configMap.BinaryData {
-			klog.Infof("node: %s start write BinaryData [%s] ...", machine.IP, pathFile)
+		for pathFile, va := range c.ClusterCredential.CertsBinaryData {
+			klog.Infof("node: %s start write BinaryData [%s] ...", sh.HostIP(), pathFile)
 			err = sh.WriteFile(bytes.NewReader(va), pathFile)
 			if err != nil {
 				klog.Errorf("write [%s] err: %v", pathFile, err)
@@ -233,6 +224,7 @@ func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 			}
 		}
 	}
+
 	return nil
 }
 
@@ -242,20 +234,24 @@ func (p *Provider) EnsureKubeadmInitKubeConfigPhase(ctx context.Context, c *comm
 		return err
 	}
 
+	apiserver := certs.BuildApiserverEndpoint(c.Spec.Machines[0].IP, 6443)
 	kubeMaps := make(map[string]string)
-	apiserver := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
-	err = kubeconfig.ApplyKubeletKubeconfig(c, apiserver, sh.HostIP(), false, kubeMaps)
+	err = kubeconfig.ApplyKubeletKubeconfig(c, apiserver, sh.HostIP(), kubeMaps)
 	if err != nil {
 		return err
 	}
 
-	err = kubeconfig.ApplyMasterKubeconfig(c, apiserver, false, kubeMaps)
+	err = kubeconfig.ApplyMasterKubeconfig(c, apiserver)
 	if err != nil {
 		return err
+	}
+
+	for k, v := range c.ClusterCredential.KubeData {
+		kubeMaps[k] = v
 	}
 
 	for pathName, va := range kubeMaps {
-		klog.V(4).Infof("node: %s start write kubeconfig [%s]: %s ...", sh.HostIP(), pathName, va)
+		klog.V(4).Infof("node: %s start write kubeconfig [%s] ...", sh.HostIP(), pathName)
 		err = sh.WriteFile(strings.NewReader(va), pathName)
 		if err != nil {
 			klog.Errorf("write kubeconfg: %s err: %+v", pathName, err)
@@ -316,7 +312,16 @@ func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *common.Cl
 }
 
 func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluster) error {
-	apiserver := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
+	// sh, err := c.Spec.Machines[0].SSH()
+	// if err != nil {
+	// 	return err
+	// }
+	// err = kubeadm.ApplyCustomMaster(sh, c, p.Cfg)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// apiserver := certs.BuildApiserverEndpoint(c.Spec.Machines[0].IP, 6443)
 
 	for _, machine := range c.Spec.Machines[1:] {
 		sh, err := machine.SSH()
@@ -335,22 +340,22 @@ func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluste
 			return nil
 		}
 
-		err = joinNode.JoinNodePhase(sh, p.Cfg, c, apiserver, true)
+		// err = joinNode.JoinNodePhase(sh, p.Cfg, c, apiserver, true)
+		// if err != nil {
+		// 	return errors.Wrapf(err, "node: %s JoinNodePhase", sh.HostIP())
+		// }
+
+		err = kubeadm.JoinControlPlane(sh, c)
 		if err != nil {
-			return errors.Wrapf(err, "node: %s JoinNodePhase", sh.HostIP())
+			return errors.Wrap(err, machine.IP)
 		}
 
-		// err = kubeadm.JoinControlPlane(sh, c)
-		// if err != nil {
-		// 	return errors.Wrap(err, machine.IP)
-		// }
-
-		// if p.Cfg.CustomeImages {
-		// 	err = kubeadm.ApplyCustomImagesMaster(sh, p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version))
-		// 	if err != nil {
-		// 		return errors.Wrap(err, machine.IP)
-		// 	}
-		// }
+		if p.Cfg.CustomeImages {
+			err = kubeadm.ApplyCustomMaster(sh, c, p.Cfg)
+			if err != nil {
+				return errors.Wrap(err, machine.IP)
+			}
+		}
 	}
 
 	return nil
@@ -394,44 +399,10 @@ func (p *Provider) EnsureKubeadmInitWaitControlPlanePhase(ctx context.Context, c
 		return err
 	}
 
-	manifestFileList := []string{
-		constants.EtcdPodManifestFile,
-		constants.KubeAPIServerPodManifestFile,
-		constants.KubeControllerManagerPodManifestFile,
-		constants.KubeSchedulerPodManifestFile,
-	}
-
-	if p.Cfg.CustomeImages {
-		err = kubeadm.ApplyCustomImagesMaster(sh,
-			p.Cfg.KubeAllImageFullName(constants.KubernetesAllImageName, c.Cluster.Spec.Version), manifestFileList)
-		if err != nil {
-			klog.Errorf("ApplyCustomImagesMaster err: %v", err)
-			return err
-		}
-	}
-
-	k8sCfg := &corev1.ConfigMap{
-		ObjectMeta: k8sutil.ObjectMeta(constants.KubeMasterManifests, constants.CtrlLabels, c.Cluster),
-		Data:       make(map[string]string),
-	}
-
-	for _, name := range manifestFileList {
-		podBytes, err := sh.ReadFile(name)
-		if err != nil {
-			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", sh.HostIP(), name, err)
-		}
-
-		podStr := string(podBytes)
-		strings.Replace(podStr, sh.HostIP(), "{{ .HostIp }}", -1)
-		k8sCfg.Data[name] = podStr
-	}
-
-	if len(k8sCfg.Data) > 0 {
-		logger := ctrl.Log.WithValues("cluster", c.Name)
-		err = k8sutil.Reconcile(logger, c.Client, k8sCfg, k8sutil.DesiredStatePresent)
-		if err != nil {
-			return errors.Wrapf(err, "apply configmap: %s", k8sCfg.Name)
-		}
+	err = kubeadm.ApplyCustomMaster(sh, c, p.Cfg)
+	if err != nil {
+		klog.Errorf("ApplyCustomImagesMaster err: %v", err)
+		return err
 	}
 
 	start := time.Now()
@@ -564,7 +535,7 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *common.Cluster)
 	return nil
 }
 
-func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *common.Cluster) error {
+func (p *Provider) EnsureApplyEtcd(ctx context.Context, c *common.Cluster) error {
 	etcdPeerEndpoints := []string{}
 	etcdClusterEndpoints := []string{}
 	for _, machine := range c.Spec.Machines {
@@ -573,12 +544,12 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *common.Cluster) error 
 	}
 
 	for _, machine := range c.Spec.Machines {
-		machineSSH, err := machine.SSH()
+		sh, err := machine.SSH()
 		if err != nil {
 			return err
 		}
 
-		etcdByte, err := machineSSH.ReadFile(constants.EtcdPodManifestFile)
+		etcdByte, err := sh.ReadFile(constants.EtcdPodManifestFile)
 		if err != nil {
 			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
 		}
@@ -590,53 +561,68 @@ func (p *Provider) EnsureMakeEtcd(ctx context.Context, c *common.Cluster) error 
 
 		if etcdPod, ok := etcdObj.(*corev1.Pod); ok {
 			isFindState := false
+			isFindLogger := false
 			klog.Infof("etcd pod name: %s, cmd: %s", etcdPod.Name, etcdPod.Spec.Containers[0].Command)
 			for i, arg := range etcdPod.Spec.Containers[0].Command {
 				if strings.HasPrefix(arg, "--initial-cluster=") {
 					etcdPod.Spec.Containers[0].Command[i] = fmt.Sprintf("--initial-cluster=%s", strings.Join(etcdPeerEndpoints, ","))
 				}
-				if strings.HasPrefix(arg, "--initial-cluster-state") {
+				if strings.HasPrefix(arg, "--initial-cluster-state=") {
 					isFindState = true
+				}
+
+				if strings.HasPrefix(arg, "--logger=") {
+					isFindLogger = true
 				}
 			}
 
-			if isFindState != true {
+			if !isFindState {
 				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--initial-cluster-state=existing")
+			}
+
+			if !isFindLogger {
+				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--logger=zap")
 			}
 			serialized, err := k8sutil.MarshalToYaml(etcdPod, corev1.SchemeGroupVersion)
 			if err != nil {
 				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", etcdPod.Name)
 			}
 
-			machineSSH.WriteFile(bytes.NewReader(serialized), constants.EtcdPodManifestFile)
+			sh.WriteFile(bytes.NewReader(serialized), constants.EtcdPodManifestFile)
 		}
 
-		apiServerByte, err := machineSSH.ReadFile(constants.KubeAPIServerPodManifestFile)
+		apiServerByte, err := sh.ReadFile(constants.KubeAPIServerPodManifestFile)
 		if err != nil {
-			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
+			return fmt.Errorf("node: %s ReadFile: %s failed error: %v", machine.IP, constants.KubeAPIServerPodManifestFile, err)
 		}
 
 		apiServerObj, err := k8sutil.UnmarshalFromYaml(apiServerByte, corev1.SchemeGroupVersion)
 		if err != nil {
-			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.EtcdPodManifestFile, err)
+			return fmt.Errorf("node: %s marshalling %s failed error: %v", machine.IP, constants.KubeAPIServerPodManifestFile, err)
 		}
 
-		if apiServerPod, ok := apiServerObj.(*corev1.Pod); ok {
-			klog.Infof("apiServer pod name: %s, cmd: %s", apiServerPod.Name, apiServerPod.Spec.Containers[0].Command)
-			for i, arg := range apiServerPod.Spec.Containers[0].Command {
-				if strings.HasPrefix(arg, "--etcd-servers=") {
-					apiServerPod.Spec.Containers[0].Command[i] = fmt.Sprintf("--etcd-servers=%s", strings.Join(etcdClusterEndpoints, ","))
-					break
-				}
-			}
-
-			serialized, err := k8sutil.MarshalToYaml(apiServerPod, corev1.SchemeGroupVersion)
-			if err != nil {
-				return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", apiServerPod.Name)
-			}
-
-			machineSSH.WriteFile(bytes.NewReader(serialized), constants.KubeAPIServerPodManifestFile)
+		var ok bool
+		var apiServerPod *corev1.Pod
+		if apiServerPod, ok = apiServerObj.(*corev1.Pod); !ok {
+			continue
 		}
+
+		klog.Infof("apiServer pod name: %s, cmd: %s", apiServerPod.Name, apiServerPod.Spec.Containers[0].Command)
+		for i, arg := range apiServerPod.Spec.Containers[0].Command {
+			if !strings.HasPrefix(arg, "--etcd-servers=") {
+				continue
+			}
+
+			apiServerPod.Spec.Containers[0].Command[i] = fmt.Sprintf("--etcd-servers=%s", strings.Join(etcdClusterEndpoints, ","))
+			break
+		}
+
+		serialized, err := k8sutil.MarshalToYaml(apiServerPod, corev1.SchemeGroupVersion)
+		if err != nil {
+			return errors.Wrapf(err, "failed to marshal manifest for %q to YAML", apiServerPod.Name)
+		}
+
+		sh.WriteFile(bytes.NewReader(serialized), constants.KubeAPIServerPodManifestFile)
 	}
 
 	return nil
@@ -676,13 +662,11 @@ func (p *Provider) EnsureApplyControlPlane(ctx context.Context, c *common.Cluste
 }
 
 func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) error {
-	cfgMap := &corev1.ConfigMap{}
-	err := c.Client.Get(ctx, types.NamespacedName{Namespace: c.Cluster.Namespace, Name: constants.KubeApiServerConfig}, cfgMap)
-	if err != nil {
-		return errors.Wrapf(err, "failed get configmap: %s", constants.KubeApiServerConfig)
+	if c.ClusterCredential.ExtData == nil {
+		c.ClusterCredential.ExtData = make(map[string]string)
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Machines[0].IP, 6443)
 	cfgMaps, err := certs.CreateApiserverKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, c.Cluster.Name)
 	if err != nil {
@@ -695,14 +679,9 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 		if err != nil {
 			return err
 		}
-		cfgMap.Data[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
+		c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
 	}
 
-	logger := ctrl.Log.WithValues("cluster", c.Name)
-	err = k8sutil.Reconcile(logger, c.Client, cfgMap, k8sutil.DesiredStatePresent)
-	if err != nil {
-		return errors.Wrapf(err, "create k8s ext config err")
-	}
 	return nil
 }
 

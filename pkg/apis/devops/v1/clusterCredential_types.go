@@ -36,6 +36,11 @@ type CredentialInfo struct {
 	// For kubeadm init or join
 	// +optional
 	CertificateKey *string `json:"certificateKey,omitempty" protobuf:"bytes,14,opt,name=certificateKey"`
+
+	ExtData         map[string]string `json:"extData,omitempty"`
+	KubeData        map[string]string `json:"kubeData,omitempty"`
+	ManifestsData   map[string]string `json:"manifestsData,omitempty"`
+	CertsBinaryData map[string][]byte `json:"certsBinaryData,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -22,6 +22,7 @@ import (
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/cluster"
 	"k8s.io/apimachinery/pkg/api/equality"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
@@ -97,17 +98,8 @@ func (r *clusterReconciler) applyStatus(ctx context.Context, rc *clusterContext,
 	return nil
 }
 
-func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) error {
-	p, err := r.CpManager.GetProvider(rc.Cluster.Spec.Type)
-	if err != nil {
-		return err
-	}
-
-	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster, r.ClusterManager)
-	if err != nil {
-		return err
-	}
-	err = p.OnCreate(ctx, clusterWrapper)
+func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext, p cluster.Provider, clusterWrapper *common.Cluster) error {
+	err := p.OnCreate(ctx, clusterWrapper)
 	if err != nil {
 		clusterWrapper.Cluster.Status.Message = err.Error()
 		clusterWrapper.Cluster.Status.Reason = reasonFailedInit
@@ -122,22 +114,12 @@ func (r *clusterReconciler) onCreate(ctx context.Context, rc *clusterContext) er
 		}
 	}
 
-	r.applyStatus(ctx, rc, clusterWrapper)
 	return nil
 }
 
-func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext) error {
-	p, err := r.CpManager.GetProvider(rc.Cluster.Spec.Type)
-	if err != nil {
-		return err
-	}
+func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext, p cluster.Provider, clusterWrapper *common.Cluster) error {
 
-	clusterWrapper, err := common.GetCluster(ctx, r.Client, rc.Cluster, r.ClusterManager)
-	if err != nil {
-		return err
-	}
-
-	err = p.OnUpdate(ctx, clusterWrapper)
+	err := p.OnUpdate(ctx, clusterWrapper)
 	if err != nil {
 		clusterWrapper.Cluster.Status.Message = err.Error()
 		clusterWrapper.Cluster.Status.Reason = reasonFailedUpdate
@@ -146,6 +128,5 @@ func (r *clusterReconciler) onUpdate(ctx context.Context, rc *clusterContext) er
 		clusterWrapper.Cluster.Status.Reason = ""
 	}
 
-	r.applyStatus(ctx, rc, clusterWrapper)
 	return nil
 }

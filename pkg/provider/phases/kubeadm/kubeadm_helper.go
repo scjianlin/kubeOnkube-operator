@@ -57,14 +57,14 @@ func (c *Config) Marshal() ([]byte, error) {
 }
 
 func GetKubeadmConfigByMaster0(c *common.Cluster, cfg *config.Config) *Config {
-	apiserver := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
-	return GetKubeadmConfig(c, cfg, apiserver)
+	controlPlaneEndpoint := fmt.Sprintf("%s:6443", c.Spec.Machines[0].IP)
+	return GetKubeadmConfig(c, cfg, controlPlaneEndpoint)
 }
 
-func GetKubeadmConfig(c *common.Cluster, cfg *config.Config, apiserver string) *Config {
+func GetKubeadmConfig(c *common.Cluster, cfg *config.Config, controlPlaneEndpoint string) *Config {
 	cc := new(Config)
 	cc.InitConfiguration = GetInitConfiguration(c)
-	cc.ClusterConfiguration = GetClusterConfiguration(c, cfg, apiserver)
+	cc.ClusterConfiguration = GetClusterConfiguration(c, cfg, controlPlaneEndpoint)
 	cc.KubeProxyConfiguration = GetKubeProxyConfiguration(c)
 	cc.KubeletConfiguration = GetKubeletConfiguration(c)
 
@@ -99,7 +99,7 @@ func GetInitConfiguration(c *common.Cluster) *kubeadmv1beta2.InitConfiguration {
 	return initCfg
 }
 
-func GetClusterConfiguration(c *common.Cluster, cfg *config.Config, apiserver string) *kubeadmv1beta2.ClusterConfiguration {
+func GetClusterConfiguration(c *common.Cluster, cfg *config.Config, controlPlaneEndpoint string) *kubeadmv1beta2.ClusterConfiguration {
 	kubernetesVolume := kubeadmv1beta2.HostPathMount{
 		Name:      "vol-dir-0",
 		HostPath:  "/etc/kubernetes",
@@ -120,7 +120,7 @@ func GetClusterConfiguration(c *common.Cluster, cfg *config.Config, apiserver st
 			ServiceSubnet: c.Cluster.Status.ServiceCIDR,
 		},
 		KubernetesVersion:    c.Spec.Version,
-		ControlPlaneEndpoint: apiserver,
+		ControlPlaneEndpoint: controlPlaneEndpoint,
 		APIServer: kubeadmv1beta2.APIServer{
 			ControlPlaneComponent: kubeadmv1beta2.ControlPlaneComponent{
 				ExtraArgs:    GetAPIServerExtraArgs(c),

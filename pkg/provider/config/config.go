@@ -36,6 +36,7 @@ func NewDefaultConfig() (*Config, error) {
 	config := &Config{
 		Registry: Registry{
 			Prefix: "symcn.tencentcloudcr.com/symcn",
+			// Prefix: "registry.aliyuncs.com/google_containers",
 		},
 		CustomRegistry: "symcn.tencentcloudcr.com/symcn",
 	}

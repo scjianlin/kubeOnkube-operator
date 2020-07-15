@@ -16,6 +16,7 @@ const (
 
 const (
 	ClusterAnnotationAction = "k8s.io/action"
+	ClusterPhaseRestore     = "k8s.io/phaseRestore"
 	ClusterApiSvcType       = "k8s.io/apiSvcType"
 	ClusterApiSvcVip        = "k8s.io/apiSvcVip"
 )

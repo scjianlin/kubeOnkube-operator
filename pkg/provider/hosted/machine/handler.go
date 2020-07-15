@@ -11,22 +11,18 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	"bytes"
-
-	"os"
-
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
-	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/certs"
-	k8scomponent "github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+	"github.com/gostship/kunkka/pkg/provider/phases/joinNode"
+	"github.com/gostship/kunkka/pkg/provider/phases/k8scomponent"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
 	"github.com/gostship/kunkka/pkg/util/hosts"
-	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
 	"k8s.io/klog"
 )
@@ -193,74 +189,18 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 }
 
 func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
-	ip := machine.Spec.Machine.IP
-	nodeOpt := &kubeadmv1beta2.NodeRegistrationOptions{
-		Name: ip,
-	}
-	flagsEnv := BuildKubeletDynamicEnvFile(p.Cfg.Registry.Prefix, nodeOpt)
 	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	err = sh.WriteFile(strings.NewReader(flagsEnv), constants.KubeletEnvFileName)
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	klog.Infof("join apiserver: %s", apiserver)
+	err = joinNode.JoinNodePhase(sh, p.Cfg, c, apiserver, false)
 	if err != nil {
 		return err
 	}
 
-	kubeletCfg := p.getKubeletConfiguration(c)
-	cfgYaml, err := KubeletMarshal(kubeletCfg)
-	if err != nil {
-		return err
-	}
-
-	err = sh.WriteFile(bytes.NewReader(cfgYaml), constants.KubeletConfigurationFileName)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("node: %s start waite ca: %s", ip, constants.CACertName)
-	err = sh.WriteFile(bytes.NewReader(c.ClusterCredential.CACert), constants.CACertName)
-	if err != nil {
-		return err
-	}
-
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
-	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
-		apiserver, ip, c.Cluster.Name, pkiutil.KubeletKubeConfigFileName)
-	if err != nil {
-		klog.Errorf("create node: %s kubelet kubeconfg err: %+v", ip, err)
-		return err
-	}
-
-	klog.Infof("[%s/%s] start build node: %s kubelet kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name, ip)
-	for _, v := range cfgMaps {
-		kubeletConf, err := certs.BuildKubeConfigByte(v)
-		if err != nil {
-			klog.Errorf("covert node: %s kubelet kubeconfg err: %+v", ip, err)
-			return err
-		}
-		err = sh.WriteFile(bytes.NewReader(kubeletConf), constants.KubeletKubeConfigFileName)
-		if err != nil {
-			return err
-		}
-
-		klog.Infof("node: %s write kubelet kubeconfg success", ip)
-		break
-	}
-
-	err = sh.WriteFile(strings.NewReader(kubeletEnvironmentTemplate), constants.KubeletServiceRunConfig)
-	if err != nil {
-		return err
-	}
-
-	klog.Infof("node: %s start kubelet ... ", ip)
-	cmd := fmt.Sprintf("systemctl enable kubelet && systemctl daemon-reload && systemctl restart kubelet")
-	exit, err := sh.ExecStream(cmd, os.Stdout, os.Stderr)
-	if err != nil {
-		klog.Errorf("%q %+v", exit, err)
-		return err
-	}
 	return nil
 }
 
@@ -323,4 +263,57 @@ func GetMasterEndpoint(addresses []devopsv1.ClusterAddress) (string, error) {
 	}
 
 	return fmt.Sprintf("https://%s:%d", address.Host, address.Port), nil
+}
+
+func (p *Provider) EnsureEth(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	var cniType string
+	var ok bool
+
+	if cniType, ok = c.Cluster.Spec.Features.Hooks[devopsv1.HookCniInstall]; !ok {
+		return nil
+	}
+
+	if cniType != "dke-cni" {
+		return nil
+	}
+
+	sh, err := machine.Spec.SSH()
+	if err != nil {
+		return err
+	}
+
+	err = cni.ApplyEth(sh, c)
+	if err != nil {
+		klog.Errorf("node: %s apply eth err: %v", sh.HostIP(), err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureCni(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	var cniType string
+	var ok bool
+
+	if cniType, ok = c.Cluster.Spec.Features.Hooks[devopsv1.HookCniInstall]; !ok {
+		return nil
+	}
+
+	if cniType != "dke-cni" {
+		return nil
+	}
+
+	sh, err := machine.Spec.SSH()
+	if err != nil {
+		return err
+	}
+
+	err = cni.ApplyCniCfg(sh, c)
+	if err != nil {
+		return err
+	}
+
+	return nil
+
+	return nil
 }

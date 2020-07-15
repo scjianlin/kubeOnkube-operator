@@ -88,6 +88,10 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 }
 
 func CopyFile(s ssh.Interface, file *devopsv1.File) error {
+	if ok, err := s.Exist(file.Dst); err == nil && ok {
+		return nil
+	}
+
 	err := s.CopyFile(file.Src, file.Dst)
 	if err != nil {
 		return err

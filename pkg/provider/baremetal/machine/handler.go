@@ -17,7 +17,7 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/joinNode"
-	k8scomponent "github.com/gostship/kunkka/pkg/provider/phases/k8sComponent"
+	"github.com/gostship/kunkka/pkg/provider/phases/k8scomponent"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
@@ -223,13 +223,50 @@ func (p *Provider) EnsureMarkNode(ctx context.Context, machine *devopsv1.Machine
 	return nil
 }
 
-func (p *Provider) EnsureCni(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
-	machineSSH, err := machine.Spec.SSH()
+func (p *Provider) EnsureEth(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	var cniType string
+	var ok bool
+
+	if cniType, ok = c.Cluster.Spec.Features.Hooks[devopsv1.HookCniInstall]; !ok {
+		return nil
+	}
+
+	if cniType != "dke-cni" {
+		return nil
+	}
+
+	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
-	err = cni.ApplyCniCfg(machineSSH, c)
+	err = cni.ApplyEth(sh, c)
+	if err != nil {
+		klog.Errorf("node: %s apply eth err: %v", sh.HostIP(), err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *Provider) EnsureCni(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	var cniType string
+	var ok bool
+
+	if cniType, ok = c.Cluster.Spec.Features.Hooks[devopsv1.HookCniInstall]; !ok {
+		return nil
+	}
+
+	if cniType != "dke-cni" {
+		return nil
+	}
+
+	sh, err := machine.Spec.SSH()
+	if err != nil {
+		return err
+	}
+
+	err = cni.ApplyCniCfg(sh, c)
 	if err != nil {
 		return err
 	}
