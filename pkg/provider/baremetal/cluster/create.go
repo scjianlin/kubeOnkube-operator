@@ -312,17 +312,6 @@ func (p *Provider) EnsureKubeadmInitAddonPhase(ctx context.Context, c *common.Cl
 }
 
 func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluster) error {
-	// sh, err := c.Spec.Machines[0].SSH()
-	// if err != nil {
-	// 	return err
-	// }
-	// err = kubeadm.ApplyCustomMaster(sh, c, p.Cfg)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// apiserver := certs.BuildApiserverEndpoint(c.Spec.Machines[0].IP, 6443)
-
 	for _, machine := range c.Spec.Machines[1:] {
 		sh, err := machine.SSH()
 		if err != nil {
@@ -340,6 +329,7 @@ func (p *Provider) EnsureJoinControlePlane(ctx context.Context, c *common.Cluste
 			return nil
 		}
 
+		// apiserver := certs.BuildApiserverEndpoint(c.Spec.Machines[0].IP, 6443)
 		// err = joinNode.JoinNodePhase(sh, p.Cfg, c, apiserver, true)
 		// if err != nil {
 		// 	return errors.Wrapf(err, "node: %s JoinNodePhase", sh.HostIP())
@@ -629,34 +619,33 @@ func (p *Provider) EnsureApplyEtcd(ctx context.Context, c *common.Cluster) error
 }
 
 func (p *Provider) EnsureApplyControlPlane(ctx context.Context, c *common.Cluster) error {
-	// cfg := kubeadm.GetKubeadmConfigByMaster0(c, p.Cfg)
-	// for _, machine := range c.Spec.Machines[1:] {
-	// 	sh, err := machine.SSH()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = kubeadm.InitCustomKubeconfig(cfg, sh, c)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	_, _, _, err = sh.Execf("systemctl enable kubelet && systemctl restart kubelet")
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// }
+	for _, machine := range c.Spec.Machines[1:] {
+		sh, err := machine.SSH()
+		if err != nil {
+			return err
+		}
+		err = kubeconfig.CovertMasterKubeConfig(sh, c)
+		if err != nil {
+			return err
+		}
+
+		_, _, _, err = sh.Execf("systemctl enable kubelet && systemctl restart kubelet")
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
+		if err != nil {
+			return err
+		}
+		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
+		if err != nil {
+			return err
+		}
+	}
 
 	return nil
 }

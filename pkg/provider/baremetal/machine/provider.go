@@ -39,6 +39,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 			p.EnsureCopyFiles,
 			p.EnsurePreInstallHook,
 			p.EnsureClean,
+			p.EnsureRegistryHosts,
 
 			p.EnsureEth,
 			p.EnsureSystem,
@@ -56,6 +57,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 		UpdateHandlers: []machineprovider.Handler{
 			p.EnsureCni,
 			p.EnsurePostInstallHook,
+			p.EnsureRegistryHosts,
 		},
 	}
 

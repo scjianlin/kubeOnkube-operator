@@ -57,6 +57,7 @@ func NewProvider(mgr *machineprovider.MpManager, cfg *config.Config) (*Provider,
 		UpdateHandlers: []machineprovider.Handler{
 			p.EnsureCni,
 			p.EnsurePostInstallHook,
+			p.EnsureRegistryHosts,
 		},
 	}
 

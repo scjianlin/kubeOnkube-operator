@@ -118,28 +118,50 @@ func (p *Provider) EnsurePreflight(ctx context.Context, machine *devopsv1.Machin
 	return nil
 }
 
-func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	if !p.Cfg.NeedSetHosts() {
+func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
+	var vip string
+	vipNodeKey := constants.GetAnnotationKey(machine.Annotations, constants.ClusterApiSvcVip)
+	vipMasterKey := constants.GetAnnotationKey(c.Cluster.Annotations, constants.ClusterApiSvcVip)
+	if vipMasterKey != "" {
+		vip = vipMasterKey
+	} else {
+		if len(c.Cluster.Spec.Machines) == 0 {
+			return fmt.Errorf("cluster: %s no vip and machines", c.Cluster.Name)
+		}
+
+		vip = c.Cluster.Spec.Machines[0].IP
+	}
+
+	if vipNodeKey != "" && vipNodeKey == vip {
 		return nil
 	}
 
-	machineSSH, err := machine.Spec.SSH()
+	sh, err := machine.Spec.SSH()
 	if err != nil {
 		return err
 	}
 
 	domains := []string{
-		p.Cfg.Registry.Domain,
-		machine.Spec.TenantID + "." + p.Cfg.Registry.Domain,
+		c.Cluster.Spec.PublicAlternativeNames[0],
 	}
+
 	for _, one := range domains {
-		remoteHosts := hosts.RemoteHosts{Host: one, SSH: machineSSH}
-		err := remoteHosts.Set(p.Cfg.Registry.IP)
+		remoteHosts := hosts.RemoteHosts{Host: one, SSH: sh}
+		err := remoteHosts.Set(vip)
 		if err != nil {
 			return err
 		}
 	}
 
+	if machine.Annotations == nil {
+		machine.Annotations = map[string]string{}
+	}
+
+	machine.Annotations[constants.ClusterApiSvcVip] = vip
+	err = c.Client.Update(context.TODO(), machine)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

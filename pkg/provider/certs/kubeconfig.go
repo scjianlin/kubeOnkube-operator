@@ -178,6 +178,10 @@ func BuildKubeConfigByte(config *clientcmdapi.Config) ([]byte, error) {
 	return runtime.Encode(clientcmdlatest.Codec, config)
 }
 
+func DecodeKubeConfigByte(data []byte, config *clientcmdapi.Config) error {
+	return runtime.DecodeInto(clientcmdlatest.Codec, data, config)
+}
+
 // createKubeConfigFiles creates all the requested kubeconfig files.
 // If kubeconfig files already exists, they are used only if evaluated equal; otherwise an error is returned.
 func CreateKubeConfigFiles(CAKey, CACert []byte, apiserver string, kubeletNodeAddr string, clusterName string, kubeConfigFileNames ...string) (map[string]*clientcmdapi.Config, error) {
