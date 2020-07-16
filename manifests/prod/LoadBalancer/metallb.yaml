@@ -332,6 +332,7 @@ spec:
             readOnlyRootFilesystem: true
       hostNetwork: true
       nodeSelector:
+        LoadBalancer: speaker
         beta.kubernetes.io/os: linux
       serviceAccountName: speaker
       terminationGracePeriodSeconds: 2
@@ -383,7 +384,6 @@ spec:
                 - all
             readOnlyRootFilesystem: true
       nodeSelector:
-        LoadBalancer: speaker
         beta.kubernetes.io/os: linux
       securityContext:
         runAsNonRoot: true
