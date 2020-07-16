@@ -2,17 +2,18 @@ package kubeconfig
 
 import (
 	"bytes"
-
 	"fmt"
-
 	"path/filepath"
+	"strings"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/util/ssh"
+	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	clientcmdlatest "k8s.io/client-go/tools/clientcmd/api/latest"
 	"k8s.io/klog"
 )
@@ -126,6 +127,59 @@ func ApplyMasterKubeconfig(c *common.Cluster, apiserver string) error {
 
 	key := filepath.Join(constants.KubernetesDir, "audit-policy.yaml")
 	c.ClusterCredential.KubeData[key] = additPolicy
+
+	return nil
+}
+
+func hasContains(s string, ss []string) bool {
+	for _, ts := range ss {
+		if strings.HasSuffix(s, ts) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CovertMasterKubeConfig(s ssh.Interface, c *common.Cluster) error {
+	fileMaps := make(map[string]string)
+
+	apiserver := certs.BuildApiserverEndpoint(s.HostIP(), 6443)
+	for pathName, va := range c.ClusterCredential.KubeData {
+		if !hasContains(pathName, certs.GetMasterKubeConfigList()) {
+			continue
+		}
+
+		kcfg := &clientcmdapi.Config{}
+		err := certs.DecodeKubeConfigByte([]byte(va), kcfg)
+		if err != nil {
+			return err
+		}
+
+		for _, v := range kcfg.Clusters {
+			v.Server = apiserver
+		}
+
+		covertByte, err := certs.BuildKubeConfigByte(kcfg)
+		if err != nil {
+			return err
+		}
+
+		fileMaps[pathName] = string(covertByte)
+	}
+
+	err := ApplyKubeletKubeconfig(c, apiserver, s.HostIP(), fileMaps)
+	if err != nil {
+		return err
+	}
+
+	for pathName, va := range fileMaps {
+		klog.V(4).Infof("node: %s start write [%s] ...", s.HostIP(), pathName)
+		err = s.WriteFile(strings.NewReader(va), pathName)
+		if err != nil {
+			return errors.Wrapf(err, "node: %s failed to write for %s ", s.HostIP(), pathName)
+		}
+	}
 
 	return nil
 }

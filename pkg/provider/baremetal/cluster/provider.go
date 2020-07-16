@@ -69,6 +69,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureApplyEtcd,
 
 			p.EnsureCni,
+			p.EnsureApplyControlPlane,
 			p.EnsureExtKubeconfig,
 			p.EnsurePostInstallHook,
 		},

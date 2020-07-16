@@ -36,7 +36,7 @@ func ApplyPodManifest(hostIP string, c *common.Cluster, cfg *config.Config, path
 	return nil
 }
 
-func buildKubeletKubeconfig(hostIP string, c *common.Cluster, apiserver string, fileMaps map[string]string) error {
+func BuildKubeletKubeconfig(hostIP string, c *common.Cluster, apiserver string, fileMaps map[string]string) error {
 	cfgMaps, err := certs.CreateKubeConfigFiles(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, hostIP, c.Cluster.Name, pkiutil.KubeletKubeConfigFileName)
 	if err != nil {
@@ -93,7 +93,7 @@ func JoinNodePhase(s ssh.Interface, cfg *config.Config, c *common.Cluster, apise
 		return errors.Wrapf(err, "node: %s failed build misc file", hostIP)
 	}
 
-	err = buildKubeletKubeconfig(hostIP, c, apiserver, fileMaps)
+	err = BuildKubeletKubeconfig(hostIP, c, apiserver, fileMaps)
 	if err != nil {
 		return errors.Wrapf(err, "node: %s failed build kubelet file", hostIP)
 	}
@@ -122,7 +122,7 @@ func JoinNodePhase(s ssh.Interface, cfg *config.Config, c *common.Cluster, apise
 	}
 
 	klog.Infof("node: %s restart kubelet ... ", hostIP)
-	cmd := fmt.Sprintf("systemctl enable kubelet && systemctl daemon-reload && systemctl restart kubelet")
+	cmd := fmt.Sprintf("mkdir -p /etc/kubernetes/manifests && systemctl enable kubelet && systemctl daemon-reload && systemctl restart kubelet")
 	exit, err := s.ExecStream(cmd, os.Stdout, os.Stderr)
 	if err != nil {
 		klog.Errorf("%q %+v", exit, err)
