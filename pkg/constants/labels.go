@@ -15,10 +15,11 @@ const (
 )
 
 const (
-	ClusterAnnotationAction = "k8s.io/action"
-	ClusterPhaseRestore     = "k8s.io/phaseRestore"
-	ClusterApiSvcType       = "k8s.io/apiSvcType"
-	ClusterApiSvcVip        = "k8s.io/apiSvcVip"
+	ClusterAnnotationAction  = "k8s.io/action"
+	ClusterPhaseRestore      = "k8s.io/phaseRestore"
+	ClusterApiSvcType        = "k8s.io/apiSvcType"
+	ClusterApiSvcVip         = "k8s.io/apiSvcVip"
+	ClusterAnnoLocalDebugDir = "k8s.io/localDebugDir"
 )
 
 var KubeApiServerLabels = map[string]string{
@@ -38,9 +39,9 @@ var CtrlLabels = map[string]string{
 }
 
 func GetAnnotationKey(annotation map[string]string, key string) string {
-	if annotation == nil {
-		return ""
+	if k, ok := annotation[key]; ok {
+		return k
 	}
 
-	return annotation[key]
+	return ""
 }

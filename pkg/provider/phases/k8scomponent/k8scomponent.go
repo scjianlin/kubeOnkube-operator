@@ -40,24 +40,32 @@ ExecStart=/usr/bin/kubelet $KUBELET_KUBECONFIG_ARGS $KUBELET_CONFIG_ARGS $KUBELE
 )
 
 func Install(s ssh.Interface, c *common.Cluster) error {
-	dir := "k8s/linuxbin/" // local debug config dir
+	// dir := "k8s/linuxbin/" // local debug config dir
+	var k8sDir string
+	var otherDir string
+	if dir := constants.GetAnnotationKey(c.Cluster.Annotations, constants.ClusterAnnoLocalDebugDir); len(dir) > 0 {
+		k8sDir = dir
+		otherDir = dir
+	} else {
+		k8sDir = fmt.Sprintf("/k8s-%s/bin", c.Cluster.Spec.Version)
+		otherDir = "/k8s/bin/"
+	}
 
-	// dir := constants.DstBinDir
 	var CopyList = []devopsv1.File{
 		{
-			Src: dir + "kubectl",
+			Src: k8sDir + "kubectl",
 			Dst: "/usr/bin/kubectl",
 		},
 		{
-			Src: dir + "kubeadm",
+			Src: k8sDir + "kubeadm",
 			Dst: "/usr/bin/kubeadm",
 		},
 		{
-			Src: dir + "kubelet",
+			Src: k8sDir + "kubelet",
 			Dst: "/usr/bin/kubelet",
 		},
 		{
-			Src: dir + "cni.tgz",
+			Src: otherDir + "cni.tgz",
 			Dst: "/opt/cni.tgz",
 		},
 	}

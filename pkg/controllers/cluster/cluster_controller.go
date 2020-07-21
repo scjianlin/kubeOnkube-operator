@@ -117,6 +117,18 @@ func (r *clusterReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		return reconcile.Result{}, nil
 	}
 
+	if !constants.IsK8sSupport(c.Spec.Version) {
+		if c.Status.Phase != devopsv1.ClusterNotSupport {
+			c.Status.Phase = devopsv1.ClusterNotSupport
+			err = r.Client.Status().Update(ctx, c)
+			if err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+
+		return ctrl.Result{}, nil
+	}
+
 	klog.Infof("name: %s", c.Name)
 	if len(string(c.Status.Phase)) == 0 {
 		c.Status.Phase = devopsv1.ClusterInitializing

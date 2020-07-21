@@ -11,6 +11,7 @@ metadata:
   name: cvmt2-cluster
   namespace: cvmt2-cluster
   annotations:
+    k8s.io/localDebugDir: "k8s/linuxbin/"
     k8s.io/apiSvcVip: 10.248.224.210
     k8s.io/action: EnsureCni,EnsureMetricsServer
 spec:
@@ -18,7 +19,7 @@ spec:
   tenantID: kunkka
   displayName: demo
   type: Baremetal
-  version: 1.18.5
+  version: v1.18.6
   networkType: eth0
   clusterCIDR: 10.91.0.0/16
   serviceCIDR: 10.92.0.0/16

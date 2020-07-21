@@ -17,7 +17,7 @@ spec:
   tenantID: kunkka
   displayName: demo
   type: Hosted
-  version: 1.18.5
+  version: v1.18.6
   networkType: eth0
   clusterCIDR: 10.97.0.0/16
   serviceCIDR: 10.96.0.0/16

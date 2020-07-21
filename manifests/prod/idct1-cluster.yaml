@@ -17,7 +17,7 @@ spec:
   tenantID: kunkka
   displayName: kunkka-idct1
   type: Baremetal
-  version: 1.18.5
+  version: v1.18.6
   networkType: eth0
   clusterCIDR: 10.27.184.0/21
   serviceCIDR: 172.27.248.0/22
@@ -33,8 +33,10 @@ spec:
         vip: "10.28.255.252"
         vport: 6443
     files:
-      - src: "/usr/local/bin/k9s"
+      - src: "/k8s/bin/k9s"
         dst: "/usr/local/bin/k9s"
+      - src: "/k8s/bin/helm"
+        dst: "/usr/local/bin/helm"
   properties:
     maxNodePodNum: 128
   machines:
