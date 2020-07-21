@@ -5,11 +5,11 @@ Kunkka 是一个自动化部署高可用kubernetes的operator
 # 特性
 
 - 云原生架构，crd+controller，采用声明式api描述一个集群的最终状态
+- 支持裸金属和master组件托管两种方式部署集群
 - 可以启用一个fake-cluster，解决裸金属第一次部署集群没有元集群问题
-- 无坑版100年集群证书
+- 无坑版100年集群证书，kubelet自动生成证书
 - 除kubelet外集群组件全部容器化部署，componentstatuses可以发现三个etcd
-- 支持coredns, flannel，metrics-server等基础组件模板化部署
-- 支持部署master托管集群
+- 支持coredns, flannel，metrics-server等 addons 模板化部署
 
 # 安装部署
 
@@ -79,4 +79,5 @@ export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
 ```
 # 计划
 
-- [x]  master组件托管
+- [x]  打通元集群及托管集群service网络，以支持聚合apiserver
+- [x]  支持 helm v3 部署 addons
