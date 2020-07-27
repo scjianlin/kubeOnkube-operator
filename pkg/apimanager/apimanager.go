@@ -38,7 +38,7 @@ type APIManager struct {
 // DefaultOption ...
 func DefaultOption() *Option {
 	return &Option{
-		HTTPAddr:           ":8090",
+		HTTPAddr:           ":8888",
 		IsMeta:             true,
 		GoroutineThreshold: 1000,
 		GinLogSkipPath:     []string{"/ready", "/live"},
