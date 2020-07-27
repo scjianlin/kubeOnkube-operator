@@ -78,6 +78,13 @@ docker run --name kunkka-controller -d --restart=always \
 
 export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
 ```
+
+#### Kunkka API 运行
+```bash
+API的运行依赖Meta ApiServer!
+$ go run  cmd/admin-api/main.go api
+```
+
 # 计划
 
 - [x]  打通元集群及托管集群service网络，以支持聚合apiserver
