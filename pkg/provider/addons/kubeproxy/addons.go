@@ -8,9 +8,9 @@ import (
 	kubeproxyv1alpha1 "github.com/gostship/kunkka/pkg/apis/kubeproxy/config/v1alpha1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/config"
-	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
@@ -188,7 +188,7 @@ func BuildKubeproxyAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Objec
 	if err != nil {
 		return nil, errors.Wrap(err, "error when kubeproxyMarshal")
 	}
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
 	proxyConfigMapBytes, err := template.ParseString(KubeProxyConfigMap19,
 		struct {
 			ControlPlaneEndpoint string

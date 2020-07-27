@@ -9,6 +9,7 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
+	"github.com/pkg/errors"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalev2beta1 "k8s.io/api/autoscaling/v2beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -18,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/dynamic"
+	"k8s.io/klog"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -44,6 +47,50 @@ func GetHPAReplicaCountOrDefault(client client.Client, name types.NamespacedName
 	}
 
 	return hpa.Status.DesiredReplicas
+}
+
+func ApplyCertsConfigmap(cli client.Client, obj *common.Cluster, pathCerts map[string][]byte) error {
+	noPathCerts := make(map[string]string, len(pathCerts))
+	for pathName, value := range pathCerts {
+		splits := strings.Split(pathName, "/")
+		noPathName := splits[len(splits)-1]
+		noPathCerts[noPathName] = string(value)
+		klog.Infof("add noPathName: %s", noPathName)
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServerCerts, constants.CtrlLabels, obj.Cluster),
+		Data:       noPathCerts,
+	}
+
+	logger := ctrl.Log.WithValues("cluster", obj.Cluster.Name)
+	err := k8sutil.Reconcile(logger, cli, cm, k8sutil.DesiredStatePresent)
+	if err != nil {
+		return errors.Wrapf(err, "apply certs configmap err: %v", err)
+	}
+	return nil
+}
+
+func ApplyKubeMiscConfigmap(cli client.Client, obj *common.Cluster, pathKubeMisc map[string]string) error {
+	noPathKubeMisc := make(map[string]string, len(pathKubeMisc))
+	for pathName, value := range pathKubeMisc {
+		splits := strings.Split(pathName, "/")
+		noPathName := splits[len(splits)-1]
+		noPathKubeMisc[noPathName] = value
+		klog.Infof("add noPathName: %s", noPathName)
+	}
+
+	cm := &corev1.ConfigMap{
+		ObjectMeta: k8sutil.ObjectMeta(constants.KubeApiServerConfig, constants.CtrlLabels, obj.Cluster),
+		Data:       noPathKubeMisc,
+	}
+
+	logger := ctrl.Log.WithValues("cluster", obj.Cluster.Name)
+	err := k8sutil.Reconcile(logger, cli, cm, k8sutil.DesiredStatePresent)
+	if err != nil {
+		return errors.Wrapf(err, "apply kube misc configmap err: %v", err)
+	}
+	return nil
 }
 
 func GetAdvertiseAddress(obj *common.Cluster) string {

@@ -1,4 +1,4 @@
-package joinNode
+package joinnode
 
 import (
 	"fmt"

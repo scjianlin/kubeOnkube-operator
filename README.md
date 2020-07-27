@@ -25,6 +25,7 @@ $ ./init.sh
 # 进入项目根目录  运行 fake apiserver
 $ cd ..
 $ go run cmd/admin-controller/main.go fake --baseBinDir k8s/bin --rootDir k8s -v 4 
+$ export KUBECONFIG=k8s/cfg/fake-kubeconfig.yaml
 
 # 运行正常后
 $ cat k8s/cfg/fake-kubeconfig.yaml

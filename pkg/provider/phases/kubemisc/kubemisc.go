@@ -1,4 +1,4 @@
-package kubeconfig
+package kubemisc
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/pkg/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -24,6 +24,12 @@ apiVersion: audit.k8s.io/v1
 kind: Policy
 rules:
 - level: Metadata
+`
+)
+
+const (
+	tokenFileTemplate = `
+%s,admin,admin,system:masters
 `
 )
 
@@ -98,7 +104,7 @@ func ApplyKubeletKubeconfig(c *common.Cluster, apiserver string, kubeletNodeAddr
 	return nil
 }
 
-func ApplyMasterKubeconfig(c *common.Cluster, apiserver string) error {
+func ApplyMasterMisc(c *common.Cluster, apiserver string) error {
 	if c.ClusterCredential.CACert == nil {
 		return fmt.Errorf("ca is nil")
 	}
@@ -128,6 +134,8 @@ func ApplyMasterKubeconfig(c *common.Cluster, apiserver string) error {
 	key := filepath.Join(constants.KubernetesDir, "audit-policy.yaml")
 	c.ClusterCredential.KubeData[key] = additPolicy
 
+	tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
+	c.ClusterCredential.KubeData[constants.TokenFile] = tokenData
 	return nil
 }
 

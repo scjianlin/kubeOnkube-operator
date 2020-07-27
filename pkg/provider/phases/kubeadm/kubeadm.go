@@ -21,19 +21,13 @@ import (
 
 	"strings"
 
-	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/config"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
-)
-
-const (
-	tokenFileTemplate = `
-%s,admin,admin,system:masters
-`
 )
 
 const (
@@ -188,9 +182,6 @@ func InitCerts(cfg *Config, c *common.Cluster, isHosted bool) error {
 
 		c.ClusterCredential.CertsBinaryData[pathFile] = v
 	}
-
-	tokenData := fmt.Sprintf(tokenFileTemplate, *c.ClusterCredential.Token)
-	c.ClusterCredential.CertsBinaryData[constants.TokenFile] = []byte(tokenData)
 
 	return nil
 }

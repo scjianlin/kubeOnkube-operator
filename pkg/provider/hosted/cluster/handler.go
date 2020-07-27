@@ -16,9 +16,9 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
 	"github.com/gostship/kunkka/pkg/provider/addons/kubeproxy"
 	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
-	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
-	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
@@ -156,18 +156,17 @@ func (p *Provider) EnsureCerts(ctx context.Context, c *common.Cluster) error {
 		return err
 	}
 
-	return nil
+	return ApplyCertsConfigmap(c.Client, c, c.ClusterCredential.CertsBinaryData)
 }
 
-func (p *Provider) EnsureKubeconfig(ctx context.Context, c *common.Cluster) error {
-	apiserver := certs.BuildApiserverEndpoint(constants.KubeApiServer, kubeconfig.GetBindPort(c.Cluster))
-	err := kubeconfig.ApplyMasterKubeconfig(c, apiserver)
+func (p *Provider) EnsureKubeMisc(ctx context.Context, c *common.Cluster) error {
+	apiserver := certs.BuildApiserverEndpoint(constants.KubeApiServer, kubemisc.GetBindPort(c.Cluster))
+	err := kubemisc.ApplyMasterMisc(c, apiserver)
 	if err != nil {
 		return err
 	}
 
-	//
-	return nil
+	return ApplyKubeMiscConfigmap(c.Client, c, c.ClusterCredential.KubeData)
 }
 
 func (p *Provider) EnsureEtcd(ctx context.Context, c *common.Cluster) error {
@@ -191,7 +190,7 @@ func (p *Provider) EnsureKubeMaster(ctx context.Context, c *common.Cluster) erro
 		obj := f()
 		err := k8sutil.Reconcile(logger, c.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
-			return errors.Wrapf(err, "create kubeconfig err: %v", err)
+			return errors.Wrapf(err, "apply object err: %v", err)
 		}
 	}
 
@@ -203,7 +202,7 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 		c.ClusterCredential.ExtData = make(map[string]string)
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubemisc.GetBindPort(c.Cluster))
 	cfgMaps, err := certs.CreateApiserverKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, c.Cluster.Name)
 	if err != nil {

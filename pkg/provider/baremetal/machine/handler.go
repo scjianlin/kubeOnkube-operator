@@ -15,10 +15,10 @@ import (
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
 	"github.com/gostship/kunkka/pkg/provider/addons/cni"
-	"github.com/gostship/kunkka/pkg/provider/certs"
-	"github.com/gostship/kunkka/pkg/provider/phases/joinNode"
-	"github.com/gostship/kunkka/pkg/provider/phases/k8scomponent"
-	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/component"
+	joinnode "github.com/gostship/kunkka/pkg/provider/phases/joinNode"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
 	"github.com/gostship/kunkka/pkg/util/apiclient"
@@ -185,7 +185,7 @@ func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Mac
 		return err
 	}
 
-	err = k8scomponent.Install(sh, c)
+	err = component.Install(sh, c)
 	if err != nil {
 		return errors.Wrap(err, sh.HostIP())
 	}
@@ -194,7 +194,7 @@ func (p *Provider) EnsureK8sComponent(ctx context.Context, machine *devopsv1.Mac
 }
 
 func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machine, c *common.Cluster) error {
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
 	klog.Infof("join apiserver: %s", apiserver)
 
 	machineSSH, err := machine.Spec.SSH()
@@ -202,13 +202,13 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 		return err
 	}
 
-	option := &kubeconfig.Option{
+	option := &kubemisc.Option{
 		MasterEndpoint: apiserver,
 		ClusterName:    c.Name,
 		CACert:         c.ClusterCredential.CACert,
 		Token:          *c.ClusterCredential.Token,
 	}
-	err = kubeconfig.InstallNode(machineSSH, option)
+	err = kubemisc.InstallNode(machineSSH, option)
 	if err != nil {
 		return err
 	}
@@ -222,10 +222,10 @@ func (p *Provider) EnsureJoinNode(ctx context.Context, machine *devopsv1.Machine
 		return err
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
 	klog.Infof("join apiserver: %s", apiserver)
 
-	err = joinNode.JoinNodePhase(sh, p.Cfg, c, apiserver, false)
+	err = joinnode.JoinNodePhase(sh, p.Cfg, c, apiserver, false)
 	if err != nil {
 		return err
 	}

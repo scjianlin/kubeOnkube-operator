@@ -1,4 +1,4 @@
-package kubeconfig
+package kubemisc
 
 import (
 	"fmt"

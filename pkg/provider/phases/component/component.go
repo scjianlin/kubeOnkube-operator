@@ -1,4 +1,4 @@
-package k8scomponent
+package component
 
 import (
 	"fmt"

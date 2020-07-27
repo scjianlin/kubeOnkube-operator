@@ -1,4 +1,4 @@
-package joinNode
+package joinnode
 
 import (
 	"fmt"
@@ -9,8 +9,8 @@ import (
 	kubeadmv1beta2 "github.com/gostship/kunkka/pkg/apis/kubeadm/v1beta2"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/certs"
 	"github.com/gostship/kunkka/pkg/provider/config"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/gostship/kunkka/pkg/util/ssh"

@@ -50,7 +50,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 			p.EnsureClusterComplete,
 			p.EnsureEtcd,
 			p.EnsureCerts,
-			p.EnsureKubeconfig,
+			p.EnsureKubeMisc,
 			p.EnsureKubeMaster,
 
 			p.EnsurePostInstallHook,

@@ -8,9 +8,9 @@ import (
 
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
-	"github.com/gostship/kunkka/pkg/provider/certs"
+	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubeadm"
-	"github.com/gostship/kunkka/pkg/provider/phases/kubeconfig"
+	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/pkg/errors"
 	"github.com/prometheus/common/log"
@@ -50,7 +50,7 @@ func (p *Provider) EnsureRenewCerts(ctx context.Context, c *common.Cluster) erro
 }
 
 func (p *Provider) EnsureAPIServerCert(ctx context.Context, c *common.Cluster) error {
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubeconfig.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
 
 	kubeadmConfig := kubeadm.GetKubeadmConfig(c, p.Cfg, apiserver)
 	exptectCertSANs := k8sutil.GetAPIServerCertSANs(c.Cluster)
