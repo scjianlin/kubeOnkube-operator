@@ -14,23 +14,23 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
+package sliceutil
 
-import (
-	"fmt"
-	"github.com/gostship/kunkka/cmd/admin-api/app"
-	"math/rand"
-	"os"
-	"time"
-)
-
-func main() {
-	rand.Seed(time.Now().UnixNano())
-
-	apiCmd := app.GetApiCmd(os.Args[1:])
-
-	if err := apiCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "error:%v\n", err)
-		os.Exit(-1)
+func RemoveString(slice []string, remove func(item string) bool) []string {
+	for i := 0; i < len(slice); i++ {
+		if remove(slice[i]) {
+			slice = append(slice[:i], slice[i+1:]...)
+			i--
+		}
 	}
+	return slice
+}
+
+func HasString(slice []string, str string) bool {
+	for _, s := range slice {
+		if s == str {
+			return true
+		}
+	}
+	return false
 }
