@@ -36,6 +36,8 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/metricsserver"
 	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 
+	"sync"
+
 	"github.com/gostship/kunkka/pkg/provider/phases/component"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
@@ -368,18 +370,42 @@ func (p *Provider) EnsureComponent(ctx context.Context, c *common.Cluster) error
 }
 
 func (p *Provider) EnsureSystem(ctx context.Context, c *common.Cluster) error {
-	for _, machine := range c.Spec.Machines {
-		machineSSH, err := machine.SSH()
+	wg := sync.WaitGroup{}
+	quitErrors := make(chan error)
+	wgDone := make(chan struct{})
+	for _, mach := range c.Spec.Machines {
+		sh, err := mach.SSH()
 		if err != nil {
 			return err
 		}
 
-		err = system.Install(machineSSH, c)
-		if err != nil {
-			return errors.Wrap(err, machine.IP)
-		}
+		wg.Add(1)
+
+		go func(s ssh.Interface) {
+			defer wg.Done()
+			err = system.Install(s, c)
+			if err != nil {
+				quitErrors <- errors.Wrap(err, mach.IP)
+			}
+		}(sh)
 	}
 
+	go func() {
+		wg.Wait()
+		close(wgDone)
+	}()
+
+	// Wait until either WaitGroup is done or an error is received through the channel
+	select {
+	case <-wgDone:
+		break
+	case err := <-quitErrors:
+		close(quitErrors)
+		klog.Errorf("err: %+v", err)
+		return err
+	}
+
+	klog.Infof("clster: %s ensureSystem all host executed successfully", c.Cluster.Name)
 	return nil
 }
 
@@ -633,18 +659,18 @@ func (p *Provider) EnsureApplyControlPlane(ctx context.Context, c *common.Cluste
 		if err != nil {
 			return err
 		}
-		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
-		if err != nil {
-			return err
-		}
-		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
-		if err != nil {
-			return err
-		}
-		err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
-		if err != nil {
-			return err
-		}
+		// err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-apiserver"))
+		// if err != nil {
+		// 	return err
+		// }
+		// err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-controller-manager"))
+		// if err != nil {
+		// 	return err
+		// }
+		// err = kubeadm.RestartContainerByFilter(sh, kubeadm.DockerFilterForControlPlane("kube-scheduler"))
+		// if err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil
@@ -687,7 +713,7 @@ func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) e
 	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
 	logger.Info("start reconcile ...")
 	for _, obj := range objs {
-		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStateAbsent)
 		if err != nil {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}

@@ -1,4 +1,4 @@
-ARG KUNKKA_BASE_VERSION=v0.1.0
+ARG KUNKKA_BASE_VERSION=v1.18.5-1613
 
 FROM symcn.tencentcloudcr.com/symcn/kunkka-base:${KUNKKA_BASE_VERSION}
 

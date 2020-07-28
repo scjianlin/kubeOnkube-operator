@@ -65,16 +65,16 @@ docker 运行
 docker run --name fake-cluster -d --restart=always \
    --net="host" \
    --pid="host" \
-   -v /root/kunkka/k8s:/k8s \
-   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.1-dev1 \
-   kunkka-controller fake -v 4
+   -v /root/kunkka/k8s:/kunkka \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev5 \
+   kunkka-controller fake --rootDir /kunkka -v 4
 
 docker run --name kunkka-controller -d --restart=always \
    --net="host" \
    --pid="host" \
-   -v /root/kunkka/k8s:/k8s \
-   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.1-dev1 \
-   kunkka-controller ctrl -v 4 --kubeconfig=/k8s/cfg/fake-kubeconfig.yaml
+   -v /root/kunkka/k8s:/kunkka \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev5 \
+   kunkka-controller ctrl -v 4 --kubeconfig=/kunkka/cfg/fake-kubeconfig.yaml
 
 export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
 ```

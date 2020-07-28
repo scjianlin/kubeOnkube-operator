@@ -10,23 +10,17 @@ require (
 	github.com/Masterminds/sprig v2.22.0+incompatible
 	github.com/banzaicloud/k8s-objectmatcher v1.3.3
 	github.com/dgrijalva/jwt-go v3.2.0+incompatible
-	github.com/emicklei/go-restful v2.9.5+incompatible
 	github.com/ghodss/yaml v1.0.0
 	github.com/gin-gonic/gin v1.6.3
-	github.com/go-ldap/ldap v3.0.3+incompatible
 	github.com/go-logr/logr v0.1.0
 	github.com/go-redis/redis v6.15.8+incompatible
-	github.com/golang/mock v1.2.0
-	github.com/golang/protobuf v1.4.2
+	github.com/google/go-cmp v0.4.0
 	github.com/google/uuid v1.1.1
 	github.com/goph/emperror v0.17.2
 	github.com/huandu/xstrings v1.3.1 // indirect
-	github.com/json-iterator/go v1.1.9
-	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.12.2 // indirect
 	github.com/onsi/gomega v1.10.1
-	github.com/pelletier/go-toml v1.2.0
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/sftp v1.11.0
 	github.com/prometheus/client_golang v1.2.1
@@ -38,7 +32,6 @@ require (
 	github.com/thoas/go-funk v0.6.0
 	go.opencensus.io v0.22.2
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	google.golang.org/grpc v1.26.0
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.4
 	k8s.io/apiextensions-apiserver v0.18.4

@@ -17,7 +17,7 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/component"
-	joinnode "github.com/gostship/kunkka/pkg/provider/phases/joinNode"
+	"github.com/gostship/kunkka/pkg/provider/phases/joinnode"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
@@ -194,7 +194,8 @@ func (p *Provider) EnsureKubeconfig(ctx context.Context, machine *devopsv1.Machi
 		return err
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubemisc.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
+	klog.Infof("join apiserver: %s", apiserver)
 
 	option := &kubemisc.Option{
 		MasterEndpoint: apiserver,

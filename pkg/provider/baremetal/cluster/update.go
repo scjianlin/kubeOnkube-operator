@@ -29,11 +29,11 @@ func (p *Provider) EnsureRenewCerts(ctx context.Context, c *common.Cluster) erro
 		if err != nil {
 			return err
 		}
-		certs, err := certutil.ParseCertsPEM(data)
+		cts, err := certutil.ParseCertsPEM(data)
 		if err != nil {
 			return err
 		}
-		expirationDuration := time.Until(certs[0].NotAfter)
+		expirationDuration := time.Until(cts[0].NotAfter)
 		if expirationDuration > constants.RenewCertsTimeThreshold {
 			log.Infof("skip EnsureRenewCerts because expiration duration(%s) > threshold(%s)", expirationDuration, constants.RenewCertsTimeThreshold)
 			return nil

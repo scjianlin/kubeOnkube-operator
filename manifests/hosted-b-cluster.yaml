@@ -198,7 +198,8 @@ metadata:
   name: hosted-b-cluster
   namespace: hosted-b-cluster
   annotations:
-    k8s.io/action: EnsureExtKubeconfig,EnsureAddons,EnsureFlannel
+    k8s.io/apiSvcVip: "10.248.224.201"
+    k8s.io/action: EnsureExtKubeconfig,EnsureAddons,EnsureCni
 spec:
   pause: false
   tenantID: kunkka
@@ -221,10 +222,10 @@ spec:
         vip: "10.248.224.183"
         vport: 31443
     files:
-      - src: "/usr/local/bin/k9s"
+      - src: "/k8s/bin/k9s"
         dst: "/usr/local/bin/k9s"
     hooks:
-      PostCniInstall: flannel
+      cniInstall: flannel
   properties:
     maxNodePodNum: 64
   apiServerExtraArgs:
@@ -256,7 +257,7 @@ spec:
     ip: 10.248.224.176
     port: 22
     username: root
-    password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+    password: "hNKKTFCAOp6r58A"
   feature:
     hooks:
       installType: kubeadm
@@ -275,7 +276,7 @@ spec:
     ip: 10.248.224.211
     port: 22
     username: root
-    password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+    password: "hNKKTFCAOp6r58A"
   feature:
     hooks:
       installType: kubeadm

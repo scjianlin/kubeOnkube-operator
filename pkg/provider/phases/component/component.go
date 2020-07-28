@@ -47,18 +47,18 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 		k8sDir = dir
 		otherDir = dir
 	} else {
-		k8sDir = fmt.Sprintf("/k8s-%s/bin", c.Cluster.Spec.Version)
+		k8sDir = fmt.Sprintf("/k8s-%s/bin/", c.Cluster.Spec.Version)
 		otherDir = "/k8s/bin/"
 	}
 
 	var CopyList = []devopsv1.File{
 		{
 			Src: k8sDir + "kubectl",
-			Dst: "/usr/bin/kubectl",
+			Dst: "/usr/local/bin/kubectl",
 		},
 		{
 			Src: k8sDir + "kubeadm",
-			Dst: "/usr/bin/kubeadm",
+			Dst: "/usr/local/bin/kubeadm",
 		},
 		{
 			Src: k8sDir + "kubelet",
@@ -112,7 +112,7 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	unitName := fmt.Sprintf("%s.service", "kubelet")
-	cmd := fmt.Sprintf("systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
+	cmd := fmt.Sprintf("mkdir -p /etc/kubernetes/manifests/ && systemctl -f enable %s && systemctl daemon-reload && systemctl restart %s", unitName, unitName)
 	if _, stderr, exit, err := s.Execf(cmd); err != nil || exit != 0 {
 		cmd = fmt.Sprintf("journalctl --unit %s -n10 --no-pager", unitName)
 		jStdout, _, jExit, jErr := s.Execf(cmd)

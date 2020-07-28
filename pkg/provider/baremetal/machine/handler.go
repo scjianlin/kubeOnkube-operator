@@ -17,7 +17,7 @@ import (
 	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/phases/certs"
 	"github.com/gostship/kunkka/pkg/provider/phases/component"
-	joinnode "github.com/gostship/kunkka/pkg/provider/phases/joinNode"
+	"github.com/gostship/kunkka/pkg/provider/phases/joinnode"
 	"github.com/gostship/kunkka/pkg/provider/phases/kubemisc"
 	"github.com/gostship/kunkka/pkg/provider/phases/system"
 	"github.com/gostship/kunkka/pkg/provider/preflight"
@@ -153,6 +153,7 @@ func (p *Provider) EnsureRegistryHosts(ctx context.Context, machine *devopsv1.Ma
 		}
 	}
 
+	klog.Infof("node: %s set vip: %s, domains: %+v", sh.HostIP(), vip, domains)
 	if machine.Annotations == nil {
 		machine.Annotations = map[string]string{}
 	}

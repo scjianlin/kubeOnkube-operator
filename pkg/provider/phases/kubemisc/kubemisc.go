@@ -181,6 +181,13 @@ func CovertMasterKubeConfig(s ssh.Interface, c *common.Cluster) error {
 		return err
 	}
 
+	for name, data := range c.ClusterCredential.KubeData {
+		if strings.Contains(name, "known_tokens.csv") {
+			fileMaps[name] = data
+			break
+		}
+	}
+
 	for pathName, va := range fileMaps {
 		klog.V(4).Infof("node: %s start write [%s] ...", s.HostIP(), pathName)
 		err = s.WriteFile(strings.NewReader(va), pathName)

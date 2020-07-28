@@ -1,4 +1,4 @@
-VERSION ?= v0.0.2-dev10
+VERSION ?= v0.0.3-dev5
 # Image URL to use all building/pushing image targets
 IMG_REG ?= symcn.tencentcloudcr.com/symcn
 IMG_CTL := $(IMG_REG)/kunkka
@@ -8,7 +8,7 @@ CRD_OPTIONS ?= "crd:trivialVersions=true"
 # This repo's root import path (under GOPATH).
 ROOT := github.com/gostship/kunkka
 
-GO_VERSION := 1.14.4
+GO_VERSION := 1.14.6
 ARCH     ?= $(shell go env GOARCH)
 BUILD_DATE = $(shell date +'%Y-%m-%dT%H:%M:%SZ')
 COMMIT    = $(shell git rev-parse --short HEAD)
@@ -77,6 +77,8 @@ build: build-controller
 build-controller:
 	$(GO) -v -o bin/kunkka-controller -ldflags "-s -w -X $(ROOT)/pkg/version.Release=$(VERSION) -X  $(ROOT)/pkg/version.Commit=$(COMMIT)   \
 	-X  $(ROOT)/pkg/version.BuildDate=$(BUILD_DATE)" cmd/admin-controller/main.go
+
+docker-build: docker-build-controller
 
 # Push the docker image
 docker-push:

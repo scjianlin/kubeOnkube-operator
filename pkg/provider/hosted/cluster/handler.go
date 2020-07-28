@@ -287,7 +287,7 @@ func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) e
 	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
 	logger.Info("start reconcile ...")
 	for _, obj := range objs {
-		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStateAbsent)
 		if err != nil {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}

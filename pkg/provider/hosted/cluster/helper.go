@@ -30,8 +30,31 @@ type Reconciler struct {
 	*Provider
 }
 
-func GetPodBindPort() int32 {
-	return 6443
+func GetPodBindPort(obj *common.Cluster) int32 {
+	var port int32
+	port = 6443
+	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		port = obj.Cluster.Spec.Features.HA.ThirdPartyHA.VPort
+	}
+	return port
+}
+
+func GetSvcNodePort(obj *common.Cluster) int32 {
+	port := GetPodBindPort(obj)
+
+	if port < 30000 {
+		port = port + 30000
+	}
+	return port
+}
+
+func GetAdvertiseAddress(obj *common.Cluster) string {
+	advertiseAddress := "$(INSTANCE_IP)"
+	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		advertiseAddress = obj.Cluster.Spec.Features.HA.ThirdPartyHA.VIP
+	}
+
+	return advertiseAddress
 }
 
 // GetHPAReplicaCountOrDefault get desired replica count from HPA if exists, returns the given default otherwise
@@ -91,15 +114,6 @@ func ApplyKubeMiscConfigmap(cli client.Client, obj *common.Cluster, pathKubeMisc
 		return errors.Wrapf(err, "apply kube misc configmap err: %v", err)
 	}
 	return nil
-}
-
-func GetAdvertiseAddress(obj *common.Cluster) string {
-	advertiseAddress := "$(INSTANCE_IP)"
-	if obj.Cluster.Spec.Features.HA != nil && obj.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
-		advertiseAddress = obj.Cluster.Spec.Features.HA.ThirdPartyHA.VIP
-	}
-
-	return advertiseAddress
 }
 
 func (r *Reconciler) apiServerDeployment() runtime.Object {
@@ -178,7 +192,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 	}
 
 	advertiseAddress := GetAdvertiseAddress(r.Obj)
-	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", GetPodBindPort()))
+	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", GetPodBindPort(r.Obj)))
 	cmds = append(cmds, fmt.Sprintf("--advertise-address=%s", advertiseAddress))
 	if r.Obj.Cluster.Spec.APIServerExtraArgs != nil {
 		extraArgs := []string{}
@@ -215,7 +229,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 		Ports: []corev1.ContainerPort{
 			{
 				Name:          "https",
-				ContainerPort: GetPodBindPort(),
+				ContainerPort: GetPodBindPort(r.Obj),
 				Protocol:      corev1.ProtocolTCP,
 			},
 		},
@@ -282,8 +296,8 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 				{
 					Name:       "https",
 					Protocol:   corev1.ProtocolTCP,
-					Port:       GetPodBindPort(),
-					NodePort:   30443,
+					Port:       GetPodBindPort(r.Obj),
+					NodePort:   GetSvcNodePort(r.Obj),
 					TargetPort: intstr.FromString("https"),
 				},
 			},
@@ -302,10 +316,8 @@ func (r *Reconciler) apiServerSvc() runtime.Object {
 		svc.Annotations = make(map[string]string)
 	}
 
-	// svc.Annotations["contour.heptio.com/upstream-protocol.tls"] = "443,https"
-	svc.Annotations["projectcontour.io/upstream-protocol.tls"] = "6443"
-	svc.Annotations["gloo.solo.io/sslService.secret"] = constants.KubeApiServerCerts
-
+	podPort := GetPodBindPort(r.Obj)
+	svc.Annotations["contour.heptio.com/upstream-protocol.tls"] = fmt.Sprintf("%d,https", podPort)
 	return svc
 }
 
