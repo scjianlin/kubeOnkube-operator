@@ -2,14 +2,14 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    name: cvm-admin
-  name: cvm-admin
+    name: baremetal-cluster
+  name: baremetal-cluster
 ---
 apiVersion: devops.gostship.io/v1
 kind: Cluster
 metadata:
-  name: cvm-cluster
-  namespace: cvm-admin
+  name: baremetal-cluster
+  namespace: baremetal-cluster
   annotations:
     k8s.io/action: EnsureExtKubeconfig,EnsureFlannel,EnsureMetricsServer
 spec:
@@ -19,11 +19,11 @@ spec:
   type: Baremetal
   version: v1.18.6
   networkType: eth0
-  clusterCIDR: 10.49.255.0/24
-  serviceCIDR: 10.90.0.0/16
+  clusterCIDR: 10.91.0.0/16
+  serviceCIDR: 10.92.0.0/16
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - vip2.dke.k8s.io
+    - baremetalt1.dke.k8s.io
   features:
     ipvs: true
     internalLB: true
@@ -65,3 +65,22 @@ spec:
   dockerExtraArgs:
     registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
     version: 19.03.9
+---
+apiVersion: devops.gostship.io/v1
+kind: Machine
+metadata:
+  labels:
+    name: 10.248.224.210
+  name: 10.248.224.210
+  namespace: baremetal-cluster
+spec:
+  clusterName: baremetal-cluster
+  type: Baremetal
+  machine:
+    ip: 10.248.224.210
+    port: 22
+    username: root
+    password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+  feature:
+    hooks:
+      installType: kubeadm
