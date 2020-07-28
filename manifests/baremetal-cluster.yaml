@@ -43,15 +43,15 @@ spec:
     - ip: 10.248.224.183
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+      password: "hNKKTFCAOp6r58A"
     - ip: 10.248.224.201
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+      password: "hNKKTFCAOp6r58A"
     - ip: 10.248.224.199
       port: 22
       username: root
-      password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+      password: "hNKKTFCAOp6r58A"
   apiServerExtraArgs:
     audit-log-maxage: "30"
     audit-log-maxbackup: "3"
@@ -80,7 +80,7 @@ spec:
     ip: 10.248.224.210
     port: 22
     username: root
-    password: "UVK4AfcSuEQTK-LH-Lk1Fy"
+    password: "hNKKTFCAOp6r58A"
   feature:
     hooks:
       installType: kubeadm
