@@ -88,19 +88,19 @@ ls -l /root/kunkka/k8s/cfg/bt-kubeconfig.yaml
 # 运行
 docker stop kunkka-controller && docker rm kunkka-controller
 
-docker run --name kunkka-controller -d --restart=always \
+docker run --name meta-controller -d --restart=always \
    --net="host" \
    --pid="host" \
    -v /root/kunkka/k8s:/kunkka \
    -v /etc/hosts:/etc/hosts \
    symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev9 \
-   kunkka-controller ctrl -v 4 --kubeconfig=/kunkka/cfg/bt-kubeconfig.yaml
+   kunkka-controller ctrl -v 2 --kubeconfig=/kunkka/cfg/bt-kubeconfig.yaml
 
 ```
 
 #### Kunkka API 运行
 ```bash
-API的运行依赖Meta ApiServer!
+# API的运行依赖Meta ApiServer!
 $ go run  cmd/admin-api/main.go api
 ```
 

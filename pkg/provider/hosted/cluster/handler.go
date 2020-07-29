@@ -230,10 +230,11 @@ func (p *Provider) EnsureAddons(ctx context.Context, c *common.Cluster) error {
 	}
 	kubeproxyObjs, err := kubeproxy.BuildKubeproxyAddon(p.Cfg, c)
 	if err != nil {
-		return errors.Wrapf(err, "build kube-proxy err: %v", err)
+		return errors.Wrapf(err, "build kube-proxy err: %+v", err)
 	}
 
 	logger := ctrl.Log.WithValues("cluster", c.Name)
+	logger.Info("start apply kube-proxy")
 	for _, obj := range kubeproxyObjs {
 		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
@@ -241,9 +242,10 @@ func (p *Provider) EnsureAddons(ctx context.Context, c *common.Cluster) error {
 		}
 	}
 
+	logger.Info("start apply coredns")
 	corednsObjs, err := coredns.BuildCoreDNSAddon(p.Cfg, c)
 	if err != nil {
-		return errors.Wrapf(err, "build kube-proxy err: %v", err)
+		return errors.Wrapf(err, "build coredns err: %+v", err)
 	}
 	for _, obj := range corednsObjs {
 		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
