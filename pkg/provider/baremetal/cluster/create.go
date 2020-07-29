@@ -681,20 +681,24 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 		c.ClusterCredential.ExtData = make(map[string]string)
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Machines[0].IP, 6443)
+	apiserver := certs.BuildExternalApiserverEndpoint(c)
+	klog.Infof("external apiserver url: %s", apiserver)
 	cfgMaps, err := certs.CreateApiserverKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, c.Cluster.Name)
 	if err != nil {
-		klog.Errorf("create kubeconfg err: %+v", err)
+		klog.Errorf("build apiserver kubeconfg err: %+v", err)
 		return err
 	}
-	klog.Infof("[%s/%s] start build kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
+	klog.Infof("[%s/%s] start convert apiserver kubeconfig ...", c.Cluster.Namespace, c.Cluster.Name)
 	for _, v := range cfgMaps {
 		by, err := certs.BuildKubeConfigByte(v)
 		if err != nil {
 			return err
 		}
-		c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName] = string(by)
+
+		externalKubeconfig := string(by)
+		klog.Infof("cluster: %s externalKubeconfig: \n%s", c.Cluster.Name, externalKubeconfig)
+		c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName] = externalKubeconfig
 	}
 
 	return nil
@@ -713,7 +717,7 @@ func (p *Provider) EnsureMetricsServer(ctx context.Context, c *common.Cluster) e
 	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "metrics-server")
 	logger.Info("start reconcile ...")
 	for _, obj := range objs {
-		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStateAbsent)
+		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
 		if err != nil {
 			return errors.Wrapf(err, "Reconcile  err: %v", err)
 		}

@@ -2,13 +2,13 @@ apiVersion: v1
 kind: Namespace
 metadata:
   labels:
-    name: hosted-b-cluster
-  name: hosted-b-cluster
+    name: hosted-b
+  name: hosted-b
 ---
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  namespace: hosted-b-cluster
+  namespace: hosted-b
   name: etcd
   labels:
     app: etcd
@@ -29,7 +29,7 @@ spec:
           preferredDuringSchedulingIgnoredDuringExecution:
             - podAffinityTerm:
                 namespaces:
-                  - hosted-b-cluster
+                  - hosted-b
                 labelSelector:
                   matchLabels:
                     app: etcd
@@ -37,7 +37,7 @@ spec:
               weight: 100
       containers:
         - name: etcd
-          image: symcn.tencentcloudcr.com/symcn/kubernetes:v1.16.13
+          image: symcn.tencentcloudcr.com/symcn/etcd:3.4.3-0
           ports:
             - containerPort: 2379
               name: client
@@ -85,7 +85,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  namespace: hosted-b-cluster
+  namespace: hosted-b
   name: etcd
   labels:
     app: etcd
@@ -103,7 +103,7 @@ spec:
 apiVersion: policy/v1beta1
 kind: PodDisruptionBudget
 metadata:
-  namespace: hosted-b-cluster
+  namespace: hosted-b
   name: etcd-pdb
   labels:
     pdb: etcd
@@ -126,14 +126,14 @@ volumeBindingMode: WaitForFirstConsumer
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: etcd0-hosted-b-cluster-lpv
+  name: etcd0-hosted-b-lpv
 spec:
   accessModes:
     - ReadWriteOnce
   capacity:
     storage: 10Gi
   local:
-    path: /web/hosted-b-cluster
+    path: /web/hosted-b
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -149,14 +149,14 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: etcd2-hosted-b-cluster-lpv
+  name: etcd2-hosted-b-lpv
 spec:
   accessModes:
     - ReadWriteOnce
   capacity:
     storage: 10Gi
   local:
-    path: /web/hosted-b-cluster
+    path: /web/hosted-b
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -172,14 +172,14 @@ spec:
 apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: etcd1-hosted-b-cluster-lpv
+  name: etcd1-hosted-b-lpv
 spec:
   accessModes:
     - ReadWriteOnce
   capacity:
     storage: 10Gi
   local:
-    path: /web/hosted-b-cluster
+    path: /web/hosted-b
   nodeAffinity:
     required:
       nodeSelectorTerms:
@@ -195,11 +195,11 @@ spec:
 apiVersion: devops.gostship.io/v1
 kind: Cluster
 metadata:
-  name: hosted-b-cluster
-  namespace: hosted-b-cluster
+  name: hosted-b
+  namespace: hosted-b
   annotations:
     k8s.io/apiSvcVip: "10.248.224.201"
-    k8s.io/action: EnsureExtKubeconfig,EnsureAddons,EnsureCni
+    k8s.io/action: EnsureKubeMaster,EnsureExtKubeconfig,EnsureAddons,EnsureCni
 spec:
   pause: false
   tenantID: kunkka
@@ -219,7 +219,7 @@ spec:
     enableMasterSchedule: true
     ha:
       thirdParty:
-        vip: "10.248.224.183"
+        vip: "10.248.224.201"
         vport: 31443
     files:
       - src: "/k8s/bin/k9s"
@@ -249,9 +249,9 @@ metadata:
   labels:
     name: 10.248.224.176
   name: 10.248.224.176
-  namespace: hosted-a-cluster
+  namespace: hosted-b
 spec:
-  clusterName: hosted-b-cluster
+  clusterName: hosted-b
   type: Hosted
   machine:
     ip: 10.248.224.176
@@ -268,9 +268,9 @@ metadata:
   labels:
     name: 10.248.224.211
   name: 10.248.224.211
-  namespace: hosted-b-cluster
+  namespace: hosted-b
 spec:
-  clusterName: hosted-b-cluster
+  clusterName: hosted-b
   type: Hosted
   machine:
     ip: 10.248.224.211

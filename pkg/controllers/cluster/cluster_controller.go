@@ -153,6 +153,7 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, c *common.Clust
 	}
 
 	if extKubeconfig, ok := c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+		klog.V(4).Infof("cluster: %s, add manager extKubeconfig: \n%s", c.Cluster.Name, extKubeconfig)
 		_, err := r.GManager.AddNewClusters(c.Cluster.Name, extKubeconfig)
 		if err != nil {
 			klog.Errorf("failed add cluster: %s manager cache", c.Cluster.Name)
@@ -170,6 +171,7 @@ func (r *clusterReconciler) addClusterCheck(ctx context.Context, c *common.Clust
 func (r *clusterReconciler) reconcile(ctx context.Context, rc *clusterContext) error {
 	phaseRestore := constants.GetAnnotationKey(rc.Cluster.Annotations, constants.ClusterPhaseRestore)
 	if len(phaseRestore) > 0 {
+		klog.Infof("cluster: %s phaseRestore: %s", rc.Cluster.Name, phaseRestore)
 		conditions := make([]devopsv1.ClusterCondition, 0)
 		for i := range rc.Cluster.Status.Conditions {
 			if rc.Cluster.Status.Conditions[i].Type == phaseRestore {

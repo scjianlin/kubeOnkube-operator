@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/gostship/kunkka/pkg/constants"
+	"github.com/gostship/kunkka/pkg/controllers/common"
 	kubeconfigutil "github.com/gostship/kunkka/pkg/util/kubeconfig"
 	"github.com/gostship/kunkka/pkg/util/pkiutil"
 	"github.com/pkg/errors"
@@ -210,6 +212,33 @@ func CreateKubeConfigFiles(CAKey, CACert []byte, apiserver string, kubeletNodeAd
 	}
 
 	return cfgMaps, nil
+}
+
+func BuildExternalApiserverEndpoint(c *common.Cluster) string {
+	var vip string
+	port := "6443"
+	vipMasterKey := constants.GetAnnotationKey(c.Cluster.Annotations, constants.ClusterApiSvcVip)
+	if vipMasterKey != "" {
+		vip = vipMasterKey
+	}
+
+	if c.Cluster.Spec.Features.HA != nil && c.Cluster.Spec.Features.HA.ThirdPartyHA != nil {
+		port = fmt.Sprintf("%d", c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
+		if vip == "" {
+			vip = c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP
+		}
+	}
+
+	if vip == "" && len(c.Cluster.Spec.Machines) > 0 {
+		vip = c.Cluster.Spec.Machines[0].IP
+	}
+
+	controlPlaneURL := &url.URL{
+		Scheme: "https",
+		Host:   net.JoinHostPort(vip, port),
+	}
+
+	return controlPlaneURL.String()
 }
 
 func BuildApiserverEndpoint(ipOrDns string, bindPort int) string {

@@ -188,7 +188,7 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 		"--service-account-key-file=/etc/kubernetes/pki/sa.pub",
 		"--tls-cert-file=/etc/kubernetes/pki/apiserver.crt",
 		"--tls-private-key-file=/etc/kubernetes/pki/apiserver.key",
-		"--token-auth-file=/etc/kubernetes/pki/known_tokens.csv",
+		"--token-auth-file=/etc/kubernetes/known_tokens.csv",
 	}
 
 	advertiseAddress := GetAdvertiseAddress(r.Obj)

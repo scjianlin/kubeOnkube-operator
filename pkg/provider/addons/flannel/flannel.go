@@ -251,7 +251,7 @@ func BuildFlannelAddon(cfg *config.Config, c *common.Cluster) ([]runtime.Object,
 	opt := &Option{
 		ClusterPodCidr: c.Cluster.Spec.ClusterCIDR,
 		BackendType:    "vxlan",
-		ImageName:      "",
+		ImageName:      "symcn.tencentcloudcr.com/symcn/flannel:v0.12.0",
 	}
 	data, err := template.ParseString(flannelTemplate, opt)
 	if err != nil {

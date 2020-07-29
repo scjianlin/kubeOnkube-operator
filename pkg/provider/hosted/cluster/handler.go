@@ -12,6 +12,7 @@ import (
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/controllers/common"
+	"github.com/gostship/kunkka/pkg/provider/addons/cni"
 	"github.com/gostship/kunkka/pkg/provider/addons/coredns"
 	"github.com/gostship/kunkka/pkg/provider/addons/flannel"
 	"github.com/gostship/kunkka/pkg/provider/addons/kubeproxy"
@@ -202,7 +203,8 @@ func (p *Provider) EnsureExtKubeconfig(ctx context.Context, c *common.Cluster) e
 		c.ClusterCredential.ExtData = make(map[string]string)
 	}
 
-	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.Features.HA.ThirdPartyHA.VIP, kubemisc.GetBindPort(c.Cluster))
+	apiserver := certs.BuildApiserverEndpoint(c.Cluster.Spec.PublicAlternativeNames[0], kubemisc.GetBindPort(c.Cluster))
+	klog.Infof("external apiserver url: %s", apiserver)
 	cfgMaps, err := certs.CreateApiserverKubeConfigFile(c.ClusterCredential.CAKey, c.ClusterCredential.CACert,
 		apiserver, c.Cluster.Name)
 	if err != nil {
@@ -252,24 +254,51 @@ func (p *Provider) EnsureAddons(ctx context.Context, c *common.Cluster) error {
 	return nil
 }
 
-func (p *Provider) EnsureFlannel(ctx context.Context, c *common.Cluster) error {
-	clusterCtx, err := c.ClusterManager.Get(c.Name)
-	if err != nil {
+func (p *Provider) EnsureCni(ctx context.Context, c *common.Cluster) error {
+	var cniType string
+	var ok bool
+
+	if cniType, ok = c.Cluster.Spec.Features.Hooks[devopsv1.HookCniInstall]; !ok {
 		return nil
 	}
-	objs, err := flannel.BuildFlannelAddon(p.Cfg, c)
-	if err != nil {
-		return errors.Wrapf(err, "build flannel err: %v", err)
+
+	switch cniType {
+	case "dke-cni":
+		for _, machine := range c.Spec.Machines {
+			sh, err := machine.SSH()
+			if err != nil {
+				return err
+			}
+
+			err = cni.ApplyCniCfg(sh, c)
+			if err != nil {
+				klog.Errorf("node: %s apply cni cfg err: %v", sh.HostIP(), err)
+				return err
+			}
+		}
+	case "flannel":
+		clusterCtx, err := c.ClusterManager.Get(c.Name)
+		if err != nil {
+			return nil
+		}
+		objs, err := flannel.BuildFlannelAddon(p.Cfg, c)
+		if err != nil {
+			return errors.Wrapf(err, "build flannel err: %v", err)
+		}
+
+		logger := ctrl.Log.WithValues("cluster", c.Name, "component", "flannel")
+		logger.Info("start reconcile ...")
+		for _, obj := range objs {
+			err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
+			if err != nil {
+				return errors.Wrapf(err, "Reconcile  err: %v", err)
+			}
+		}
+	default:
+		return fmt.Errorf("unknown cni type: %s", cniType)
 	}
 
-	logger := ctrl.Log.WithValues("cluster", c.Name, "component", "flannel")
-	logger.Info("start reconcile ...")
-	for _, obj := range objs {
-		err = k8sutil.Reconcile(logger, clusterCtx.Client, obj, k8sutil.DesiredStatePresent)
-		if err != nil {
-			return errors.Wrapf(err, "Reconcile  err: %v", err)
-		}
-	}
+	return nil
 
 	return nil
 }

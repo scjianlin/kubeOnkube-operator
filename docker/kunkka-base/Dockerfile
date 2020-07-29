@@ -43,8 +43,6 @@ COPY --from=etcd-v2 /usr/local/bin/etcd \
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION}
 
-COPY --from=default /k8s/bin /k8s/bin
-
 ENV K8S_V1 v1.16.13
 COPY --from=default /k8s-$K8S_V1/bin /k8s-$K8S_V1/bin
 
@@ -56,4 +54,4 @@ COPY --from=default /k8s-$K8S_V2/bin/etcd \
                     /k8s-$K8S_V2/bin/kube-apiserver \
                     /usr/local/bin/
 
-
+COPY --from=default /k8s/bin /k8s/bin

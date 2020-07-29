@@ -337,6 +337,4 @@ func (p *Provider) EnsureCni(ctx context.Context, machine *devopsv1.Machine, c *
 	}
 
 	return nil
-
-	return nil
 }

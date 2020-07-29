@@ -78,6 +78,25 @@ docker run --name kunkka-controller -d --restart=always \
 
 export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
 ```
+指定裸金属运行，部署托管集群
+```shell
+# 进入安装结点目录
+cd /root/kunkka/k8s/cfg
+# 导入裸金属集群kubeconfig
+ls -l /root/kunkka/k8s/cfg/bt-kubeconfig.yaml
+
+# 运行
+docker stop kunkka-controller && docker rm kunkka-controller
+
+docker run --name kunkka-controller -d --restart=always \
+   --net="host" \
+   --pid="host" \
+   -v /root/kunkka/k8s:/kunkka \
+   -v /etc/hosts:/etc/hosts \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev9 \
+   kunkka-controller ctrl -v 4 --kubeconfig=/kunkka/cfg/bt-kubeconfig.yaml
+
+```
 
 #### Kunkka API 运行
 ```bash
