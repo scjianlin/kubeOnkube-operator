@@ -7,12 +7,15 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
+	"github.com/gostship/kunkka/pkg/util/cidrutil"
+	"github.com/gostship/kunkka/pkg/util/responseutil"
+	"github.com/gostship/kunkka/pkg/util/uidutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
-	"net/http"
+	"strconv"
 )
 
 var (
@@ -21,26 +24,25 @@ var (
 
 // Add ConfigMap data
 func (m *APIManager) AddRackCidr(c *gin.Context) {
-	NRack := &model.Rack{}
+	newRack := &model.Rack{}
+	resp := responseutil.Gin{Ctx: c}
 
 	// 获取创建Rack结构体
-	r, err := Bind(NRack, c)
+	r, err := resp.Bind(newRack)
 	if err != nil {
 		klog.Error("Http Bind ConfigMap error %v: ", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Http Bind ConfigMap error",
-			"data":    nil,
-		})
-		return
+		resp.RespError("http Bind ConfigMap error")
 	}
 
 	// 赋值UUID
-	uid, err := generateId()
-	if err != nil {
-		klog.Errorf("", err)
-	}
+	uid := uidutil.GenerateId()
 	r.(*model.Rack).ID = uid
+
+	// generate pod or host address
+	rackNetAddr := r.(*model.Rack).RackCidr //10.28.0.0/22
+	podList, hostList := cidrutil.GenerateCidr(rackNetAddr, r.(*model.Rack).RackCidrGw, r.(*model.Rack).PodNum)
+	r.(*model.Rack).HostAddr = hostList
+	r.(*model.Rack).PodCidr = podList
 
 	cli := m.Cluster.GetClient()
 	ctx := context.Background()
@@ -51,7 +53,7 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 	err = cli.Get(ctx, types.NamespacedName{Namespace: ConfigMapName, Name: ConfigMapName}, cm)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			MetaCm := &corev1.ConfigMap{
+			metaCm := &corev1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      ConfigMapName,
 					Namespace: ConfigMapName,
@@ -60,12 +62,12 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 			}
 
 			// 创建 comfilMap
-			err := cli.Create(ctx, MetaCm)
+			err := cli.Create(ctx, metaCm)
 			if err != nil {
-				klog.Errorf("failed to create rack conmaps, %s", err)
-				return
+				klog.Errorf("failed to create rack configMaps, %s", err)
+				resp.RespError("failed to create rack configMaps.")
 			}
-			cm = MetaCm
+			cm = metaCm
 		}
 	}
 
@@ -75,45 +77,63 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 	data, ok := cm.Data["List"]
 	if !ok {
 		klog.Info("no ConfigMap list!")
+		resp.RespError("no configMap list!")
 		return
 	}
 	// 将yaml转换为json
-	yamlRack, err := yaml.YAMLToJSON([]byte(data))
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {
-		fmt.Println("yamlToJson error", err)
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yaml to struct error!")
+		return
 	}
 	// 转换为结构体
-	err = json.Unmarshal(yamlRack, &listMap)
+	err = json.Unmarshal(yamlToRack, &listMap)
 	if err != nil {
-		fmt.Println("json err", err)
+		klog.Errorf("Unmarshal json err", err)
+		resp.RespError("Unmarshal list json error.")
+		return
 	}
-
+	for _, rack := range listMap {
+		if rack.RackCidr == r.(*model.Rack).RackCidr {
+			// cidr already
+			klog.Error("cidr %s is already:", r.(*model.Rack).RackCidr)
+			resp.RespError(fmt.Sprintf("cidr %s is already", r.(*model.Rack).RackCidr))
+			//
+			//c.IndentedJSON(http.StatusBadRequest, gin.H{
+			//	"success": false,
+			//	"message": fmt.Sprintf("cidr %s is already", r.(*model.Rack).RackCidr),
+			//	"data":    "",
+			//})
+			//return
+		}
+	}
 	// 将新数据添加到Map
 	listMap = append(listMap, r.(*model.Rack))
 
 	// 反解析json字符串
-	makeList, _ := json.MarshalIndent(listMap, "", "  ")
+	strRackList, _ := json.MarshalIndent(listMap, "", "  ")
 
 	// 写入configMap
-	cm.Data["List"] = string(makeList)
+	cm.Data["List"] = string(strRackList)
 
 	// 更新configMap
 	uerr := cli.Update(ctx, cm)
 	if uerr != nil {
-		klog.Errorf("failed to update Rack configMap.")
+		klog.Errorf("failed to update rack configMap.")
+		resp.RespError("failed to update  rack configMap.")
 		return
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": nil,
-		"data":    "OK",
-	})
+	resp.RespSuccess(true, nil, "OK", 0)
 }
 
 // Get ConfigMap data
 func (m *APIManager) GetRackMap(c *gin.Context) {
-	cidrName := c.DefaultQuery("rack_cidr", "all")
+	cidrName := c.DefaultQuery("rackCidr", "all")
+	page := c.Query("page")
+	limit := c.Query("limit")
+	resp := responseutil.Gin{Ctx: c}
 
 	cli := m.Cluster.GetClient()
 	ctx := context.Background()
@@ -126,66 +146,72 @@ func (m *APIManager) GetRackMap(c *gin.Context) {
 	}, cmList)
 
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: ConfigMapName,
+				},
+			}
+			err := cli.Create(ctx, ns)
+			if err != nil {
+				resp.RespError("create namespace error")
+				klog.Errorf("create namespace:%s , error: %s", ConfigMapName, err)
+			}
+		}
+
 		klog.Error("Get ConfigMap error %v: ", err)
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"success":   false,
-			"message":   "Can't found RackCidr by this IP",
-			"resultMap": nil,
-		})
-		return
+		resp.RespError("can't found rackcidr, please create!")
 	}
 
 	data := cmList.Data["List"]
 
 	// 将yaml转换为json
-	yamlRack, err := yaml.YAMLToJSON([]byte(data))
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {
-		fmt.Println("yamlToJson error", err)
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yamlToJson error")
 	}
 
-	rerr := json.Unmarshal(yamlRack, &cms)
+	rerr := json.Unmarshal(yamlToRack, &cms)
 	if rerr != nil {
 		klog.Errorf("failed to Unmarshal err: %v", rerr)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"success":   false,
-			"message":   rerr.Error(),
-			"resultMap": nil,
-		})
+		resp.RespError("failed to Unmarshal error.")
 	}
-	resuleList := []model.Rack{}
+	rackList := []model.Rack{}
+	resultList := []model.Rack{}
 	if cidrName == "all" {
-		resuleList = cms
+		rackList = cms
 	} else {
 		for n := 0; n < len(cms); n++ {
 			if cms[n].RackCidr == cidrName {
-				resuleList = append(resuleList, cms[n])
+				rackList = append(rackList, cms[n])
 			}
 		}
 	}
-
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"success":     true,
-		"message":     nil,
-		"items":       resuleList,
-		"total_count": len(resuleList),
-	})
-
+	// page list
+	pageInt, _ := strconv.Atoi(page)
+	limitInt, _ := strconv.Atoi(limit)
+	if len(rackList) > limitInt {
+		if len(rackList) < (pageInt-1)*limitInt+limitInt {
+			resultList = rackList[(pageInt-1)*limitInt:]
+		} else {
+			resultList = rackList[(pageInt-1)*limitInt : (pageInt-1)*limitInt+limitInt]
+		}
+	} else {
+		resultList = rackList
+	}
+	resp.RespSuccess(true, nil, resultList, len(rackList))
 }
 
 //Update configMap data
 func (m *APIManager) UptConfigMap(c *gin.Context) {
-	NewRack := &model.Rack{}
-
+	newRack := &model.Rack{}
+	resp := responseutil.Gin{Ctx: c}
 	// 获取创建Rack结构体
-	r, err := Bind(NewRack, c)
+	r, err := resp.Bind(newRack)
 	if err != nil {
-		klog.Error("Http Bind ConfigMap error %v: ", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Http Bind ConfigMap error",
-			"data":    nil,
-		})
-		return
+		klog.Error("http Bind update ConfigMap error %v: ", err)
+		resp.RespError("Update httpParams error.")
 	}
 
 	cli := m.Cluster.GetClient()
@@ -198,12 +224,7 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Error("get ConfigMap %s error %v: ", ConfigMapName, err)
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "get ConfigMap error",
-				"data":    nil,
-			})
-			return
+			resp.RespError("get configMap error.")
 		}
 	}
 
@@ -211,17 +232,20 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	data, ok := cm.Data["List"]
 	if !ok {
 		klog.Info("no ConfigMap list!")
-		return
+		resp.RespError("no ConfigMap list!")
+
 	}
 	// 将yaml转换为json
-	yamlRack, err := yaml.YAMLToJSON([]byte(data))
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {
-		fmt.Println("yamlToJson error", err)
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yamlToJson error.")
 	}
 	// 转换为结构体
-	err = json.Unmarshal(yamlRack, &listMap)
+	err = json.Unmarshal(yamlToRack, &listMap)
 	if err != nil {
-		fmt.Println("json err", err)
+		klog.Errorf("Unmarshal json err", err)
+		resp.RespError("Unmarshal json err")
 	}
 
 	// 查找修改数据
@@ -241,30 +265,22 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	uerr := cli.Update(ctx, cm)
 	if uerr != nil {
 		klog.Errorf("failed to update Rack configMap.")
-		return
+		resp.RespError("failed to update Rack configMap.")
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": nil,
-		"data":    "OK",
-	})
+	resp.RespSuccess(true, nil, "OK", 0)
 }
 
 // Delete ConfigMap data
 func (m *APIManager) DelConfigMap(c *gin.Context) {
-	NewRack := &model.Rack{}
+	newRack := &model.Rack{}
+	resp := responseutil.Gin{Ctx: c}
 
 	// 获取创建Rack结构体
-	r, err := Bind(NewRack, c)
+	r, err := resp.Bind(newRack)
 	if err != nil {
-		klog.Error("Http Bind ConfigMap error %v: ", err)
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"success": false,
-			"message": "Http Bind ConfigMap error",
-			"data":    nil,
-		})
-		return
+		klog.Error("bind delete ConfigMap error %v: ", err)
+		resp.RespError("bind delete Params error")
 	}
 
 	cli := m.Cluster.GetClient()
@@ -277,12 +293,7 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			klog.Error("get ConfigMap %s error %v: ", ConfigMapName, err)
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-				"success": false,
-				"message": "get ConfigMap error",
-				"data":    nil,
-			})
-			return
+			resp.RespError("get configMap error")
 		}
 	}
 
@@ -290,17 +301,19 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	data, ok := cm.Data["List"]
 	if !ok {
 		klog.Info("no ConfigMap list!")
-		return
+		resp.RespError("no ConfigMap list!")
 	}
 	// 将yaml转换为json
-	yamlRack, err := yaml.YAMLToJSON([]byte(data))
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {
-		fmt.Println("yamlToJson error", err)
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yamlToJson error.")
 	}
 	// 转换为结构体
-	err = json.Unmarshal(yamlRack, &listMap)
+	err = json.Unmarshal(yamlToRack, &listMap)
 	if err != nil {
-		fmt.Println("json err", err)
+		klog.Errorf("Unmarshal json err", err)
+		resp.RespError("Unmarshal json err.")
 	}
 
 	// 查找修改数据
@@ -311,21 +324,17 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	}
 
 	// 反解析json字符串
-	makeList, _ := json.MarshalIndent(listMap, "", "  ")
+	strList, _ := json.MarshalIndent(listMap, "", "  ")
 
 	// 写入configMap
-	cm.Data["List"] = string(makeList)
+	cm.Data["List"] = string(strList)
 
 	// 更新configMap
 	uerr := cli.Update(ctx, cm)
 	if uerr != nil {
 		klog.Errorf("failed to update Rack configMap.")
-		return
+		resp.RespError("failed to update Rack configMap.")
 	}
 
-	c.IndentedJSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": nil,
-		"data":    "OK",
-	})
+	resp.RespSuccess(true, nil, "OK", 0)
 }

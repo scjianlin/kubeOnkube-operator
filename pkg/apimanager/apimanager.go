@@ -1,10 +1,8 @@
 package apimanager
 
 import (
-	"github.com/gostship/kunkka/pkg/apimanager/authentication"
 	//"github.com/gostship/kunkka/pkg/apimanager/config"
 	"github.com/gostship/kunkka/pkg/apimanager/healthcheck"
-	"github.com/gostship/kunkka/pkg/apimanager/jwt"
 	"github.com/gostship/kunkka/pkg/apimanager/router"
 	"github.com/gostship/kunkka/pkg/controllers/k8smanager"
 	"k8s.io/klog"
@@ -32,7 +30,7 @@ type APIManager struct {
 	Cluster       *k8smanager.ClusterManager
 	Router        *router.Router
 	HealthHandler healthcheck.Handler
-	Oauth         *jwt.OauthhMgr
+	//Oauth         *jwt.OauthhMgr
 }
 
 // DefaultOption ...
@@ -54,17 +52,17 @@ func NewAPIManager(cli k8smanager.MasterClient, opt *Option, componentName strin
 		healthcheck.GoroutineCountCheck(opt.GoroutineThreshold))
 
 	//New Oauth
-	authOption := authentication.NewAuthenticateOptions()
-	jwtOption := jwt.NewJwtTokenIssuer(authOption)
-	authMgr := &jwt.OauthhMgr{
-		Options: authOption,
-		Jwt:     jwtOption,
-	}
+	//authOption := authentication.NewAuthenticateOptions()
+	//jwtOption := jwt.NewJwtTokenIssuer(authOption)
+	//authMgr := &jwt.OauthhMgr{
+	//	Options: authOption,
+	//	Jwt:     jwtOption,
+	//}
 
 	apiMgr := &APIManager{
 		Opt:           opt,
 		HealthHandler: healthHandler,
-		Oauth:         authMgr,
+		//Oauth:         authMgr,
 	}
 
 	klog.Info("start init kunkka api manager ... ")
@@ -96,16 +94,16 @@ func NewAPIManager(cli k8smanager.MasterClient, opt *Option, componentName strin
 func (m *APIManager) Routes() []*router.Route {
 	var routes []*router.Route
 	apiRoutes := []*router.Route{
-		{
-			Method:  "GET",
-			Path:    "/oauth/authorize",
-			Handler: m.Oauth.AuthorizeHandler,
-		},
-		{
-			Method:  "GET",
-			Path:    "/kapis/config.kubesphere.io/v1alpha2/configs/configz",
-			Handler: m.Oauth.GetConfigMap,
-		},
+		//{
+		//	Method:  "GET",
+		//	Path:    "/oauth/authorize",
+		//	Handler: m.Oauth.AuthorizeHandler,
+		//},
+		//{
+		//	Method:  "GET",
+		//	Path:    "/kapis/config.kubesphere.io/v1alpha2/configs/configz",
+		//	Handler: m.Oauth.GetConfigMap,
+		//},
 		{
 			Method:  "GET",
 			Path:    "/apis/cluster/getRackCidr",
@@ -123,9 +121,15 @@ func (m *APIManager) Routes() []*router.Route {
 		},
 		{
 			Method:  "DELETE",
-			Path:    "/apis/cluster/DelRackCidr",
+			Path:    "/apis/cluster/delRackCidr",
 			Handler: m.DelConfigMap,
 		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getPodCidr",
+			Handler: m.GetPodCidr,
+		},
+
 		//{
 		//	Method:  "POST",
 		//	Path:    "/kapi/cluster/:name/namespace/:namespace/app/:appName/restart",
