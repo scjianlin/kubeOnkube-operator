@@ -33,21 +33,21 @@ type GlobalManagerOption struct {
 	Namespace               string
 	DefaultNamespace        string
 	LoggerDevMode           bool
-	Threadiness             int
+	Threads                 int
 	GoroutineThreshold      int
 	ResyncPeriod            time.Duration
 	LeaderElectionNamespace string
 	EnableLeaderElection    bool
 }
 
-func DefaultGlobalManagetOption() *GlobalManagerOption {
+func DefaultGlobalManagerOption() *GlobalManagerOption {
 	return &GlobalManagerOption{
 		LoggerDevMode:           true,
-		Threadiness:             1,
+		Threads:                 1,
 		GoroutineThreshold:      1000,
 		ResyncPeriod:            60 * time.Minute,
 		EnableLeaderElection:    false,
-		LeaderElectionNamespace: "sym-admin",
+		LeaderElectionNamespace: "kunkka",
 	}
 }
 
@@ -56,7 +56,7 @@ func (o *GlobalManagerOption) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.ConfigContext, "context", "", "The name of the kubeconfig context to use")
 	fs.StringVar(&o.Namespace, "namespace", "", "Config namespace")
 	fs.BoolVar(&o.LoggerDevMode, "logger-dev-mode", o.LoggerDevMode, "Enables the Cluster controller manager")
-	fs.IntVar(&o.Threadiness, "threadiness", o.Threadiness, "Enables the Machine controller manager")
+	fs.IntVar(&o.Threads, "threads", o.Threads, "Enables the Machine controller manager")
 	fs.IntVar(&o.GoroutineThreshold, "goroutine-threshold", o.GoroutineThreshold, "Enables the Machine controller manager")
 }
 

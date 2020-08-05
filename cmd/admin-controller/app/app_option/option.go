@@ -29,7 +29,7 @@ type Options struct {
 // NewOptions creates a new Options with a default config.
 func NewOptions() *Options {
 	return &Options{
-		Global: option.DefaultGlobalManagetOption(),
+		Global: option.DefaultGlobalManagerOption(),
 		Ctrl:   option.DefaultControllersManagerOption(),
 	}
 }
