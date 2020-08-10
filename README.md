@@ -66,14 +66,14 @@ docker run --name fake-cluster -d --restart=always \
    --net="host" \
    --pid="host" \
    -v /root/kunkka/k8s:/kunkka \
-   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev10 \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev11 \
    kunkka-controller fake --rootDir /kunkka -v 4
 
 docker run --name kunkka-controller -d --restart=always \
    --net="host" \
    --pid="host" \
    -v /root/kunkka/k8s:/kunkka \
-   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev10 \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev11 \
    kunkka-controller ctrl -v 4 --kubeconfig=/kunkka/cfg/fake-kubeconfig.yaml
 
 export KUBECONFIG=/root/kunkka/k8s/cfg/fake-kubeconfig.yaml
@@ -93,7 +93,7 @@ docker run --name meta-controller -d --restart=always \
    --pid="host" \
    -v /root/kunkka/k8s:/kunkka \
    -v /etc/hosts:/etc/hosts \
-   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev10 \
+   symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev11 \
    kunkka-controller ctrl -v 2 --kubeconfig=/kunkka/cfg/bt-kubeconfig.yaml
 
 ```

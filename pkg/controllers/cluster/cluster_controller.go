@@ -78,6 +78,8 @@ func Add(mgr manager.Manager, pMgr *gmanager.GManager) error {
 func (r *clusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&devopsv1.Cluster{}).
+		Owns(&devopsv1.ClusterCredential{}).
+		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }
 
@@ -273,6 +275,7 @@ func (r *clusterReconciler) cleanClusterResources(ctx context.Context, rc *clust
 	credential := &devopsv1.ClusterCredential{}
 	err = r.Client.Get(ctx, types.NamespacedName{Name: rc.Cluster.Name, Namespace: rc.Cluster.Namespace}, credential)
 	if err == nil {
+		rc.Logger.Info("start delete clusterCredential")
 		r.Client.Delete(ctx, credential)
 	}
 
@@ -288,6 +291,7 @@ func (r *clusterReconciler) cleanClusterResources(ctx context.Context, rc *clust
 	}
 
 	// clean worker node
+	rc.Logger.Info("start clean worker node")
 	for i := range ms.Items {
 		m := &ms.Items[i]
 		rc.Logger.Info("start Delete", "machine", m.Name)
@@ -295,6 +299,7 @@ func (r *clusterReconciler) cleanClusterResources(ctx context.Context, rc *clust
 	}
 
 	// clean master node
+	rc.Logger.Info("start clean master node")
 	for i := range rc.Cluster.Spec.Machines {
 		m := rc.Cluster.Spec.Machines[i]
 		ssh, err := m.SSH()
@@ -303,6 +308,7 @@ func (r *clusterReconciler) cleanClusterResources(ctx context.Context, rc *clust
 			return err
 		}
 
+		rc.Logger.Info("start Delete", "machine", m.IP)
 		err = clean.CleanNode(ssh)
 		if err != nil {
 			rc.Logger.Error(err, "failed clean machine node", "node", m.IP)

@@ -167,7 +167,7 @@ func tryFindHandler(handlerName string, handlers []string, cluster *common.Clust
 		c := &cluster.Cluster.Status.Conditions[idx]
 		if c.Type == handlerName {
 			ltime := c.LastProbeTime
-			if c.Status == devopsv1.ConditionTrue && ltime.Add(2*time.Minute).After(time.Now()) {
+			if c.Status == devopsv1.ConditionTrue && ltime.Add(1*time.Minute).After(time.Now()) {
 				obj = c
 			}
 			break

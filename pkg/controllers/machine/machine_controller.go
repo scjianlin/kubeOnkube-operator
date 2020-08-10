@@ -35,8 +35,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+)
+
+const (
+	machineMaxReconciles = 2
 )
 
 // machineReconciler reconciles a machine object
@@ -76,6 +81,7 @@ func Add(mgr manager.Manager, pMgr *gmanager.GManager) error {
 func (r *machineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&devopsv1.Machine{}).
+		WithOptions(controller.Options{MaxConcurrentReconciles: machineMaxReconciles}).
 		Complete(r)
 }
 
