@@ -47,7 +47,7 @@ func DefaultGlobalManagerOption() *GlobalManagerOption {
 		GoroutineThreshold:      1000,
 		ResyncPeriod:            60 * time.Minute,
 		EnableLeaderElection:    false,
-		LeaderElectionNamespace: "kunkka",
+		LeaderElectionNamespace: "kunkka-system",
 	}
 }
 

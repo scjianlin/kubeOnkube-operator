@@ -27,9 +27,12 @@ import (
 	"time"
 
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/gmanager"
+	"github.com/gostship/kunkka/pkg/provider/phases/clean"
 	"github.com/pkg/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
@@ -76,12 +79,12 @@ func (r *machineReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// +kubebuilder:rbac:groups=devops.gostship.io,resources=virtulclusters,verbs=get;list;watch;create;update;patch;delete
-// +kubebuilder:rbac:groups=devops.gostship.io,resources=virtulclusters/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=devops.gostship.io,resources=machines,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=devops.gostship.io,resources=machines/status,verbs=get;update;patch
 
 func (r *machineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	ctx := context.Background()
-	logger := r.Log.WithValues("machine", req.NamespacedName.Name)
+	logger := r.Log.WithValues("machine", req.NamespacedName.String())
 
 	startTime := time.Now()
 	defer func() {
@@ -94,7 +97,7 @@ func (r *machineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		} else {
 			logLevel = 4
 		}
-		klog.V(logLevel).Infof("##### [%s] reconciling is finished. time taken: %v. ", req.NamespacedName, diffTime)
+		klog.V(logLevel).Infof("##### [%s] reconciling is finished. time taken: %v. ", req.NamespacedName.String(), diffTime)
 	}()
 
 	m := &devopsv1.Machine{}
@@ -107,6 +110,30 @@ func (r *machineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 
 		logger.Error(err, "failed to get machine")
 		return reconcile.Result{}, err
+	}
+
+	if !m.ObjectMeta.DeletionTimestamp.IsZero() {
+		err := r.cleanMachinesResources(ctx, logger, m)
+		if err != nil {
+			logger.Error(err, "failed to clean machine resources")
+			return reconcile.Result{}, err
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if !constants.ContainsString(m.ObjectMeta.Finalizers, constants.FinalizersMachine) {
+		logger.V(4).Info("start set", "finalizers", constants.FinalizersMachine)
+		if m.ObjectMeta.Finalizers == nil {
+			m.ObjectMeta.Finalizers = []string{}
+		}
+		m.ObjectMeta.Finalizers = append(m.ObjectMeta.Finalizers, constants.FinalizersMachine)
+		err := r.Client.Update(ctx, m)
+		if err != nil {
+			logger.Error(err, "failed to set finalizers")
+			return reconcile.Result{}, err
+		}
+
+		return reconcile.Result{}, nil
 	}
 
 	if m.Spec.Pause == true {
@@ -146,7 +173,7 @@ func (r *machineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 	err = r.Client.Get(ctx, types.NamespacedName{Name: m.Spec.ClusterName, Namespace: m.Namespace}, credential)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.V(3).Infof("not find ClusterCredential with name [%q]", req.NamespacedName)
+			logger.Info("not find ClusterCredential")
 			return reconcile.Result{}, nil
 		}
 
@@ -164,4 +191,29 @@ func (r *machineReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 		ClusterCredential: credential,
 	})
 	return ctrl.Result{}, nil
+}
+
+func (r *machineReconciler) cleanMachinesResources(ctx context.Context, logger logr.Logger, m *devopsv1.Machine) error {
+	clusterCtx, err := r.ClusterManager.Get(m.Name)
+	if err == nil {
+		logger.Info("start delete node")
+		clusterCtx.KubeCli.CoreV1().Nodes().Delete(ctx, m.Name, metav1.DeleteOptions{})
+	}
+
+	ssh, err := m.Spec.Machine.SSH()
+	if err != nil {
+		logger.Error(err, "failed new ssh")
+		return err
+	}
+
+	logger.Info("start clean node")
+	err = clean.CleanNode(ssh)
+	if err != nil {
+		logger.Error(err, "failed clean machine node")
+		return err
+	}
+
+	logger.Info("start clean machine finalizers")
+	m.ObjectMeta.Finalizers = constants.RemoveString(m.ObjectMeta.Finalizers, constants.FinalizersMachine)
+	return r.Client.Update(ctx, m)
 }
