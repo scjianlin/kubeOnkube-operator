@@ -39,3 +39,23 @@ type PodAddrList struct {
 	RackCidr     string `json:"rackCidr"`
 	RackTag      string `json:"rackTag"`
 }
+
+// cluster version
+type ClusterVersion struct {
+	ID            string `json:"id"`
+	MasterVersion string `json:"masterVersion"`
+	DockerVersion string `json:"dockerVersion"`
+}
+
+// Add Cluster struct
+type AddCluster struct {
+	ClusterName    string   `json:"clusterName"`
+	ClusterType    string   `json:"clusterType"`
+	ClusterRack    []string `json:"clusterRack"`
+	ClusterIP      []string `json:"clusterIp"`
+	UserName       string   `json:"userName"`
+	Password       string   `json:"passWord"`
+	ClusterVersion string   `json:"clusterVersion"`
+	DockerVersion  string   `json:"dockerVersion"`
+	CustomScript   string   `json:"customScript"`
+}

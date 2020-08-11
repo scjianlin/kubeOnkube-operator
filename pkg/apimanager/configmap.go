@@ -32,6 +32,7 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 	if err != nil {
 		klog.Error("Http Bind ConfigMap error %v: ", err)
 		resp.RespError("http Bind ConfigMap error")
+		return
 	}
 
 	// 赋值UUID
@@ -66,6 +67,7 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 			if err != nil {
 				klog.Errorf("failed to create rack configMaps, %s", err)
 				resp.RespError("failed to create rack configMaps.")
+				return
 			}
 			cm = metaCm
 		}
@@ -99,13 +101,7 @@ func (m *APIManager) AddRackCidr(c *gin.Context) {
 			// cidr already
 			klog.Error("cidr %s is already:", r.(*model.Rack).RackCidr)
 			resp.RespError(fmt.Sprintf("cidr %s is already", r.(*model.Rack).RackCidr))
-			//
-			//c.IndentedJSON(http.StatusBadRequest, gin.H{
-			//	"success": false,
-			//	"message": fmt.Sprintf("cidr %s is already", r.(*model.Rack).RackCidr),
-			//	"data":    "",
-			//})
-			//return
+			return
 		}
 	}
 	// 将新数据添加到Map
@@ -146,21 +142,9 @@ func (m *APIManager) GetRackMap(c *gin.Context) {
 	}, cmList)
 
 	if err != nil {
-		if apierrors.IsNotFound(err) {
-			ns := &corev1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: ConfigMapName,
-				},
-			}
-			err := cli.Create(ctx, ns)
-			if err != nil {
-				resp.RespError("create namespace error")
-				klog.Errorf("create namespace:%s , error: %s", ConfigMapName, err)
-			}
-		}
-
 		klog.Error("Get ConfigMap error %v: ", err)
 		resp.RespError("can't found rackcidr, please create!")
+		return
 	}
 
 	data := cmList.Data["List"]
@@ -170,12 +154,14 @@ func (m *APIManager) GetRackMap(c *gin.Context) {
 	if err != nil {
 		klog.Errorf("yamlToJson error", err)
 		resp.RespError("yamlToJson error")
+		return
 	}
 
 	rerr := json.Unmarshal(yamlToRack, &cms)
 	if rerr != nil {
 		klog.Errorf("failed to Unmarshal err: %v", rerr)
 		resp.RespError("failed to Unmarshal error.")
+		return
 	}
 	rackList := []model.Rack{}
 	resultList := []model.Rack{}
@@ -212,6 +198,7 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	if err != nil {
 		klog.Error("http Bind update ConfigMap error %v: ", err)
 		resp.RespError("Update httpParams error.")
+		return
 	}
 
 	cli := m.Cluster.GetClient()
@@ -225,6 +212,7 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 		if apierrors.IsNotFound(err) {
 			klog.Error("get ConfigMap %s error %v: ", ConfigMapName, err)
 			resp.RespError("get configMap error.")
+			return
 		}
 	}
 
@@ -233,6 +221,7 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	if !ok {
 		klog.Info("no ConfigMap list!")
 		resp.RespError("no ConfigMap list!")
+		return
 
 	}
 	// 将yaml转换为json
@@ -240,12 +229,14 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	if err != nil {
 		klog.Errorf("yamlToJson error", err)
 		resp.RespError("yamlToJson error.")
+		return
 	}
 	// 转换为结构体
 	err = json.Unmarshal(yamlToRack, &listMap)
 	if err != nil {
 		klog.Errorf("Unmarshal json err", err)
 		resp.RespError("Unmarshal json err")
+		return
 	}
 
 	// 查找修改数据
@@ -266,6 +257,7 @@ func (m *APIManager) UptConfigMap(c *gin.Context) {
 	if uerr != nil {
 		klog.Errorf("failed to update Rack configMap.")
 		resp.RespError("failed to update Rack configMap.")
+		return
 	}
 
 	resp.RespSuccess(true, nil, "OK", 0)
@@ -281,6 +273,7 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	if err != nil {
 		klog.Error("bind delete ConfigMap error %v: ", err)
 		resp.RespError("bind delete Params error")
+		return
 	}
 
 	cli := m.Cluster.GetClient()
@@ -294,6 +287,7 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 		if apierrors.IsNotFound(err) {
 			klog.Error("get ConfigMap %s error %v: ", ConfigMapName, err)
 			resp.RespError("get configMap error")
+			return
 		}
 	}
 
@@ -302,18 +296,21 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	if !ok {
 		klog.Info("no ConfigMap list!")
 		resp.RespError("no ConfigMap list!")
+		return
 	}
 	// 将yaml转换为json
 	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {
 		klog.Errorf("yamlToJson error", err)
 		resp.RespError("yamlToJson error.")
+		return
 	}
 	// 转换为结构体
 	err = json.Unmarshal(yamlToRack, &listMap)
 	if err != nil {
 		klog.Errorf("Unmarshal json err", err)
 		resp.RespError("Unmarshal json err.")
+		return
 	}
 
 	// 查找修改数据
@@ -334,6 +331,7 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	if uerr != nil {
 		klog.Errorf("failed to update Rack configMap.")
 		resp.RespError("failed to update Rack configMap.")
+		return
 	}
 
 	resp.RespSuccess(true, nil, "OK", 0)

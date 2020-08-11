@@ -101,6 +101,7 @@ docker run --name meta-controller -d --restart=always \
 #### Kunkka API 运行
 ```bash
 # API的运行依赖Meta ApiServer!
+export KUBECONFIG=manifests/fake/fake.yaml  
 $ go run  cmd/admin-api/main.go api
 ```
 

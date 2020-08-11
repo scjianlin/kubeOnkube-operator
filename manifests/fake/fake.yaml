@@ -1,0 +1,16 @@
+apiVersion: v1
+clusters:
+- cluster:
+    server: 10.248.224.149:8080
+  name: fake-cluster
+contexts:
+- context:
+    cluster: fake-cluster
+    user: devops
+  name: devops@fake-cluster
+current-context: devops@fake-cluster
+kind: Config
+preferences: {}
+users:
+- name: devops
+  user: {}

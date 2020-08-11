@@ -129,30 +129,30 @@ func (m *APIManager) Routes() []*router.Route {
 			Path:    "/apis/cluster/getPodCidr",
 			Handler: m.GetPodCidr,
 		},
-
-		//{
-		//	Method:  "POST",
-		//	Path:    "/kapi/cluster/:name/namespace/:namespace/app/:appName/restart",
-		//	Handler: m.DeletePodByGroup,
-		//	Desc:    DeletePodByGroupDesc,
-		//},
-		//{
-		//	Method:  "DELETE",
-		//	Path:    "/kapi/cluster/:name/namespace/:namespace/pod/:podName",
-		//	Handler: m.DeletePodByName,
-		//	Desc:    DeletePodByNameDesc,
-		//},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getClusterVersion",
+			Handler: m.GetClusterVersion,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getClusterList",
+			Handler: m.GetClusterList,
+		},
+		{
+			Method:  "POST",
+			Path:    "/apis/cluster/addCluster",
+			Handler: m.AddCluster,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getClusterDetail",
+			Handler: m.GetClusterDetail,
+		},
 		//{
 		//	Method:  "GET",
-		//	Path:    "/kapi/cluster/:name/namespace/:namespace/pod/:podName",
-		//	Handler: m.GetPodByName,
-		//	Desc:    GetPodByNameDesc,
-		//},
-		//{
-		//	Method:  "GET",
-		//	Path:    "/kapi/cluster/:name/endpoints/:appName",
-		//	Handler: m.GetEndpoints,
-		//	Desc:    GetEndpointsDesc,
+		//	Path:    "/apis/cluster/getMetaCluster",
+		//	Handler: m.GetMetaCluster,
 		//},
 		//{
 		//	Method:  "GET",

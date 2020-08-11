@@ -324,6 +324,7 @@ type ClusterStatus struct {
 	DNSIP string `json:"dnsIP,omitempty"`
 	// +optional
 	RegistryIPs []string `json:"registryIPs,omitempty"`
+	NodeCount   int      `json:"nodeCount,omitempty"`
 }
 
 // +genclient
