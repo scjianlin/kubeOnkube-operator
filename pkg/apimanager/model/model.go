@@ -1,5 +1,10 @@
 package model
 
+import (
+	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
 // 机柜CIDR
 type Rack struct {
 	ID           string      `json:"id"`
@@ -58,4 +63,13 @@ type AddCluster struct {
 	ClusterVersion string   `json:"clusterVersion"`
 	DockerVersion  string   `json:"dockerVersion"`
 	CustomScript   string   `json:"customScript"`
+	Description    string   `json:"description"`
+	ClusterGroup   string   `json:"clusterGroup"`
+}
+
+type ClusterCondition struct {
+	Type   string             `json:"type"`
+	Name   string             `json:"name"`
+	Status v1.ConditionStatus `json:"status"`
+	Time   metav1.Time        `json:"time"`
 }

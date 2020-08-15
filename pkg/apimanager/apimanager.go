@@ -149,11 +149,17 @@ func (m *APIManager) Routes() []*router.Route {
 			Path:    "/apis/cluster/getClusterDetail",
 			Handler: m.GetClusterDetail,
 		},
-		//{
-		//	Method:  "GET",
-		//	Path:    "/apis/cluster/getMetaCluster",
-		//	Handler: m.GetMetaCluster,
-		//},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getMasterRack",
+			Handler: m.getMasterRack,
+		},
+
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getCondition",
+			Handler: m.GetClusterCondition,
+		},
 		//{
 		//	Method:  "GET",
 		//	Path:    "/kapi/cluster/:name/terminal",

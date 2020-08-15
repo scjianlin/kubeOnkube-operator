@@ -2,6 +2,7 @@ package metautil
 
 import (
 	"bytes"
+	"github.com/gostship/kunkka/pkg/apimanager/model"
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
@@ -15,15 +16,29 @@ metadata:
  name: host
  namespace: host
  annotations:
-   kubesphere.io/description: "meta cluster"
+   kunkka.io/description: "meta cluster"
  labels:
    cluster-role.kunkka.io/cluster-role: "meta"
+   cluster.kunkka.io/group: "production"
 spec:
  pause: false
  tenantID: kunkka
  displayName: host
  type: Baremetal
  version: v1.18.5
+ machines:
+  - ip: 10.248.224.183
+    port: 22
+    username: root
+    password: "hNKKTFCAOp6r58A"
+  - ip: 10.248.224.201
+    port: 22
+    username: root
+    password: "hNKKTFCAOp6r58A"
+  - ip: 10.248.224.199
+    port: 22
+    username: root
+    password: "hNKKTFCAOp6r58A"
 status:
  conditions:
  - lastProbeTime: "2020-08-03T12:22:14Z"
@@ -33,6 +48,7 @@ status:
    lastTransitionTime: "2020-08-03T12:22:14Z"
    message: "Cluster is available now"
  version: "v1.18.5"
+ phase: "Running"
  nodeCount: 3
 `
 
@@ -55,4 +71,14 @@ func BuildMetaObj() (*devopsv1.Cluster, error) {
 		}
 	}
 	return meta, nil
+}
+
+func ConditionOfContains(cond1 []devopsv1.ClusterCondition, cond2 *model.ClusterCondition) *model.ClusterCondition {
+	for _, con := range cond1 {
+		if con.Type == cond2.Type {
+			cond2.Status = con.Status
+			cond2.Time = con.LastProbeTime
+		}
+	}
+	return cond2
 }

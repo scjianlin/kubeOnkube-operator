@@ -142,9 +142,24 @@ func (m *APIManager) GetRackMap(c *gin.Context) {
 	}, cmList)
 
 	if err != nil {
-		klog.Error("Get ConfigMap error %v: ", err)
-		resp.RespError("can't found rackcidr, please create!")
-		return
+		if apierrors.IsNotFound(err) {
+			metaCm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      ConfigMapName,
+					Namespace: ConfigMapName,
+				},
+				Data: map[string]string{"List": ""},
+			}
+
+			// 创建 comfilMap
+			err := cli.Create(ctx, metaCm)
+			if err != nil {
+				klog.Errorf("failed to create rack configMaps, %s", err)
+				resp.RespError("failed to create rack configMaps.")
+				return
+			}
+			cmList = metaCm
+		}
 	}
 
 	data := cmList.Data["List"]
@@ -335,4 +350,50 @@ func (m *APIManager) DelConfigMap(c *gin.Context) {
 	}
 
 	resp.RespSuccess(true, nil, "OK", 0)
+}
+
+// get master rack
+func (m *APIManager) getMasterRack(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+	cms := []model.Rack{}
+
+	cmList := &corev1.ConfigMap{}
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: ConfigMapName,
+		Name:      ConfigMapName,
+	}, cmList)
+
+	if err != nil {
+		klog.Error("Get ConfigMap error %v: ", err)
+		resp.RespError("can't found rackcidr, please create!")
+		return
+	}
+
+	data := cmList.Data["List"]
+
+	// 将yaml转换为json
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yamlToJson error")
+		return
+	}
+
+	rerr := json.Unmarshal(yamlToRack, &cms)
+	if rerr != nil {
+		klog.Errorf("failed to Unmarshal err: %v", rerr)
+		resp.RespError("failed to Unmarshal error.")
+		return
+	}
+	rackList := []model.Rack{}
+
+	for _, rack := range cms {
+		if rack.IsMaster == 1 {
+			rackList = append(rackList, rack)
+		}
+	}
+	resp.RespSuccess(true, "scuccess", rackList, len(rackList))
 }

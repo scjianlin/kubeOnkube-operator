@@ -24,8 +24,11 @@ kind: Cluster
 metadata:
   name: {{ .ClusterName }}
   namespace: {{ .ClusterName }}
+  annotations:
+    kunkka.io/description: {{ .Description }}
   labels:
     cluster-role.kunkka.io/cluster-role: "member"
+    cluster.kunkka.io/group: {{ .ClusterGroup }}
 spec:
   pause: false
   tenantID: kunkka

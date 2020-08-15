@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/crdutil"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
@@ -79,6 +80,7 @@ func (m *APIManager) GetClusterList(c *gin.Context) {
 
 	clusters := &devopsv1.ClusterList{}
 	clusterList := []*devopsv1.Cluster{}
+	memberList := []*devopsv1.Cluster{}
 
 	err := cli.List(ctx, clusters)
 
@@ -103,16 +105,28 @@ func (m *APIManager) GetClusterList(c *gin.Context) {
 	if name != "all" {
 		tag = true
 	}
-	for _, cls := range clusters.Items {
-		if lable != "" && cls.Labels["cluster-role.kunkka.io/cluster-role"] == lable {
-			if tag && cls.Name == name {
-				clusterList = append(clusterList, &cls)
+	for i := 0; i < len(clusters.Items); i++ {
+		clusters.Items[i].Status.NodeCount = len(clusters.Items[i].Spec.Machines)
+		if clusters.Items[i].Labels["cluster-role.kunkka.io/cluster-role"] == "meta" {
+			if tag && clusters.Items[i].Name == name {
+				clusterList = append(clusterList, &clusters.Items[i])
 			} else {
-				clusterList = append(clusterList, &cls)
+				clusterList = append(clusterList, &clusters.Items[i])
+			}
+		} else {
+			if tag && clusters.Items[i].Name == name {
+				memberList = append(clusterList, &clusters.Items[i])
+			} else {
+				memberList = append(clusterList, &clusters.Items[i])
 			}
 		}
 	}
-	resp.RespSuccess(true, "success", clusterList, len(clusterList))
+
+	if lable == "meta" {
+		resp.RespSuccess(true, "success", clusterList, len(clusterList))
+	} else {
+		resp.RespSuccess(true, "success", memberList, len(memberList))
+	}
 }
 
 // add member cluster
@@ -185,4 +199,89 @@ func (m *APIManager) GetClusterDetail(c *gin.Context) {
 		}
 	}
 	resp.RespSuccess(true, "success", clusterDetail, 1)
+}
+
+// get cluster conditions
+func (m *APIManager) GetClusterCondition(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clusterName := c.Query("clusterName")
+	clusterType := c.Query("clusterType")
+
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+
+	resultList := []*model.ClusterCondition{}
+
+	cluster := &devopsv1.Cluster{}
+
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: clusterName,
+		Name:      clusterName,
+	}, cluster)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = errors.New("cluster is not found.")
+		}
+		klog.Error(err)
+		resp.RespError(err.Error())
+		return
+	}
+
+	for _, condit := range providerSteps(clusterType) {
+		fmt.Println("condtion==>", condit)
+		resultList = append(resultList, metautil.ConditionOfContains(cluster.Status.Conditions, condit))
+	}
+	fmt.Println("resut-->", resultList)
+	resp.RespSuccess(true, "success", resultList, len(resultList))
+}
+
+func providerSteps(cType string) []*model.ClusterCondition {
+	condition := map[string][]*model.ClusterCondition{
+		"Baremetal": {
+			&model.ClusterCondition{
+				Type: "EnsureSystem",
+				Name: "初始化操作系统",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureCerts",
+				Name: "生成集群证书",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureKubeadmInitEtcdPhase",
+				Name: "初始化ETCD集群",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureJoinControlePlane",
+				Name: "安装集群组件",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureApplyControlPlane",
+				Name: "初始化集群",
+			},
+		},
+		"Hosted": {
+			&model.ClusterCondition{
+				Type: "EnsureSystem",
+				Name: "初始化操作系统",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureCerts",
+				Name: "生成集群证书",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureKubeadmInitEtcdPhase",
+				Name: "初始化ETCD集群",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureJoinControlePlane",
+				Name: "安装集群组件",
+			},
+			&model.ClusterCondition{
+				Type: "EnsureApplyControlPlane",
+				Name: "初始化集群",
+			},
+		},
+	}
+	return condition[cType]
 }
