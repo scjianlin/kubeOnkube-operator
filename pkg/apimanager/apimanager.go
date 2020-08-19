@@ -4,8 +4,12 @@ import (
 	//"github.com/gostship/kunkka/pkg/apimanager/config"
 	"github.com/gostship/kunkka/pkg/apimanager/healthcheck"
 	"github.com/gostship/kunkka/pkg/apimanager/router"
+	"github.com/gostship/kunkka/pkg/controllers/apictl"
 	"github.com/gostship/kunkka/pkg/controllers/k8smanager"
+	"github.com/gostship/kunkka/pkg/gmanager"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"time"
 )
 
@@ -30,7 +34,6 @@ type APIManager struct {
 	Cluster       *k8smanager.ClusterManager
 	Router        *router.Router
 	HealthHandler healthcheck.Handler
-	//Oauth         *jwt.OauthhMgr
 }
 
 // DefaultOption ...
@@ -46,26 +49,17 @@ func DefaultOption() *Option {
 }
 
 // NewAPIManager ...
-func NewAPIManager(cli k8smanager.MasterClient, opt *Option, componentName string) (*APIManager, error) {
+func NewAPIManager(mgr manager.Manager, cli k8smanager.MasterClient, opt *Option, componentName string) (*APIManager, error) {
 	healthHandler := healthcheck.GetHealthHandler()
 	healthHandler.AddLivenessCheck("goroutine_threshold",
 		healthcheck.GoroutineCountCheck(opt.GoroutineThreshold))
 
-	//New Oauth
-	//authOption := authentication.NewAuthenticateOptions()
-	//jwtOption := jwt.NewJwtTokenIssuer(authOption)
-	//authMgr := &jwt.OauthhMgr{
-	//	Options: authOption,
-	//	Jwt:     jwtOption,
-	//}
-
 	apiMgr := &APIManager{
 		Opt:           opt,
 		HealthHandler: healthHandler,
-		//Oauth:         authMgr,
 	}
 
-	klog.Info("start init kunkka api manager ... ")
+	klog.Info("start init kunkka api manager... ")
 	k8sMgr, err := k8smanager.NewManager(cli)
 	if err != nil {
 		klog.Fatalf("unable to new k8s manager err: %v", err)
@@ -81,13 +75,31 @@ func NewAPIManager(cli k8smanager.MasterClient, opt *Option, componentName strin
 		MetricsSubsystem: componentName,
 	}
 	rt := router.NewRouter(routerOptions)
-	//rt.AddRoutes("index", rt.DefaultRoutes())
-	//rt.AddRoutes("health", healthHandler.Routes())
+
 	rt.AddRoutes("kapi", apiMgr.Routes())
 	apiMgr.Router = rt
 
+	// run api ctrl
+	apictl.Add(mgr, &gmanager.GManager{ClusterManager: k8sMgr})
+
 	apiMgr.Cluster = k8sMgr
+
 	return apiMgr, nil
+}
+
+// get cluster client
+func (m *APIManager) getClient(cliName string) client.Client {
+	var cli client.Client
+	if cliName == MetaClusterName {
+		cli = m.Cluster.GetClient()
+	} else {
+		cls, err := m.Cluster.Get(cliName)
+		if err != nil {
+			return nil
+		}
+		cli = cls.Client
+	}
+	return cli
 }
 
 // Routes ...
@@ -154,18 +166,37 @@ func (m *APIManager) Routes() []*router.Route {
 			Path:    "/apis/cluster/getMasterRack",
 			Handler: m.getMasterRack,
 		},
-
 		{
 			Method:  "GET",
 			Path:    "/apis/cluster/getCondition",
 			Handler: m.GetClusterCondition,
 		},
-		//{
-		//	Method:  "GET",
-		//	Path:    "/kapi/cluster/:name/terminal",
-		//	Handler: m.GetTerminal,
-		//	Desc:    GetTerminalDesc,
-		//},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getMemberMeta",
+			Handler: m.GetMemberMetaData,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getClusterCounts",
+			Handler: m.GetClusterCounts,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getClusterRole",
+			Handler: m.GetClusterRole,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getNodeCount",
+			Handler: m.GetNodeCount,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/Test",
+			Handler: m.TestGet,
+		},
+
 		//{
 		//	Method:  "GET",
 		//	Path:    "/kapi/cluster/:name/exec",

@@ -3,6 +3,7 @@ package model
 import (
 	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"time"
 )
 
 // 机柜CIDR
@@ -67,9 +68,34 @@ type AddCluster struct {
 	ClusterGroup   string   `json:"clusterGroup"`
 }
 
+// cluster condition
 type ClusterCondition struct {
 	Type   string             `json:"type"`
 	Name   string             `json:"name"`
 	Status v1.ConditionStatus `json:"status"`
 	Time   metav1.Time        `json:"time"`
+}
+
+// cluster role model
+type ClusterRole struct {
+	Metadata Metadata    `json:"metadata"`
+	Rules    interface{} `json:"rules"`
+}
+type Labels struct {
+	IamKubesphereIoRoleTemplate string `json:"iam.kubesphere.io/role-template"`
+}
+type Annotations struct {
+	IamKubesphereIoModule                       string `json:"iam.kubesphere.io/module"`
+	IamKubesphereIoRoleTemplateRules            string `json:"iam.kubesphere.io/role-template-rules"`
+	KubectlKubernetesIoLastAppliedConfiguration string `json:"kubectl.kubernetes.io/last-applied-configuration"`
+	KubesphereIoAliasName                       string `json:"kubesphere.io/alias-name"`
+}
+type Metadata struct {
+	Name              string      `json:"name"`
+	SelfLink          string      `json:"selfLink"`
+	UID               string      `json:"uid"`
+	ResourceVersion   string      `json:"resourceVersion"`
+	CreationTimestamp time.Time   `json:"creationTimestamp"`
+	Labels            Labels      `json:"labels"`
+	Annotations       Annotations `json:"annotations"`
 }

@@ -21,7 +21,7 @@ var (
 func NewAPICmd(cli *KunkkaCli) *cobra.Command {
 	opt := apiManager.DefaultOption()
 	cmd := &cobra.Command{
-		Use:     "api",
+		Use:     "api-ctrl",
 		Aliases: []string{"api"},
 		Short:   "Manage kunkka api server",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -49,17 +49,13 @@ func NewAPICmd(cli *KunkkaCli) *cobra.Command {
 				KubeCli: cli.GetKubeInterfaceOrDie(),
 				Manager: mgr,
 			}
-
-			apiMgr, err := apiManager.NewAPIManager(k8sCli, opt, "controller")
+			apiMgr, err := apiManager.NewAPIManager(mgr, k8sCli, opt, "controller")
 			if err != nil {
 				klog.Fatalf("unable to NewKunkkaApiManager err: %v", err)
 			}
 
 			// add http server Runnable
 			mgr.Add(apiMgr.Router)
-
-			// add k8s cluster manager Runnable
-			//mgr.Add(apiMgr.K8sMgr)
 
 			logger.Info("zap debug", "SyncPeriod", rp)
 			klog.Info("starting manager")

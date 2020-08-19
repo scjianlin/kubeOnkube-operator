@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/crdutil"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
@@ -196,8 +195,10 @@ func (m *APIManager) GetClusterDetail(c *gin.Context) {
 	for _, cls := range clusters.Items {
 		if cls.Name == name {
 			clusterDetail = &cls
+			break
 		}
 	}
+
 	resp.RespSuccess(true, "success", clusterDetail, 1)
 }
 
@@ -229,11 +230,36 @@ func (m *APIManager) GetClusterCondition(c *gin.Context) {
 	}
 
 	for _, condit := range providerSteps(clusterType) {
-		fmt.Println("condtion==>", condit)
 		resultList = append(resultList, metautil.ConditionOfContains(cluster.Status.Conditions, condit))
 	}
-	fmt.Println("resut-->", resultList)
 	resp.RespSuccess(true, "success", resultList, len(resultList))
+}
+
+func (m *APIManager) GetClusterCounts(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clusterName := c.Query("clusterName")
+
+	cli := m.getClient(clusterName)
+
+	ctx := context.Background()
+	nodes := &corev1.NodeList{}
+
+	err := cli.List(ctx, nodes)
+	if err != nil {
+		resp.RespError("get cluster count error")
+		return
+	}
+	clusterCount := map[string]int{"masterCount": 0, "masterWorkerCount": 0}
+
+	for _, cls := range nodes.Items {
+		if _, ok := cls.Labels["node-role.kubernetes.io/master"]; ok {
+			clusterCount["masterCount"] += 1
+		} else {
+			clusterCount["masterWorkerCount"] += 1
+		}
+
+	}
+	resp.RespSuccess(true, "success", clusterCount, len(clusterCount))
 }
 
 func providerSteps(cType string) []*model.ClusterCondition {

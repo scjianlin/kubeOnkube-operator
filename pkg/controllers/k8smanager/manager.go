@@ -2,6 +2,7 @@ package k8smanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 	"sync"
@@ -94,6 +95,19 @@ func (m *ClusterManager) Add(cluster *Cluster) error {
 	})
 
 	return nil
+}
+
+// update..
+func (m *ClusterManager) Update(cluster *Cluster) error {
+	if cls, err := m.Get(cluster.Name); err == nil {
+		//	update
+		index, _ := m.GetClusterIndex(cls.Name)
+		m.clusters[index] = cls
+		klog.Infof("the cluster update %s has been updated.", cls.Name)
+		return nil
+	}
+	klog.Error("cluster %s,not found.", cluster.Name)
+	return errors.New("cluster not found.")
 }
 
 // GetClusterIndex ...

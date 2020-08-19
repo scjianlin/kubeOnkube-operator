@@ -11,6 +11,8 @@ import (
 func GetApiCmd(args []string) *cobra.Command {
 	opt := DefaultRootOption()
 
+	//apiOpt := NewOptions()
+
 	apicmd := &cobra.Command{
 		Use:               "kunkka-api",
 		Short:             "Request a new api server",
@@ -20,11 +22,8 @@ func GetApiCmd(args []string) *cobra.Command {
 	}
 
 	apicmd.SetArgs(args)
-	//apicmd.PersistentFlags().StringVarP(&opt.Kubeconfig, "kubeconfig", "c", "", "Kubernetes configuration file")
-	//apicmd.PersistentFlags().StringVar(&opt.ConfigContext, "context", "", "The name of the kubeconfig context to use")
 
 	// Make sure that klog logging variables are initialized so that we can
-	// update them from this file.
 	klog.InitFlags(nil)
 	logf.SetLogger(logf.ZapLogger(opt.DevelopmentMode))
 
