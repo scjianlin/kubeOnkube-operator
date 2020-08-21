@@ -135,7 +135,7 @@ func (r *apiReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
 func (r *apiReconciler) addClusterCheck(ctx context.Context, c *common.Cluster) error {
 	if _, ok := r.ClusterStarted[c.Cluster.Name]; ok {
 		if extKubeconfig, ok := c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName]; ok {
-			klog.V(4).Infof("cluster: %s, add manager extKubeconfig: \n%s", c.Cluster.Name, extKubeconfig)
+			klog.V(4).Infof("cluster: %s, add manager success!", c.Cluster.Name)
 			cls, err := r.GManager.AddNewClusters(c.Cluster.Name, extKubeconfig)
 			if err != nil {
 				klog.Errorf("failed add cluster client: %s manager cache", c.Cluster.Name)
@@ -151,7 +151,7 @@ func (r *apiReconciler) addClusterCheck(ctx context.Context, c *common.Cluster) 
 		}
 	} else {
 		if extKubeconfig, ok := c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName]; ok {
-			klog.V(4).Infof("cluster client: %s, add manager extKubeconfig: \n%s", c.Cluster.Name, extKubeconfig)
+			klog.V(4).Infof("cluster client: %s, add manager success!", c.Cluster.Name)
 			_, err := r.GManager.AddNewClusters(c.Cluster.Name, extKubeconfig)
 			if err != nil {
 				klog.Errorf("failed add cluster client: %s manager cache", c.Cluster.Name)

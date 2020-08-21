@@ -410,6 +410,8 @@ spec:
             nodeCIDRMaskSize:
               format: int32
               type: integer
+            nodeCount:
+              type: integer
             phase:
               description: ClusterPhase defines the phase of cluster constructor.
               type: string

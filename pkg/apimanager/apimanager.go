@@ -196,7 +196,11 @@ func (m *APIManager) Routes() []*router.Route {
 			Path:    "/apis/cluster/Test",
 			Handler: m.TestGet,
 		},
-
+		{
+			Method:  "POST",
+			Path:    "/apis/cluster/addClusterNode",
+			Handler: m.addClusterNode,
+		},
 		//{
 		//	Method:  "GET",
 		//	Path:    "/kapi/cluster/:name/exec",

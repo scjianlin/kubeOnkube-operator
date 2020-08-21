@@ -26,6 +26,7 @@ type HostAddr struct {
 	NetMask   string   `json:"netMask"`
 	GateWay   string   `json:"gateWay"`
 	DnsServer []string `json:"dnsServer"`
+	UseState  int      `json:"useState"` //值0表示未使用,1表示已经使用
 }
 
 // POD 地址段
@@ -34,6 +35,7 @@ type PodAddr struct {
 	RangeStart   string `json:"rangeStart"`
 	RangeEnd     string `json:"rangeEnd"`
 	DefaultRoute string `json:"defaultRoute"`
+	UseState     int    `json:"useState"` //值0表示未使用,1表示已经使用
 }
 
 //
@@ -66,6 +68,18 @@ type AddCluster struct {
 	CustomScript   string   `json:"customScript"`
 	Description    string   `json:"description"`
 	ClusterGroup   string   `json:"clusterGroup"`
+}
+
+type ClusterNode struct {
+	AddressList   []string `json:"addressList"`
+	ClusterName   string   `json:"clusterName"`
+	CustomScript  string   `json:"customScript"`
+	DockerVersion string   `json:"dockerVersion"`
+	NodeRack      []string `json:"nodeRack"`
+	NodeVersion   string   `json:"nodeVersion"`
+	Password      string   `json:"password"`
+	PodPool       []string `json:"podPool"`
+	UserName      string   `json:"userName"`
 }
 
 // cluster condition

@@ -88,6 +88,7 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*model.PodAddr, []*mode
 			RangeStart:   v.RangeStart,
 			RangeEnd:     v.RangeEnd,
 			DefaultRoute: Route,
+			UseState:     0,
 		}
 		podlist = append(podlist, p)
 	}
@@ -97,6 +98,7 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*model.PodAddr, []*mode
 			IPADDR:    v,
 			NetMask:   mask,
 			GateWay:   gw,
+			UseState:  0,
 			DnsServer: []string{"10.27.0.2", "10.27.0.202"},
 		}
 		hostlist = append(hostlist, h)
