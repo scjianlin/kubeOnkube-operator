@@ -629,6 +629,25 @@ spec:
           properties:
             clusterName:
               type: string
+            cni:
+              properties:
+                defaultRoute:
+                  type: string
+                id:
+                  type: string
+                rangeEnd:
+                  type: string
+                rangeStart:
+                  type: string
+                useState:
+                  type: integer
+              required:
+              - defaultRoute
+              - id
+              - rangeEnd
+              - rangeStart
+              - useState
+              type: object
             feature:
               properties:
                 files:

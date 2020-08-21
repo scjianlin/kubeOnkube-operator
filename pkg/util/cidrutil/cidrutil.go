@@ -3,6 +3,7 @@ package cidrutil
 import (
 	"fmt"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
+	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/uidutil"
 	"net"
 	"strings"
@@ -65,7 +66,7 @@ func genMaskString(m []byte) string {
 	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
-func GenerateCidr(cidr string, gw string, podNum int) ([]*model.PodAddr, []*model.HostAddr) {
+func GenerateCidr(cidr string, gw string, podNum int) ([]*v1.ClusterCni, []*model.HostAddr) {
 	pod, host, mask, _ := generate(cidr)
 	rackpodList := []*model.PodAddr{}
 	for _, ip := range *pod {
@@ -79,11 +80,11 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*model.PodAddr, []*mode
 	rackHost := hostList[len(hostList)-3-hostNum : len(hostList)-3]
 	//hostGw := hostList[len(hostList)-2]
 
-	podlist := []*model.PodAddr{}
+	podlist := []*v1.ClusterCni{}
 	hostlist := []*model.HostAddr{}
 
 	for _, v := range rackpodList {
-		p := &model.PodAddr{
+		p := &v1.ClusterCni{
 			ID:           uidutil.GenerateId(),
 			RangeStart:   v.RangeStart,
 			RangeEnd:     v.RangeEnd,

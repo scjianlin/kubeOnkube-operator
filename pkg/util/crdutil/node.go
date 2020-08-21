@@ -2,7 +2,9 @@ package crdutil
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
+	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -14,25 +16,44 @@ apiVersion: devops.gostship.io/v1
 kind: Machine
 metadata:
   labels:
-    name: 10.248.224.210
-    clusterName: idc-test
-  name: 10.248.224.210
-  namespace: idc-test
+    name: {{ index .Node.AddressList 0 }}
+    clusterName: {{ .Node.ClusterName }}
+  name: {{ index .Node.AddressList 0 }}
+  namespace: {{ .Node.ClusterName }}
 spec:
-  clusterName: idc-test
+  clusterName: {{ .Node.ClusterName }}
   type: Baremetal
   machine:
-    ip: 10.248.224.210
+    ip: {{ index .Node.AddressList 0 }}
     port: 22
-    username: root
-    password: hNKKTFCAOp6r58A
+    username: {{ .Node.UserName }}
+    password: {{ .Node.Password }}
+  cni:
+    id: {{ .Cni.ID }}
+    useState: {{ .Cni.UseState }}
+    rangeStart: {{ .Cni.RangeStart }}
+    rangeEnd: {{ .Cni.RangeEnd }}
+    defaultRoute: {{ .Cni.DefaultRoute }}
+  dockerExtraArgs:
+    registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
+    version: {{ .Node.DockerVersion }}
   feature:
     hooks:
       installType: kubeadm
 `
 
-func BuildNodeCrd(node *model.ClusterNode) ([]runtime.Object, error) {
-	data, err := template.ParseString(nodeTemplate, node)
+func BuildNodeCrd(node *model.ClusterNode, cni *v1.ClusterCni) ([]runtime.Object, error) {
+
+	type Option struct {
+		Node *model.ClusterNode
+		Cni  *v1.ClusterCni
+	}
+	opt := &Option{
+		node,
+		cni,
+	}
+	fmt.Println("opt==", opt)
+	data, err := template.ParseString(nodeTemplate, opt)
 	if err != nil {
 		return nil, err
 	}
