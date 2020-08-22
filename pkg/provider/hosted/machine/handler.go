@@ -331,7 +331,7 @@ func (p *Provider) EnsureCni(ctx context.Context, machine *devopsv1.Machine, c *
 		return err
 	}
 
-	err = cni.ApplyCniCfg(sh, c)
+	err = cni.ApplyNodeCni(sh, c, machine)
 	if err != nil {
 		return err
 	}

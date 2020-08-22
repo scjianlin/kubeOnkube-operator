@@ -86,10 +86,12 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*v1.ClusterCni, []*mode
 	for _, v := range rackpodList {
 		p := &v1.ClusterCni{
 			ID:           uidutil.GenerateId(),
+			Subnet:       cidr,
 			RangeStart:   v.RangeStart,
 			RangeEnd:     v.RangeEnd,
 			DefaultRoute: Route,
 			UseState:     0,
+			GW:           gw,
 		}
 		podlist = append(podlist, p)
 	}

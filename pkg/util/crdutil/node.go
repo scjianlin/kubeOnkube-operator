@@ -28,12 +28,15 @@ spec:
     port: 22
     username: {{ .Node.UserName }}
     password: {{ .Node.Password }}
-  cni:
-    id: {{ .Cni.ID }}
-    useState: {{ .Cni.UseState }}
-    rangeStart: {{ .Cni.RangeStart }}
-    rangeEnd: {{ .Cni.RangeEnd }}
-    defaultRoute: {{ .Cni.DefaultRoute }}
+    hostCni:
+      id: {{ .Cni.ID }}
+      subnet: {{ .Cni.Subnet }}
+      useState: {{ .Cni.UseState }}
+      rangeStart: {{ .Cni.RangeStart }}
+      rangeEnd: {{ .Cni.RangeEnd }}
+      defaultRoute: {{ .Cni.DefaultRoute }}
+      gw: {{ .Cni.GW }}
+      useState: 1
   dockerExtraArgs:
     registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
     version: {{ .Node.DockerVersion }}

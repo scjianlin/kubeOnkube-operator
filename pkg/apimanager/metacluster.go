@@ -133,6 +133,10 @@ func (m *APIManager) AddCluster(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
 	newCluster := &model.AddCluster{}
+	ctx := context.Background()
+	cli := m.Cluster.GetClient()
+	listMap := []*model.Rack{}
+
 	cluster, err := resp.Bind(newCluster)
 	if err != nil {
 		klog.Error("add cluster bind params error.", err)
@@ -140,14 +144,66 @@ func (m *APIManager) AddCluster(c *gin.Context) {
 		return
 	}
 
-	cls, err := crdutil.BuildBremetalCrd(cluster.(*model.AddCluster))
+	cms := &corev1.ConfigMap{}
+
+	err = cli.Get(ctx, types.NamespacedName{
+		Name:      ConfigMapName,
+		Namespace: ConfigMapName,
+	}, cms)
+
+	if err != nil {
+		resp.RespError("not found rack cfg.")
+		return
+	}
+
+	// 获取confiMap的数据
+	data, ok := cms.Data["List"]
+	if !ok {
+		klog.Info("no ConfigMap list!")
+		resp.RespError("no configMap list!")
+		return
+	}
+	// 将yaml转换为json
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yaml to struct error!")
+		return
+	}
+	// 转换为结构体
+	err = json.Unmarshal(yamlToRack, &listMap)
+	if err != nil {
+		klog.Errorf("Unmarshal json err", err)
+		resp.RespError("Unmarshal list json error.")
+		return
+	}
+	//cniOpt := &model.CniOption{}
+	cniOptList := []*model.CniOption{}
+	// 处理集群配置
+	for _, rack := range listMap {
+		cniOpt := &model.CniOption{}
+		if metautil.StringofContains(rack.RackTag, cluster.(*model.AddCluster).ClusterRack) {
+			cniOpt.Racks = rack.RackCidr
+			for _, machine := range rack.HostAddr {
+				if metautil.StringofContains(machine.IPADDR, cluster.(*model.AddCluster).ClusterIP) {
+					cniOpt.Machine = machine.IPADDR
+				}
+			}
+			for _, pod := range rack.PodCidr {
+				if metautil.StringofContains(pod.ID, cluster.(*model.AddCluster).PodPool) {
+					cniOpt.Cni = pod
+				}
+			}
+			cniOptList = append(cniOptList, cniOpt)
+		}
+	}
+
+	cls, err := crdutil.BuildBremetalCrd(cluster.(*model.AddCluster), cniOptList)
 	if err != nil {
 		klog.Error("Build Object Bremetal err.", err)
 		resp.RespError("Build Object Bremetal err.")
 		return
 	}
-
-	cli := m.Cluster.GetClient()
 
 	logger := ctrl.Log.WithValues("cluster", cluster.(*model.AddCluster).ClusterName)
 	logger.Info("create cluster reconcile ...")

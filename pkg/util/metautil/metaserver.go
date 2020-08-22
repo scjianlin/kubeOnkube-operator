@@ -588,3 +588,12 @@ func BuildClusterRole() ([]*model.ClusterRole, error) {
 	}
 	return role, nil
 }
+
+func StringofContains(tag string, tags []string) bool {
+	for _, v := range tags {
+		if v == tag {
+			return true
+		}
+	}
+	return false
+}

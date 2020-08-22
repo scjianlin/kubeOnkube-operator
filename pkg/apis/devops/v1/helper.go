@@ -40,7 +40,19 @@ type ClusterMachine struct {
 	Labels map[string]string `json:"labels,omitempty"`
 	// If specified, the node's taints.
 	// +optional
-	Taints []corev1.Taint `json:"taints,omitempty"`
+	Taints  []corev1.Taint `json:"taints,omitempty"`
+	HostCni *ClusterCni    `json:"hostCni"`
+}
+
+// ClusterCni configuration for cluster or machine cni
+type ClusterCni struct {
+	ID           string `json:"id"`
+	Subnet       string `json:"subnet"`
+	RangeStart   string `json:"rangeStart"`
+	RangeEnd     string `json:"rangeEnd"`
+	DefaultRoute string `json:"defaultRoute"`
+	UseState     int    `json:"useState"` //值0表示未使用,1表示已经使用
+	GW           string `json:"gw"`
 }
 
 func (in *Cluster) SetCondition(newCondition ClusterCondition) {

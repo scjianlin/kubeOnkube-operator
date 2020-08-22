@@ -112,14 +112,6 @@ type MachineFeature struct {
 	Hooks map[string]string `json:"hooks,omitempty"`
 }
 
-type ClusterCni struct {
-	ID           string `json:"id"`
-	RangeStart   string `json:"rangeStart"`
-	RangeEnd     string `json:"rangeEnd"`
-	DefaultRoute string `json:"defaultRoute"`
-	UseState     int    `json:"useState"` //值0表示未使用,1表示已经使用
-}
-
 // MachineSpec is a description of machine.
 type MachineSpec struct {
 	// Finalizers is an opaque list of values that must be empty to permanently remove object from storage.
@@ -131,7 +123,7 @@ type MachineSpec struct {
 	Machine     *ClusterMachine `json:"machine,omitempty"`
 	Feature     *MachineFeature `json:"feature,omitempty"`
 	Pause       bool            `json:"pause,omitempty"`
-	Cni         *ClusterCni     `json:"cni,omitempty"`
+	//HostCni     *ClusterCni     `json:"hostCni"`
 }
 
 // MachineStatus represents information about the status of an machine.

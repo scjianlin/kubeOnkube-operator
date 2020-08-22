@@ -68,6 +68,13 @@ type AddCluster struct {
 	CustomScript   string   `json:"customScript"`
 	Description    string   `json:"description"`
 	ClusterGroup   string   `json:"clusterGroup"`
+	PodPool        []string `json:"podPool"`
+}
+
+type CniOption struct {
+	Racks   string         `json:"racks"`
+	Machine string         `json:"machine"`
+	Cni     *v1.ClusterCni `json:"cni"`
 }
 
 type ClusterNode struct {

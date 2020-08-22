@@ -2,9 +2,8 @@ package cni
 
 import (
 	"bytes"
-	"context"
-	"encoding/json"
 	"fmt"
+	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"os"
 	"strings"
 
@@ -13,8 +12,6 @@ import (
 	"github.com/gostship/kunkka/pkg/util/ssh"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"github.com/pkg/errors"
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
 
@@ -171,33 +168,85 @@ func ApplyEth(s ssh.Interface, c *common.Cluster) error {
 	return nil
 }
 
-func ApplyCniCfg(s ssh.Interface, c *common.Cluster) error {
-	cfgMap := &corev1.ConfigMap{}
-	err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: CniHostLocalConfig}, cfgMap)
-	if err != nil {
-		klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
-		return nil
+func ApplyClusterCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.ClusterMachine) error {
+	//cluster := &devopsv1.Cluster{}
+	//err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: c.ClusterName}, cluster)
+	//if err != nil {
+	//	klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
+	//	return nil
+	//}
+	opt := &Option{
+		Subnet:     machine.HostCni.Subnet,
+		RangeEnd:   machine.HostCni.RangeEnd,
+		RangeStart: machine.HostCni.RangeStart,
+		Gateway:    machine.HostCni.GW,
+		Dst:        machine.HostCni.DefaultRoute,
+		Gw:         machine.IP,
 	}
+	//opt := &Option{
+	//	Subnet:     "10.28.0.0/22",
+	//	RangeEnd:   "10.28.0.1",
+	//	RangeStart: "10.28.0.240",
+	//	Gateway:    "10.28.3.254",
+	//	Dst:        "10.28.247.0/22",
+	//	Gw:         machine.IP,
+	//}
 
-	var objDate string
-	var ok bool
-	if objDate, ok = cfgMap.Data[s.HostIP()]; !ok {
-		klog.Warningf("cluster: %s can't find node: %s cni config ", c.Cluster.Name, s.HostIP())
-		return nil
-	}
-
-	opt := &Option{}
-	jerr := json.Unmarshal([]byte(objDate), &opt)
-	if jerr != nil {
-		klog.Warningf("node: %s failed to Unmarshal cni cfg, err: %s", s.HostIP(), jerr)
-		return nil
-	}
-
-	klog.Infof("node: %s cni cfg: %v", s.HostIP(), opt)
 	localByte, err := template.ParseString(hostLocalTemplate, opt)
 	if err != nil {
 		return err
 	}
+
+	err = s.WriteFile(bytes.NewReader(localByte), constants.CniHostLocalFile)
+	if err != nil {
+		return err
+	}
+
+	klog.Infof("build node: %s cni :%s", s.HostIP(), string(localByte))
+
+	loopByte, err := template.ParseString(loopbackTemplate, opt)
+	if err != nil {
+		return err
+	}
+
+	err = s.WriteFile(bytes.NewReader(loopByte), constants.CniLoopBack)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func ApplyNodeCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.Machine) error {
+	//node := &devopsv1.Machine{}
+	//err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: machine.Name}, node)
+	//if err != nil {
+	//	klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
+	//	return nil
+	//}
+
+	opt := &Option{
+		Subnet:     machine.Spec.Machine.HostCni.Subnet,
+		RangeEnd:   machine.Spec.Machine.HostCni.RangeEnd,
+		RangeStart: machine.Spec.Machine.HostCni.RangeStart,
+		Gateway:    machine.Spec.Machine.HostCni.GW,
+		Dst:        machine.Spec.Machine.HostCni.DefaultRoute,
+		Gw:         machine.Name,
+	}
+	//opt := &Option{
+	//	Subnet:     "10.28.0.0/22",
+	//	RangeEnd:   "10.28.0.1",
+	//	RangeStart: "10.28.0.240",
+	//	Gateway:    "10.28.3.254",
+	//	Dst:        "10.28.247.0/22",
+	//	Gw:         machine.Name,
+
+	localByte, err := template.ParseString(hostLocalTemplate, opt)
+	if err != nil {
+		return err
+	}
+
+	//}klog.Infof("build node: %s cni: %s", s.HostIP(), string(localByte))
 
 	err = s.WriteFile(bytes.NewReader(localByte), constants.CniHostLocalFile)
 	if err != nil {

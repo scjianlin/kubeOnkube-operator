@@ -310,6 +310,32 @@ spec:
               items:
                 description: ClusterMachine is the master machine definition of cluster.
                 properties:
+                  hostCni:
+                    description: ClusterCni configuration for cluster or machine cni
+                    properties:
+                      defaultRoute:
+                        type: string
+                      gw:
+                        type: string
+                      id:
+                        type: string
+                      rangeEnd:
+                        type: string
+                      rangeStart:
+                        type: string
+                      subnet:
+                        type: string
+                      useState:
+                        type: integer
+                    required:
+                    - defaultRoute
+                    - gw
+                    - id
+                    - rangeEnd
+                    - rangeStart
+                    - subnet
+                    - useState
+                    type: object
                   ip:
                     type: string
                   labels:
@@ -359,6 +385,7 @@ spec:
                   username:
                     type: string
                 required:
+                - hostCni
                 - ip
                 - port
                 - username
@@ -629,25 +656,6 @@ spec:
           properties:
             clusterName:
               type: string
-            cni:
-              properties:
-                defaultRoute:
-                  type: string
-                id:
-                  type: string
-                rangeEnd:
-                  type: string
-                rangeStart:
-                  type: string
-                useState:
-                  type: integer
-              required:
-              - defaultRoute
-              - id
-              - rangeEnd
-              - rangeStart
-              - useState
-              type: object
             feature:
               properties:
                 files:
@@ -682,6 +690,32 @@ spec:
             machine:
               description: ClusterMachine is the master machine definition of cluster.
               properties:
+                hostCni:
+                  description: ClusterCni configuration for cluster or machine cni
+                  properties:
+                    defaultRoute:
+                      type: string
+                    gw:
+                      type: string
+                    id:
+                      type: string
+                    rangeEnd:
+                      type: string
+                    rangeStart:
+                      type: string
+                    subnet:
+                      type: string
+                    useState:
+                      type: integer
+                  required:
+                  - defaultRoute
+                  - gw
+                  - id
+                  - rangeEnd
+                  - rangeStart
+                  - subnet
+                  - useState
+                  type: object
                 ip:
                   type: string
                 labels:
@@ -729,6 +763,7 @@ spec:
                 username:
                   type: string
               required:
+              - hostCni
               - ip
               - port
               - username

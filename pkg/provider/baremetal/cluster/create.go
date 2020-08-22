@@ -769,8 +769,7 @@ func (p *Provider) EnsureCni(ctx context.Context, c *common.Cluster) error {
 			if err != nil {
 				return err
 			}
-
-			err = cni.ApplyCniCfg(sh, c)
+			err = cni.ApplyClusterCni(sh, c, machine)
 			if err != nil {
 				klog.Errorf("node: %s apply cni cfg err: %v", sh.HostIP(), err)
 				return err
