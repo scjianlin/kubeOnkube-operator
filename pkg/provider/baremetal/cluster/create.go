@@ -805,7 +805,6 @@ func (p *Provider) EnsureMasterNode(ctx context.Context, c *common.Cluster) erro
 	if err != nil {
 		return nil
 	}
-
 	node := &corev1.Node{}
 	var noReadNode *devopsv1.ClusterMachine
 	for _, machine := range c.Spec.Machines {

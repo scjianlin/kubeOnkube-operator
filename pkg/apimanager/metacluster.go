@@ -267,7 +267,7 @@ func (m *APIManager) GetClusterCondition(c *gin.Context) {
 	cli := m.Cluster.GetClient()
 	ctx := context.Background()
 
-	resultList := []*model.ClusterCondition{}
+	resultList := []*model.RuntimeCondition{}
 
 	cluster := &devopsv1.Cluster{}
 
@@ -285,8 +285,41 @@ func (m *APIManager) GetClusterCondition(c *gin.Context) {
 		return
 	}
 
-	for _, condit := range providerSteps(clusterType) {
-		resultList = append(resultList, metautil.ConditionOfContains(cluster.Status.Conditions, condit))
+	for _, condit := range metautil.ProviderClusterSteps(clusterType) {
+		resultList = append(resultList, metautil.ClusterConditionOfContains(cluster.Status.Conditions, condit))
+	}
+	resp.RespSuccess(true, "success", resultList, len(resultList))
+}
+
+// get node getNodeCondition
+func (m *APIManager) getNodeCondition(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clusterName := c.Query("clusterName")
+	ipAddr := c.Query("ipAddr")
+
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+
+	resultList := []*model.RuntimeCondition{}
+
+	cluster := &devopsv1.Machine{}
+
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: clusterName,
+		Name:      ipAddr,
+	}, cluster)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			err = errors.New("machine is not found.")
+		}
+		klog.Error(err)
+		resp.RespError(err.Error())
+		return
+	}
+
+	for _, condit := range metautil.ProviderClusterSteps("Machine") {
+		resultList = append(resultList, metautil.MachineConditionOfContains(cluster.Status.Conditions, condit))
 	}
 	resp.RespSuccess(true, "success", resultList, len(resultList))
 }
@@ -316,54 +349,4 @@ func (m *APIManager) GetClusterCounts(c *gin.Context) {
 
 	}
 	resp.RespSuccess(true, "success", clusterCount, len(clusterCount))
-}
-
-func providerSteps(cType string) []*model.ClusterCondition {
-	condition := map[string][]*model.ClusterCondition{
-		"Baremetal": {
-			&model.ClusterCondition{
-				Type: "EnsureSystem",
-				Name: "初始化操作系统",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureCerts",
-				Name: "生成集群证书",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureKubeadmInitEtcdPhase",
-				Name: "初始化ETCD集群",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureJoinControlePlane",
-				Name: "安装集群组件",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureApplyControlPlane",
-				Name: "初始化集群",
-			},
-		},
-		"Hosted": {
-			&model.ClusterCondition{
-				Type: "EnsureSystem",
-				Name: "初始化操作系统",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureCerts",
-				Name: "生成集群证书",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureKubeadmInitEtcdPhase",
-				Name: "初始化ETCD集群",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureJoinControlePlane",
-				Name: "安装集群组件",
-			},
-			&model.ClusterCondition{
-				Type: "EnsureApplyControlPlane",
-				Name: "初始化集群",
-			},
-		},
-	}
-	return condition[cType]
 }

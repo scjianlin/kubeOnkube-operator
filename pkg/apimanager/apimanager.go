@@ -168,8 +168,13 @@ func (m *APIManager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
-			Path:    "/apis/cluster/getCondition",
+			Path:    "/apis/cluster/getClusterCondition",
 			Handler: m.GetClusterCondition,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getNodeCondition",
+			Handler: m.getNodeCondition,
 		},
 		{
 			Method:  "GET",
@@ -200,6 +205,11 @@ func (m *APIManager) Routes() []*router.Route {
 			Method:  "POST",
 			Path:    "/apis/cluster/addClusterNode",
 			Handler: m.addClusterNode,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getNoreadyNode",
+			Handler: m.getNoreadyNode,
 		},
 		//{
 		//	Method:  "GET",

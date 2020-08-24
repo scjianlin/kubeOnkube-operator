@@ -90,7 +90,7 @@ type ClusterNode struct {
 }
 
 // cluster condition
-type ClusterCondition struct {
+type RuntimeCondition struct {
 	Type   string             `json:"type"`
 	Name   string             `json:"name"`
 	Status v1.ConditionStatus `json:"status"`

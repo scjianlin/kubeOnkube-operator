@@ -569,7 +569,17 @@ func BuildMetaObj() (*devopsv1.Cluster, error) {
 	return meta, nil
 }
 
-func ConditionOfContains(cond1 []devopsv1.ClusterCondition, cond2 *model.ClusterCondition) *model.ClusterCondition {
+func ClusterConditionOfContains(cond1 []devopsv1.ClusterCondition, cond2 *model.RuntimeCondition) *model.RuntimeCondition {
+	for _, con := range cond1 {
+		if con.Type == cond2.Type {
+			cond2.Status = con.Status
+			cond2.Time = con.LastProbeTime
+		}
+	}
+	return cond2
+}
+
+func MachineConditionOfContains(cond1 []devopsv1.MachineCondition, cond2 *model.RuntimeCondition) *model.RuntimeCondition {
 	for _, con := range cond1 {
 		if con.Type == cond2.Type {
 			cond2.Status = con.Status
@@ -596,4 +606,72 @@ func StringofContains(tag string, tags []string) bool {
 		}
 	}
 	return false
+}
+
+func ProviderClusterSteps(cType string) []*model.RuntimeCondition {
+	condition := map[string][]*model.RuntimeCondition{
+		"Baremetal": {
+			&model.RuntimeCondition{
+				Type: "EnsureSystem",
+				Name: "初始化操作系统",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureCerts",
+				Name: "生成集群证书",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureKubeadmInitEtcdPhase",
+				Name: "初始化ETCD集群",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureJoinControlePlane",
+				Name: "安装集群组件",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureApplyControlPlane",
+				Name: "初始化集群",
+			},
+		},
+		"Hosted": {
+			&model.RuntimeCondition{
+				Type: "EnsureSystem",
+				Name: "初始化操作系统",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureCerts",
+				Name: "生成集群证书",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureKubeadmInitEtcdPhase",
+				Name: "初始化ETCD集群",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureJoinControlePlane",
+				Name: "安装集群组件",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureApplyControlPlane",
+				Name: "初始化集群",
+			},
+		},
+		"Machine": {
+			&model.RuntimeCondition{
+				Type: "EnsureEth",
+				Name: "设置网卡",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureSystem",
+				Name: "初始化操作系统",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureK8sComponent",
+				Name: "安装集群组件",
+			},
+			&model.RuntimeCondition{
+				Type: "EnsureCni",
+				Name: "安装CNI插件",
+			},
+		},
+	}
+	return condition[cType]
 }

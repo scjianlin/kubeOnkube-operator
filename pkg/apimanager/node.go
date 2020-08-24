@@ -3,6 +3,7 @@ package apimanager
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
@@ -91,4 +92,29 @@ func (m *APIManager) addClusterNode(c *gin.Context) {
 		}
 	}
 	resp.RespSuccess(true, "success", "OK", 0)
+}
+
+// get Noready machine
+func (m *APIManager) getNoreadyNode(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+	clusterName := c.Query("clusterName")
+	resultList := []*devopsv1.Machine{}
+	machine := &devopsv1.MachineList{}
+
+	err := cli.List(ctx, machine)
+	if err != nil {
+		klog.Error("get list no ready machine err:", err)
+		resp.RespError("get list no ready machine err.")
+		return
+	}
+
+	for _, ma := range machine.Items {
+		if ma.Status.Phase != devopsv1.MachineRunning && ma.Spec.ClusterName == clusterName { // 未就绪的节点
+			resultList = append(resultList, &ma)
+		}
+	}
+	fmt.Println("res==>", resultList)
+	resp.RespSuccess(true, "success", resultList, len(resultList))
 }

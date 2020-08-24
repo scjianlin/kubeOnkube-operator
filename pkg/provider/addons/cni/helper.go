@@ -169,12 +169,7 @@ func ApplyEth(s ssh.Interface, c *common.Cluster) error {
 }
 
 func ApplyClusterCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.ClusterMachine) error {
-	//cluster := &devopsv1.Cluster{}
-	//err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: c.ClusterName}, cluster)
-	//if err != nil {
-	//	klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
-	//	return nil
-	//}
+
 	opt := &Option{
 		Subnet:     machine.HostCni.Subnet,
 		RangeEnd:   machine.HostCni.RangeEnd,
@@ -183,14 +178,6 @@ func ApplyClusterCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.Clust
 		Dst:        machine.HostCni.DefaultRoute,
 		Gw:         machine.IP,
 	}
-	//opt := &Option{
-	//	Subnet:     "10.28.0.0/22",
-	//	RangeEnd:   "10.28.0.1",
-	//	RangeStart: "10.28.0.240",
-	//	Gateway:    "10.28.3.254",
-	//	Dst:        "10.28.247.0/22",
-	//	Gw:         machine.IP,
-	//}
 
 	localByte, err := template.ParseString(hostLocalTemplate, opt)
 	if err != nil {
@@ -218,12 +205,6 @@ func ApplyClusterCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.Clust
 }
 
 func ApplyNodeCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.Machine) error {
-	//node := &devopsv1.Machine{}
-	//err := c.Client.Get(context.TODO(), types.NamespacedName{Namespace: c.Cluster.Namespace, Name: machine.Name}, node)
-	//if err != nil {
-	//	klog.Warningf("cluster: %s get cni cfgMap err: %v", c.Cluster.Name, err)
-	//	return nil
-	//}
 
 	opt := &Option{
 		Subnet:     machine.Spec.Machine.HostCni.Subnet,
@@ -233,13 +214,6 @@ func ApplyNodeCni(s ssh.Interface, c *common.Cluster, machine *devopsv1.Machine)
 		Dst:        machine.Spec.Machine.HostCni.DefaultRoute,
 		Gw:         machine.Name,
 	}
-	//opt := &Option{
-	//	Subnet:     "10.28.0.0/22",
-	//	RangeEnd:   "10.28.0.1",
-	//	RangeStart: "10.28.0.240",
-	//	Gateway:    "10.28.3.254",
-	//	Dst:        "10.28.247.0/22",
-	//	Gw:         machine.Name,
 
 	localByte, err := template.ParseString(hostLocalTemplate, opt)
 	if err != nil {
