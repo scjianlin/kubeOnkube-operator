@@ -10,7 +10,6 @@ import (
 	"github.com/gostship/kunkka/pkg/util/metautil"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	ctrl "sigs.k8s.io/controller-runtime"
-
 	//"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/gin-gonic/gin"
@@ -105,7 +104,8 @@ func (m *APIManager) GetClusterList(c *gin.Context) {
 		tag = true
 	}
 	for i := 0; i < len(clusters.Items); i++ {
-		clusters.Items[i].Status.NodeCount = len(clusters.Items[i].Spec.Machines)
+		clusters.Items[i].Status.NodeCount = m.getCount(clusters.Items[i].Name)
+		//clusterName := clusters.Items[i].Name
 		if clusters.Items[i].Labels["cluster-role.kunkka.io/cluster-role"] == "meta" {
 			if tag && clusters.Items[i].Name == name {
 				clusterList = append(clusterList, &clusters.Items[i])
@@ -182,16 +182,26 @@ func (m *APIManager) AddCluster(c *gin.Context) {
 	// 处理集群配置
 	for _, rack := range listMap {
 		cniOpt := &model.CniOption{}
+
 		if metautil.StringofContains(rack.RackTag, cluster.(*model.AddCluster).ClusterRack) {
 			cniOpt.Racks = rack.RackCidr
-			for _, machine := range rack.HostAddr {
-				if metautil.StringofContains(machine.IPADDR, cluster.(*model.AddCluster).ClusterIP) {
-					cniOpt.Machine = machine.IPADDR
+			if cluster.(*model.AddCluster).ClusterType == "Baremetal" {
+				for _, machine := range rack.HostAddr {
+					if metautil.StringofContains(machine.IPADDR, cluster.(*model.AddCluster).ClusterIP) {
+						cniOpt.Machine = machine.IPADDR
+					}
 				}
-			}
-			for _, pod := range rack.PodCidr {
-				if metautil.StringofContains(pod.ID, cluster.(*model.AddCluster).PodPool) {
-					cniOpt.Cni = pod
+				for _, pod := range rack.PodCidr {
+					if metautil.StringofContains(pod.ID, cluster.(*model.AddCluster).PodPool) {
+						cniOpt.Cni = pod
+					}
+				}
+			} else {
+				// 托管集群获取meta
+				for _, machine := range rack.HostAddr {
+					if machine.IsMeta == 1 {
+						cniOpt.Machine = machine.IPADDR
+					}
 				}
 			}
 			cniOptList = append(cniOptList, cniOpt)
@@ -349,4 +359,16 @@ func (m *APIManager) GetClusterCounts(c *gin.Context) {
 
 	}
 	resp.RespSuccess(true, "success", clusterCount, len(clusterCount))
+}
+
+func (m *APIManager) getCount(name string) int {
+	cli := m.getClient(name)
+
+	nodes := &corev1.NodeList{}
+	ctx := context.Background()
+	err := cli.List(ctx, nodes)
+	if err != nil {
+		return 0
+	}
+	return len(nodes.Items)
 }

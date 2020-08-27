@@ -3,7 +3,6 @@ package apimanager
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
@@ -115,6 +114,5 @@ func (m *APIManager) getNoreadyNode(c *gin.Context) {
 			resultList = append(resultList, &ma)
 		}
 	}
-	fmt.Println("res==>", resultList)
 	resp.RespSuccess(true, "success", resultList, len(resultList))
 }

@@ -27,6 +27,7 @@ type HostAddr struct {
 	GateWay   string   `json:"gateWay"`
 	DnsServer []string `json:"dnsServer"`
 	UseState  int      `json:"useState"` //值0表示未使用,1表示已经使用
+	IsMeta    int      `json:"isMeta"`   //值0表示不是meta集群地址,1表示是meta集群的节点地址
 }
 
 // POD 地址段

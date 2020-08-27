@@ -634,23 +634,19 @@ func ProviderClusterSteps(cType string) []*model.RuntimeCondition {
 		},
 		"Hosted": {
 			&model.RuntimeCondition{
-				Type: "EnsureSystem",
-				Name: "初始化操作系统",
+				Type: "EnsureEtcd",
+				Name: "初始化ETCD集群",
 			},
 			&model.RuntimeCondition{
 				Type: "EnsureCerts",
 				Name: "生成集群证书",
 			},
 			&model.RuntimeCondition{
-				Type: "EnsureKubeadmInitEtcdPhase",
-				Name: "初始化ETCD集群",
-			},
-			&model.RuntimeCondition{
-				Type: "EnsureJoinControlePlane",
+				Type: "EnsureKubeMaster",
 				Name: "安装集群组件",
 			},
 			&model.RuntimeCondition{
-				Type: "EnsureApplyControlPlane",
+				Type: "EnsureExtKubeconfig",
 				Name: "初始化集群",
 			},
 		},
