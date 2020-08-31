@@ -649,6 +649,10 @@ func ProviderClusterSteps(cType string) []*model.RuntimeCondition {
 				Type: "EnsureExtKubeconfig",
 				Name: "初始化集群",
 			},
+			&model.RuntimeCondition{
+				Type: "EnsureClusterReady",
+				Name: "确认集群状态",
+			},
 		},
 		"Machine": {
 			&model.RuntimeCondition{

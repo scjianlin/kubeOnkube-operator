@@ -162,6 +162,9 @@ func (c *Cluster) HostForBootstrap() (string, error) {
 		if one.Type == devopsv1.AddressReal {
 			return fmt.Sprintf("%s:%d", one.Host, one.Port), nil
 		}
+		if one.Type == devopsv1.AddressAdvertise {
+			return fmt.Sprintf("%s:%d", one.Host, one.Port), nil
+		}
 	}
 
 	return "", errors.New("can't find bootstrap address")

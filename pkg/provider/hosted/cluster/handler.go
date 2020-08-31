@@ -3,8 +3,8 @@ package cluster
 import (
 	"context"
 	"fmt"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
+	"strings"
 
 	"crypto/rand"
 	"encoding/hex"
@@ -135,19 +135,22 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *common.Cluster)
 }
 
 func (p *Provider) EnsureClusterReady(ctx context.Context, c *common.Cluster) error {
-	api := fmt.Sprintf("%s:%s/api", c.Cluster.Spec.PublicAlternativeNames[0], c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
 
-	clientset, err := c.ClientsetForBootstrap()
+	client, err := c.Clientset()
 	if err != nil {
-		klog.Errorf("ClientsetForBootstrap err: %v", clientset)
+		klog.Error("client set error")
 		return err
 	}
-	_, err = clientset.CoreV1().Nodes().Get(context.TODO(), api, metav1.GetOptions{})
-	if err == nil {
-		klog.Error("get cluster:%s health check error.", c.ClusterName)
+	body, berr := client.Discovery().RESTClient().Get().AbsPath("/healthz").Do(context.TODO()).Raw()
+	if berr != nil {
+		klog.Error("Failed to do cluster health check for cluster: %s", c.ClusterName)
 		return err
 	}
-	klog.Info("get cluster: %s health check success !", c.ClusterName)
+	if !strings.EqualFold(string(body), "ok") {
+		klog.Error("cluster to do health error")
+		return errors.New("cluster to do health error")
+	}
+	klog.Info("get cluster: %s state check success !", c.Name)
 	return nil
 }
 
