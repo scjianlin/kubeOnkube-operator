@@ -55,6 +55,7 @@ func NewProvider(mgr *clusterprovider.CpManager, cfg *config.Config) (*Provider,
 
 			p.EnsureExtKubeconfig,
 			p.EnsurePostInstallHook,
+			p.EnsureClusterReady, //健康检查cluster,如果未ready不能进入OnUpdate
 		},
 		UpdateHandlers: []clusterprovider.Handler{
 			p.EnsureExtKubeconfig,

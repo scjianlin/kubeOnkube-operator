@@ -21,13 +21,17 @@ func (m *APIManager) GetMemberMetaData(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	clusterName := c.Query("clusterName")
 
-	cli := m.getClient(clusterName)
+	cli, err := m.getClient(clusterName)
+	if err != nil {
+		resp.RespError("get cluster client error.")
+		return
+	}
 
 	ctx := context.Background()
 
 	resultList := &corev1.NamespaceList{}
 
-	err := cli.List(ctx, resultList)
+	err = cli.List(ctx, resultList)
 
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -58,11 +62,15 @@ func (m *APIManager) GetNodeCount(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	clsName := c.Query("clusterName")
 
-	cli := m.getClient(clsName)
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
 
 	nodeList := &corev1.NodeList{}
 	ctx := context.Background()
-	err := cli.List(ctx, nodeList)
+	err = cli.List(ctx, nodeList)
 	if err != nil {
 		resp.RespError("get node list error")
 		return
@@ -74,12 +82,16 @@ func (m *APIManager) TestGet(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	cliName := c.Query("clusterName")
 
-	cli := m.getClient(cliName)
+	cli, err := m.getClient(cliName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
 
 	role := &rbacv1.ClusterRoleList{}
 	ctx := context.Background()
 
-	err := cli.List(ctx, role)
+	err = cli.List(ctx, role)
 	if err != nil {
 		resp.RespError("get cluster role error")
 		return

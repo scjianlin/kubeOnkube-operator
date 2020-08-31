@@ -2,8 +2,8 @@ package cluster
 
 import (
 	"context"
-
 	"fmt"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"net/http"
 
 	"crypto/rand"
@@ -131,6 +131,23 @@ func (p *Provider) EnsurePreInstallHook(ctx context.Context, c *common.Cluster) 
 }
 
 func (p *Provider) EnsurePostInstallHook(ctx context.Context, c *common.Cluster) error {
+	return nil
+}
+
+func (p *Provider) EnsureClusterReady(ctx context.Context, c *common.Cluster) error {
+	api := fmt.Sprintf("%s:%s/api", c.Cluster.Spec.PublicAlternativeNames[0], c.Cluster.Spec.Features.HA.ThirdPartyHA.VPort)
+
+	clientset, err := c.ClientsetForBootstrap()
+	if err != nil {
+		klog.Errorf("ClientsetForBootstrap err: %v", clientset)
+		return err
+	}
+	_, err = clientset.CoreV1().Nodes().Get(context.TODO(), api, metav1.GetOptions{})
+	if err == nil {
+		klog.Error("get cluster:%s health check error.", c.ClusterName)
+		return err
+	}
+	klog.Info("get cluster: %s health check success !", c.ClusterName)
 	return nil
 }
 

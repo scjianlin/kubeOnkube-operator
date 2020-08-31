@@ -88,18 +88,18 @@ func NewAPIManager(mgr manager.Manager, cli k8smanager.MasterClient, opt *Option
 }
 
 // get cluster client
-func (m *APIManager) getClient(cliName string) client.Client {
+func (m *APIManager) getClient(cliName string) (client.Client, error) {
 	var cli client.Client
 	if cliName == MetaClusterName {
 		cli = m.Cluster.GetClient()
 	} else {
 		cls, err := m.Cluster.Get(cliName)
 		if err != nil {
-			return nil
+			return nil, nil
 		}
 		cli = cls.Client
 	}
-	return cli
+	return cli, nil
 }
 
 // Routes ...
@@ -148,8 +148,13 @@ func (m *APIManager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
-			Path:    "/apis/cluster/getClusterList",
-			Handler: m.GetClusterList,
+			Path:    "/apis/cluster/getMetaList",
+			Handler: m.getClusterList,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/getMemberList",
+			Handler: m.getClusterList,
 		},
 		{
 			Method:  "POST",

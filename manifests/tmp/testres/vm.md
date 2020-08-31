@@ -5,6 +5,7 @@
 | 10.248.224.183 | baremetal master1   | 1.18.5         |
 | 10.248.224.199 | baremetal master2   | 1.18.5         |
 | 10.248.224.201 | baremetal master3   | 1.18.5         |
+
 | 10.248.224.210 | baremetal node1     | 1.18.5         |
 | 10.248.224.171 | hosted-a node1      | 1.18.5         |
 | 10.248.224.172 | hosted-a node2      | 1.18.5         |

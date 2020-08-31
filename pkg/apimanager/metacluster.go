@@ -67,9 +67,8 @@ func (m *APIManager) GetClusterVersion(c *gin.Context) {
 }
 
 // get list of cluster
-func (m *APIManager) GetClusterList(c *gin.Context) {
+func (m *APIManager) getClusterList(c *gin.Context) {
 	lable := c.Query("labelSelector")
-	name := c.DefaultQuery("name", "all")
 
 	resp := responseutil.Gin{Ctx: c}
 
@@ -78,7 +77,6 @@ func (m *APIManager) GetClusterList(c *gin.Context) {
 
 	clusters := &devopsv1.ClusterList{}
 	clusterList := []*devopsv1.Cluster{}
-	memberList := []*devopsv1.Cluster{}
 
 	err := cli.List(ctx, clusters)
 
@@ -99,33 +97,16 @@ func (m *APIManager) GetClusterList(c *gin.Context) {
 	}
 	clusters.Items = append(clusters.Items, *metaObj)
 
-	tag := false
-	if name != "all" {
-		tag = true
-	}
 	for i := 0; i < len(clusters.Items); i++ {
 		clusters.Items[i].Status.NodeCount = m.getCount(clusters.Items[i].Name)
-		//clusterName := clusters.Items[i].Name
-		if clusters.Items[i].Labels["cluster-role.kunkka.io/cluster-role"] == "meta" {
-			if tag && clusters.Items[i].Name == name {
-				clusterList = append(clusterList, &clusters.Items[i])
-			} else {
-				clusterList = append(clusterList, &clusters.Items[i])
-			}
-		} else {
-			if tag && clusters.Items[i].Name == name {
-				memberList = append(clusterList, &clusters.Items[i])
-			} else {
-				memberList = append(clusterList, &clusters.Items[i])
-			}
+		if lable == "meta" && clusters.Items[i].Labels["cluster-role.kunkka.io/cluster-role"] == lable {
+			clusterList = append(clusterList, &clusters.Items[i])
+		}
+		if lable == "member" && clusters.Items[i].Labels["cluster-role.kunkka.io/cluster-role"] == lable {
+			clusterList = append(clusterList, &clusters.Items[i])
 		}
 	}
-
-	if lable == "meta" {
-		resp.RespSuccess(true, "success", clusterList, len(clusterList))
-	} else {
-		resp.RespSuccess(true, "success", memberList, len(memberList))
-	}
+	resp.RespSuccess(true, "success", clusterList, len(clusterList))
 }
 
 // add member cluster
@@ -338,12 +319,16 @@ func (m *APIManager) GetClusterCounts(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	clusterName := c.Query("clusterName")
 
-	cli := m.getClient(clusterName)
+	cli, err := m.getClient(clusterName)
+	if err != nil {
+		resp.RespError("get cluster client error.")
+		return
+	}
 
 	ctx := context.Background()
 	nodes := &corev1.NodeList{}
 
-	err := cli.List(ctx, nodes)
+	err = cli.List(ctx, nodes)
 	if err != nil {
 		resp.RespError("get cluster count error")
 		return
@@ -362,11 +347,13 @@ func (m *APIManager) GetClusterCounts(c *gin.Context) {
 }
 
 func (m *APIManager) getCount(name string) int {
-	cli := m.getClient(name)
-
+	cli, err := m.getClient(name)
+	if cli == nil || err != nil { // 如果是创建新的集群,此时client还未缓存,直接返回默认值。
+		return 0
+	}
 	nodes := &corev1.NodeList{}
 	ctx := context.Background()
-	err := cli.List(ctx, nodes)
+	err = cli.List(ctx, nodes)
 	if err != nil {
 		return 0
 	}
