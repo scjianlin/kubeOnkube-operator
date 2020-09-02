@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
-	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -44,23 +43,23 @@ func (p *Provider) EnsureCopyFiles(ctx context.Context, machine *devopsv1.Machin
 }
 
 func (p *Provider) EnsurePreInstallHook(ctx context.Context, machine *devopsv1.Machine, cluster *common.Cluster) error {
-	hook := cluster.Spec.Features.Hooks[devopsv1.HookPostInstall]
-	if hook == "" {
-		return nil
-	}
-
-	machineSSH, err := machine.Spec.SSH()
-	if err != nil {
-		return err
-	}
-
-	cmd := strings.Split(hook, " ")[0]
-
-	machineSSH.Execf("chmod +x %s", cmd)
-	_, stderr, exit, err := machineSSH.Exec(hook)
-	if err != nil || exit != 0 {
-		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
-	}
+	//hook := cluster.Spec.Features.Hooks[devopsv1.HookPostInstall]
+	//if hook == "" {
+	//	return nil
+	//}
+	//
+	//machineSSH, err := machine.Spec.SSH()
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//cmd := strings.Split(hook, " ")[0]
+	//
+	//machineSSH.Execf("chmod +x %s", cmd)
+	//_, stderr, exit, err := machineSSH.Exec(hook)
+	//if err != nil || exit != 0 {
+	//	return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
+	//}
 	return nil
 }
 
@@ -75,11 +74,11 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, machine *devopsv1.
 		return err
 	}
 
-	cmd := strings.Split(hook, " ")[0]
+	//cmd := strings.Split(hook, " ")[0]
 
-	machineSSH.Execf("chmod +x %s", cmd)
-	machineSSH.Execf("kubectl label nodes %s node-role.kubernetes.io/worker=", machine.Name)
-	_, stderr, exit, err := machineSSH.Exec(hook)
+	//machineSSH.Execf("chmod +x %s", cmd)
+	_, stderr, exit, err := machineSSH.Execf("kubectl label nodes %s node-role.kubernetes.io/worker=", machine.Name)
+	//_, stderr, exit, err := machineSSH.Exec(hook)
 	if err != nil || exit != 0 {
 		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
 	}

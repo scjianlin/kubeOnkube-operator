@@ -48,6 +48,7 @@ spec:
     enableMasterSchedule: true
     hooks:
       cniInstall: dke-cni
+      postInstall: addnode
   properties:
     maxNodePodNum: 128
   machines:
@@ -269,6 +270,7 @@ spec:
         dst: "/usr/local/bin/k9s"
     hooks:
       cniInstall: flannel
+      postInstall: addnode
   properties:
     maxNodePodNum: 64
   apiServerExtraArgs:

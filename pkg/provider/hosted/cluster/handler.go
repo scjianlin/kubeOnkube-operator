@@ -3,8 +3,10 @@ package cluster
 import (
 	"context"
 	"fmt"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"net/http"
 	"strings"
+	"time"
 
 	"crypto/rand"
 	"encoding/hex"
@@ -141,16 +143,40 @@ func (p *Provider) EnsureClusterReady(ctx context.Context, c *common.Cluster) er
 		klog.Error("client set error")
 		return err
 	}
-	body, berr := client.Discovery().RESTClient().Get().AbsPath("/healthz").Do(context.TODO()).Raw()
-	if berr != nil {
-		klog.Error("Failed to do cluster health check for cluster: %s", c.ClusterName)
-		return err
+
+	var defaultRetry = wait.Backoff{
+		Steps:    20,
+		Duration: 6 * time.Second,
+		Factor:   1.0,
+		Jitter:   0.1,
 	}
-	if !strings.EqualFold(string(body), "ok") {
-		klog.Error("cluster to do health error")
-		return errors.New("cluster to do health error")
+	werr := wait.ExponentialBackoff(defaultRetry, func() (bool, error) {
+		body, berr := client.Discovery().RESTClient().Get().AbsPath("/healthz").Do(context.TODO()).Raw()
+		if berr != nil {
+			klog.Error("Failed to do cluster health check for cluster: %s", c.Name)
+			return false, nil
+		}
+		if !strings.EqualFold(string(body), "ok") {
+			klog.Error("cluster to do health error")
+			return false, nil
+		}
+
+		// append cluster client to cache
+		if extKubeconfig, ok := c.ClusterCredential.ExtData[pkiutil.ExternalAdminKubeConfigFileName]; ok {
+			_, err = c.ClusterManager.AddNewClusters(c.Name, extKubeconfig)
+			if err != nil {
+				klog.Error("add cluster client to cache error.")
+				return false, nil
+			}
+			klog.Info("add cluster cache success!")
+			return true, nil
+		} else {
+			return false, nil
+		}
+	})
+	if werr != nil {
+		return werr
 	}
-	klog.Info("get cluster: %s state check success !", c.Name)
 	return nil
 }
 
