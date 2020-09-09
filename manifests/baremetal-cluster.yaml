@@ -44,15 +44,15 @@ spec:
     - ip: 10.248.224.183
       port: 22
       username: root
-      password: "hNKKTFCAOp6r58A"
+      password: ""
     - ip: 10.248.224.201
       port: 22
       username: root
-      password: "hNKKTFCAOp6r58A"
+      password: ""
     - ip: 10.248.224.199
       port: 22
       username: root
-      password: "hNKKTFCAOp6r58A"
+      password: ""
   apiServerExtraArgs:
     audit-log-maxage: "30"
     audit-log-maxbackup: "3"
