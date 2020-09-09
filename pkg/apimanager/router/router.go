@@ -13,8 +13,6 @@ import (
 
 	"github.com/DeanThompson/ginpprof"
 	"github.com/gin-gonic/gin"
-	//"gitlab.dmall.com/arch/sym-admin/pkg/metrics"
-	//"gitlab.dmall.com/arch/sym-admin/pkg/version"
 	"go.opencensus.io/plugin/ochttp"
 	"go.opencensus.io/trace"
 	"k8s.io/klog"
@@ -41,8 +39,6 @@ type Options struct {
 	MetricsPath      string
 	ShutdownTimeout  time.Duration
 
-	// 	Username      string
-	// 	Password      string
 	CertFilePath string
 	KeyFilePath  string
 }
@@ -75,8 +71,6 @@ type Route struct {
 func NewRouter(opt *Options) *Router {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
-	// engine := gin.Default()
-	// engine.Use(limits.RequestSizeLimiter(int64(opt.MaxUploadSize)))
 	if !opt.GinLogEnabled {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
@@ -84,7 +78,6 @@ func NewRouter(opt *Options) *Router {
 			SkipPaths: opt.GinLogSkipPath,
 		}
 		engine.Use(gin.LoggerWithConfig(conf))
-		// engine.Use(ginlog.Middleware())
 	}
 
 	r := &Router{
@@ -109,7 +102,6 @@ func NewRouter(opt *Options) *Router {
 	}
 
 	if opt.PprofEnabled {
-		// automatically add routers for net/http/pprof e.g. /debug/pprof, /debug/pprof/heap, etc.
 		ginpprof.Wrap(r.Engine)
 		r.AddProfile("GET", PprofPath, `PProf related things:<br/>
 			<a href="/debug/pprof/goroutine?debug=2">full goroutine stack dump</a>`)

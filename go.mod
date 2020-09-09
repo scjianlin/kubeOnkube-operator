@@ -18,13 +18,17 @@ require (
 	github.com/google/uuid v1.1.1
 	github.com/goph/emperror v0.17.2
 	github.com/huandu/xstrings v1.3.1 // indirect
+	github.com/json-iterator/go v1.1.9
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.12.2 // indirect
 	github.com/onsi/gomega v1.10.1
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.8.1
 	github.com/pkg/sftp v1.11.0
 	github.com/prometheus/client_golang v1.2.1
 	github.com/prometheus/common v0.7.0
+	github.com/prometheus/prometheus v1.8.2 // indirect
+	github.com/prometheus/tsdb v0.10.0 // indirect
 	github.com/segmentio/ksuid v1.0.2
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/pflag v1.0.5

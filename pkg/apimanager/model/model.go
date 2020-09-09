@@ -100,7 +100,7 @@ type RuntimeCondition struct {
 
 // cluster role model
 type ClusterRole struct {
-	Metadata Metadata    `json:"metadata"`
+	Metadata Meta        `json:"metadata"`
 	Rules    interface{} `json:"rules"`
 }
 type Labels struct {
@@ -112,7 +112,7 @@ type Annotations struct {
 	KubectlKubernetesIoLastAppliedConfiguration string `json:"kubectl.kubernetes.io/last-applied-configuration"`
 	KubesphereIoAliasName                       string `json:"kubesphere.io/alias-name"`
 }
-type Metadata struct {
+type Meta struct {
 	Name              string      `json:"name"`
 	SelfLink          string      `json:"selfLink"`
 	UID               string      `json:"uid"`

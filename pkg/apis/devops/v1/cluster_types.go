@@ -201,6 +201,18 @@ type ClusterFeature struct {
 	Hooks map[HookType]string `json:"hooks,omitempty"`
 }
 
+// HelmChartSpec records the attribute application of  cluster.
+type HelmChartSpec struct {
+	Name          string            `json:"name,omitempty"`
+	Namespace     string            `json:"namespace,omitempty"`
+	Repo          string            `json:"repo,omitempty"`
+	ChartName     string            `json:"chartName,omitempty"`
+	ChartVersion  string            `json:"chartVersion,omitempty"`
+	OverrideValue string            `json:"overrideValue,omitempty"`
+	Values        map[string]string `json:"values,omitempty"`
+	RawValueSet   map[string]string `json:"rawValueSet,omitempty"`
+}
+
 // ClusterProperty records the attribute information of the cluster.
 type ClusterProperty struct {
 	// +optional
@@ -284,7 +296,8 @@ type ClusterSpec struct {
 	// Etcd holds configuration for etcd.
 	Etcd *Etcd `json:"etcd,omitempty"`
 	//
-	Pause bool `json:"pause,omitempty"`
+	Apps  []*HelmChartSpec `json:"apps,omitempty"`
+	Pause bool             `json:"pause,omitempty"`
 }
 
 // ClusterStatus represents information about the status of a cluster.
@@ -323,8 +336,17 @@ type ClusterStatus struct {
 	// +optional
 	DNSIP string `json:"dnsIP,omitempty"`
 	// +optional
+	MonitoringStatus *MonitoringStatus `json:"monitoringStatus,omitempty"`
+	// +optional
 	RegistryIPs []string `json:"registryIPs,omitempty"`
 	NodeCount   int      `json:"nodeCount,omitempty"`
+}
+
+// MonitoringStatus defines the monit statu of  cluster
+type MonitoringStatus struct {
+	GrafanaEndpoint      *string `json:"grafanaEndpoint,omitempty"`
+	AlertManagerEndpoint *string `json:"alertManagerEndpoint,omitempty"`
+	PrometheusEndpoint   *string `json:"prometheusEndpoint,omitempty"`
 }
 
 // +genclient
