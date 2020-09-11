@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"sort"
 	"sync"
 	"time"
@@ -195,6 +197,12 @@ func (m *ClusterManager) AddNewClusters(name string, kubeconfig string) (*Cluste
 		return nil, err
 	}
 
+	err = m.preStart(nc)
+	if err != nil {
+		klog.Error("cluster client preStart error:%s", nc.Name)
+		return nil, err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
@@ -224,4 +232,37 @@ func (m *ClusterManager) Stop() {
 	for _, cluster := range m.clusters {
 		cluster.Stop()
 	}
+}
+
+func (r *ClusterManager) preStart(cls *Cluster) error {
+	if err := cls.Mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Pod{}, "spec.nodeName", func(object runtime.Object) []string {
+		pod := object.(*corev1.Pod)
+		return []string{pod.Status.HostIP}
+	}); err != nil {
+		klog.Warning("cluster: %#v add field index pod status.hostIP, err: %#v", cls.Name, err)
+		return errors.New("cluster add field index pod spec.nodeName failed")
+	} else {
+		klog.Warning("########### cluster: %#v add field index pod status.hostIP, successfully ##################", cls.Name)
+	}
+
+	if err := cls.Mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Event{}, "source.host", func(object runtime.Object) []string {
+		event := object.(*corev1.Event)
+		return []string{event.Source.Host}
+	}); err != nil {
+		klog.Warning("cluster: %#v add field index pod source.host, err: %#v", cls.Name, err)
+		return errors.New("cluster add field index pod source.host failed")
+	} else {
+		klog.Warning("########### cluster: %#v  add field index pod source.host, successfully ##################", cls.Name)
+	}
+
+	if err := cls.Mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Event{}, "involvedObject.kind", func(object runtime.Object) []string {
+		event := object.(*corev1.Event)
+		return []string{event.InvolvedObject.Kind}
+	}); err != nil {
+		klog.Warning("cluster: %#v add field index pod involvedObject.kind, err: %#v", cls.Name, err)
+		return errors.New("cluster add field index pod involvedObject.kind failed")
+	} else {
+		klog.Warning("########### cluster: %#v  add field index pod involvedObject.kind, successfully ##################", cls.Name)
+	}
+	return nil
 }

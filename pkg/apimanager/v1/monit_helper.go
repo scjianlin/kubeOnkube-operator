@@ -5,11 +5,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/apimanager/model/monit"
 	"github.com/gostship/kunkka/pkg/provider/monitoring"
-	"github.com/gostship/kunkka/pkg/provider/monitoring/prometheus"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	"github.com/pkg/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/klog"
 	"strconv"
 	"time"
 )
@@ -289,14 +287,4 @@ func makeQueryOptions(mgr *Manager, r reqParams, lvl monitoring.Level) (q queryO
 	}
 
 	return q, nil
-}
-
-func NewMonitor() *prometheus.Prometheus {
-	opt := &prometheus.Options{Endpoint: "http://10.248.224.210:32002/"}
-	client, err := prometheus.NewPrometheus(opt)
-	if err != nil {
-		klog.Error("get prometheus client error")
-		return nil
-	}
-	return &client
 }

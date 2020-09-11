@@ -37,3 +37,8 @@ func (g *Gin) RespSuccess(state bool, msg interface{}, data interface{}, total i
 	})
 	return
 }
+
+func (g *Gin) RespJson(data interface{}) {
+	g.Ctx.JSON(200, data)
+	return
+}

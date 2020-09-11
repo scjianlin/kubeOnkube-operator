@@ -11,9 +11,11 @@ import (
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (m *Manager) addClusterNode(c *gin.Context) {
@@ -115,4 +117,93 @@ func (m *Manager) getNoreadyNode(c *gin.Context) {
 		}
 	}
 	resp.RespSuccess(true, "success", resultList, len(resultList))
+}
+
+// 获取node节点CRD
+func (m *Manager) getNodeDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clusterName := c.Param("name")
+	nodeName := c.Param("node")
+
+	cli, err := m.getClient(clusterName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+	nodes := &corev1.NodeList{}
+	result := &corev1.Node{}
+	err = cli.List(ctx, nodes)
+
+	if err != nil {
+		resp.RespError("get node kind error!")
+		return
+	}
+	for _, node := range nodes.Items {
+		if node.Name == nodeName {
+			result = &node
+			break
+		}
+	}
+	resp.RespJson(result)
+}
+
+// 获取node节点pod list
+func (m *Manager) getNodePodDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clsName := c.Param("name")
+	nodeName := c.Query("nodeName")
+
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		klog.Error("get clienet error:%s", err)
+		resp.RespError("get client error")
+		return
+	}
+
+	pod := &corev1.PodList{}
+	ctx := context.Background()
+	err = cli.List(ctx, pod, &client.ListOptions{FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": nodeName})})
+	if err != nil {
+		klog.Error("get node pods error")
+		resp.RespError("get node pods error")
+		return
+	}
+	resp.RespSuccess(true, "OK", pod.Items, len(pod.Items))
+}
+
+// 获取node节点event
+func (m *Manager) getNodeEvents(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clsName := c.Param("name")
+	sourceHost := c.Query("source.host")
+	kindNmae := c.Query("involvedObject.kind")
+
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		klog.Error("get client error.")
+		return
+	}
+
+	evList := &corev1.EventList{}
+	result := []*corev1.Event{}
+	ctx := context.Background()
+
+	err = cli.List(ctx, evList, &client.ListOptions{
+		FieldSelector: fields.SelectorFromSet(fields.Set{"involvedObject.kind": kindNmae}),
+	})
+
+	if err != nil {
+		klog.Error("get envent list error", err)
+		resp.RespError("get event list error")
+		return
+	}
+
+	for _, ev := range evList.Items {
+		if ev.Source.Host == sourceHost {
+			result = append(result, &ev)
+		}
+	}
+	resp.RespJson(evList)
 }

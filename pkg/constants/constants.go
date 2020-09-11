@@ -121,6 +121,25 @@ const (
 	KubernetesAllImageName = "kubernetes"
 )
 
+const (
+	KubeSystemNamespace           = "kube-system"
+	OpenPitrixNamespace           = "openpitrix-system"
+	KubesphereDevOpsNamespace     = "kubesphere-devops-system"
+	IstioNamespace                = "istio-system"
+	KubeSphereMonitoringNamespace = "kubesphere-monitoring-system"
+	KubeSphereLoggingNamespace    = "kubesphere-logging-system"
+	KubeSphereNamespace           = "kubesphere-system"
+	KubeSphereControlNamespace    = "kubesphere-controls-system"
+	PorterNamespace               = "porter-system"
+	IngressControllerNamespace    = KubeSphereControlNamespace
+	AdminUserName                 = "admin"
+	IngressControllerPrefix       = "kubesphere-router-"
+)
+
+var (
+	SystemNamespaces = []string{KubeSphereNamespace, KubeSphereLoggingNamespace, KubeSphereMonitoringNamespace, OpenPitrixNamespace, KubeSystemNamespace, IstioNamespace, KubesphereDevOpsNamespace, PorterNamespace}
+)
+
 // GetGenericImage generates and returns a platform agnostic image (backed by manifest list)
 func GetGenericImage(prefix, image, tag string) string {
 	if strings.HasPrefix(image, "kube") {

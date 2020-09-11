@@ -3,13 +3,15 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/util/metautil"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	corev1 "k8s.io/api/core/v1"
-	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -88,14 +90,15 @@ func (m *Manager) TestGet(c *gin.Context) {
 		return
 	}
 
-	role := &rbacv1.ClusterRoleList{}
+	pod := &corev1.EventList{}
 	ctx := context.Background()
-
-	err = cli.List(ctx, role)
+	err = cli.List(ctx, pod, &client.ListOptions{FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": "10.248.225.4"})})
+	fmt.Println("err==>", err)
+	fmt.Println("role==", pod)
 	if err != nil {
 		resp.RespError("get cluster role error")
 		return
 	}
 
-	resp.RespSuccess(true, "success", role.Items, len(role.Items))
+	resp.RespSuccess(true, "success", pod.Items, len(pod.Items))
 }

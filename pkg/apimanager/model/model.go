@@ -121,3 +121,14 @@ type Meta struct {
 	Labels            Labels      `json:"labels"`
 	Annotations       Annotations `json:"annotations"`
 }
+
+// ComponentStatus represents system component status.
+type ComponentStatus struct {
+	Name            string      `json:"name" description:"component name"`
+	Namespace       string      `json:"namespace" description:"the name of the namespace"`
+	SelfLink        string      `json:"selfLink" description:"self link"`
+	Label           interface{} `json:"label" description:"labels"`
+	StartedAt       time.Time   `json:"startedAt" description:"started time"`
+	TotalBackends   int         `json:"totalBackends" description:"the total replicas of each backend system component"`
+	HealthyBackends int         `json:"healthyBackends" description:"the number of healthy backend components"`
+}

@@ -31,6 +31,17 @@ func (m *Manager) getClusterMonitor(c *gin.Context) {
 	m.handleNameMetricsQuery(c, opt)
 }
 
+func (m *Manager) getNodePods(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	params := parseRequestParams(c)
+	opt, err := makeQueryOptions(m, params, monitoring.LevelPod)
+	if err != nil {
+		resp.RespError("make pod monitor option error")
+		return
+	}
+	m.handleNameMetricsQuery(c, opt)
+}
+
 func (m *Manager) getApiserverMonitor(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
@@ -45,6 +56,11 @@ func (m *Manager) getApiserverMonitor(c *gin.Context) {
 
 func (m *Manager) handleNameMetricsQuery(c *gin.Context, q queryOptions) {
 	resp := responseutil.Gin{Ctx: c}
+	cli, err := m.getMonitClient(c.Param("name"))
+	if err != nil {
+		resp.RespError("get monitor client error")
+		return
+	}
 	var res monit.Metrics
 	var metrics []string
 	for _, metric := range q.namedMetrics {
@@ -59,12 +75,23 @@ func (m *Manager) handleNameMetricsQuery(c *gin.Context, q queryOptions) {
 	}
 
 	if q.isRangeQuery() {
-		res.Results = m.Monitor.GetNamedMetricsOverTime(metrics, q.start, q.end, q.step, q.option)
+		res.Results = cli.GetNamedMetricsOverTime(metrics, q.start, q.end, q.step, q.option)
 	} else {
-		res.Results = m.Monitor.GetNamedMetrics(metrics, q.time, q.option)
+		res.Results = cli.GetNamedMetrics(metrics, q.time, q.option)
 		if q.shouldSort() {
 			res = *res.Sort(q.target, q.order, q.identifier).Page(q.page, q.limit)
 		}
 	}
 	resp.RespSuccess(true, "OK", res, len(res.Results))
+}
+
+func (m *Manager) getClusterNsMonitor(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	params := parseRequestParams(c)
+	opt, err := makeQueryOptions(m, params, monitoring.LevelNamespace)
+	if err != nil {
+		resp.RespError("make namespace option err")
+		return
+	}
+	m.handleNameMetricsQuery(c, opt)
 }

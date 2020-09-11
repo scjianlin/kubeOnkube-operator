@@ -101,11 +101,11 @@ func (m *Manager) Routes() []*router.Route {
 			Path:    "/apis/cluster/getNodeCount",
 			Handler: m.GetNodeCount,
 		},
-		//{
-		//	Method:  "GET",
-		//	Path:    "/apis/cluster/Test",
-		//	Handler: m.TestGet,
-		//},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/Test",
+			Handler: m.TestGet,
+		},
 		{
 			Method:  "POST",
 			Path:    "/apis/cluster/addClusterNode",
@@ -128,9 +128,59 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/namespaces/:namespace",
+			Handler: m.getClusterNsMonitor,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/namespaces",
+			Handler: m.getClusterNsMonitor,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/Monitoring/:name/components/:component",
 			Handler: m.getApiserverMonitor,
 		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/nodes/:node",
+			Handler: m.getNodeDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/components",
+			Handler: m.getClusterComponents,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/nodes/:node/pods",
+			Handler: m.getNodePods,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/pods",
+			Handler: m.getNodePodDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/events",
+			Handler: m.getNodeEvents,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/resource/klusters/:name/namespaces",
+			Handler: m.getClusterAllNameSpace,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace",
+			Handler: m.getClusterNameSpace,
+		},
+		//{
+		//	Method:  "GET",
+		//	Path:    "/apis/cluster/watch/klusters/:name/namespaces/:namespaces",
+		//	Handler: m.getWatchNameSpace,
+		//},
 		//{
 		//	Method:  "GET",
 		//	Path:    "/kapi/cluster/:name/exec",

@@ -141,12 +141,14 @@ func (r *apiReconciler) addClusterCheck(ctx context.Context, c *common.Cluster) 
 				klog.Errorf("failed add cluster client: %s manager cache", c.Cluster.Name)
 				return nil
 			}
+
 			klog.Infof("#######  add cluster client: %s to manager cache success", c.Cluster.Name)
 			err = r.GManager.Update(cls)
 			if err != nil {
 				klog.Errorf("failed update cluster client: %s manager cache", c.Cluster.Name)
 				return nil
 			}
+
 			return nil
 		}
 	} else {
@@ -157,6 +159,7 @@ func (r *apiReconciler) addClusterCheck(ctx context.Context, c *common.Cluster) 
 				klog.Errorf("failed add cluster client: %s manager cache", c.Cluster.Name)
 				return nil
 			}
+
 			klog.Infof("#######  add cluster client: %s to manager cache success", c.Cluster.Name)
 			r.ClusterStarted[c.Cluster.Name] = true
 			return nil
