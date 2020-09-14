@@ -132,3 +132,18 @@ type ComponentStatus struct {
 	TotalBackends   int         `json:"totalBackends" description:"the total replicas of each backend system component"`
 	HealthyBackends int         `json:"healthyBackends" description:"the number of healthy backend components"`
 }
+
+// NodeStatus assembles cluster nodes status, simply wrap unhealthy and total nodes.
+type NodeStatus struct {
+	// total nodes of cluster, including master nodes
+	TotalNodes int `json:"totalNodes" description:"total number of nodes"`
+
+	// healthy nodes means nodes whose state is NodeReady
+	HealthyNodes int `json:"healthyNodes" description:"the number of healthy nodes"`
+}
+
+//
+type HealthStatus struct {
+	KubeSphereComponents []ComponentStatus `json:"kubesphereStatus" description:"kubesphere components status"`
+	NodeStatus           NodeStatus        `json:"nodeStatus" description:"nodes status"`
+}

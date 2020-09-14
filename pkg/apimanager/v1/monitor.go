@@ -95,3 +95,14 @@ func (m *Manager) getClusterNsMonitor(c *gin.Context) {
 	}
 	m.handleNameMetricsQuery(c, opt)
 }
+
+func (m *Manager) getClusterNsPodsMonitor(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	params := parseRequestParams(c)
+	opt, err := makeQueryOptions(m, params, monitoring.LevelPod)
+	if err != nil {
+		resp.RespError("make namespace option err")
+		return
+	}
+	m.handleNameMetricsQuery(c, opt)
+}

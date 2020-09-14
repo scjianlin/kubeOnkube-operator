@@ -19,6 +19,7 @@ require (
 	github.com/goph/emperror v0.17.2
 	github.com/huandu/xstrings v1.3.1 // indirect
 	github.com/json-iterator/go v1.1.9
+	github.com/kubernetes-csi/external-snapshotter/v2 v2.1.1
 	github.com/mitchellh/copystructure v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.12.2 // indirect
 	github.com/onsi/gomega v1.10.1

@@ -133,6 +133,11 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/namespaces/:namespace/pods",
+			Handler: m.getClusterNsPodsMonitor,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/Monitoring/:name/namespaces",
 			Handler: m.getClusterNsMonitor,
 		},
@@ -163,6 +168,61 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/services",
+			Handler: m.getServiceDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/ingresses",
+			Handler: m.getIngressesDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/secrets",
+			Handler: m.getSecretsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/configmaps",
+			Handler: m.getConfigmapsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/persistentvolumeclaims",
+			Handler: m.getPvcDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/storageclasses",
+			Handler: m.getStorageClassesDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/deployments",
+			Handler: m.getDeploymentDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/statefulsets",
+			Handler: m.getStatefulsetsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/daemonsets",
+			Handler: m.getDaemonsetsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/jobs",
+			Handler: m.getJobsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/cronjobs",
+			Handler: m.getCronJobDetail,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/klusters/:name/events",
 			Handler: m.getNodeEvents,
 		},
@@ -175,6 +235,16 @@ func (m *Manager) Routes() []*router.Route {
 			Method:  "GET",
 			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace",
 			Handler: m.getClusterNameSpace,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/pods",
+			Handler: m.getClusterNameSpacePods,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/componenthealth",
+			Handler: m.getComponentHealth,
 		},
 		//{
 		//	Method:  "GET",

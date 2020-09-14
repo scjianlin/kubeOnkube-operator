@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func (m *Manager) getClusterAllNameSpace(c *gin.Context) {
@@ -62,4 +63,28 @@ func (m *Manager) getClusterNameSpace(c *gin.Context) {
 		return
 	}
 	resp.RespJson(cms)
+}
+
+func (m *Manager) getClusterNameSpacePods(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clsName := c.Param("name")
+	nsName := c.Param("namespace")
+
+	ctx := context.Background()
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		klog.Error("get clienet error:%s", err)
+		resp.RespError("get client error")
+		return
+	}
+
+	pod := &corev1.PodList{}
+	err = cli.List(ctx, pod, &client.ListOptions{Namespace: nsName})
+	if err != nil {
+		klog.Error("get node pods error")
+		resp.RespError("get node pods error")
+		return
+	}
+	resp.RespSuccess(true, "OK", pod.Items, len(pod.Items))
+
 }

@@ -3,15 +3,12 @@ package v1
 import (
 	"context"
 	"errors"
-	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/gostship/kunkka/pkg/util/metautil"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/klog"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var (
@@ -83,6 +80,7 @@ func (m *Manager) GetNodeCount(c *gin.Context) {
 func (m *Manager) TestGet(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	cliName := c.Query("clusterName")
+	//nsName := c.Query("namespace")
 
 	cli, err := m.getClient(cliName)
 	if err != nil {
@@ -90,15 +88,15 @@ func (m *Manager) TestGet(c *gin.Context) {
 		return
 	}
 
-	pod := &corev1.EventList{}
+	pod := &corev1.ResourceQuota{}
+
 	ctx := context.Background()
-	err = cli.List(ctx, pod, &client.ListOptions{FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": "10.248.225.4"})})
-	fmt.Println("err==>", err)
-	fmt.Println("role==", pod)
+	err = cli.List(ctx, pod)
+
 	if err != nil {
 		resp.RespError("get cluster role error")
 		return
 	}
 
-	resp.RespSuccess(true, "success", pod.Items, len(pod.Items))
+	resp.RespSuccess(true, "success", pod, 0)
 }
