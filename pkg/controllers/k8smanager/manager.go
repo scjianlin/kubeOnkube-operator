@@ -234,6 +234,7 @@ func (m *ClusterManager) Stop() {
 	}
 }
 
+// 增加对象索引
 func (r *ClusterManager) preStart(cls *Cluster) error {
 	if err := cls.Mgr.GetFieldIndexer().IndexField(context.TODO(), &corev1.Pod{}, "spec.nodeName", func(object runtime.Object) []string {
 		pod := object.(*corev1.Pod)

@@ -8,6 +8,7 @@ import (
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 )
 
@@ -99,4 +100,36 @@ func (m *Manager) TestGet(c *gin.Context) {
 	}
 
 	resp.RespSuccess(true, "success", pod, 0)
+}
+
+// get kubeconfig
+func (m *Manager) getKubeConfig(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clsName := c.Param("name")
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		klog.Error("get client errors.", err)
+		resp.RespError("get client error.")
+		return
+	}
+	ctx := context.Background()
+	cms := &corev1.ConfigMap{}
+	if clsName == MetaClusterName {
+		err = cli.Get(ctx, types.NamespacedName{
+			Namespace: ConfigMapName,
+			Name:      "meta-cluster",
+		}, cms)
+		if err != nil {
+			resp.RespError("get meta cluster error.")
+			return
+		}
+		resp.RespJson(cms.Data["Cfg"])
+	} else {
+		cfg, err := m.getConfig(clsName)
+		if err != nil {
+			resp.RespError("get cluster cfg error.")
+			return
+		}
+		resp.RespJson(string(cfg))
+	}
 }

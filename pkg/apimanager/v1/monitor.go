@@ -106,3 +106,7 @@ func (m *Manager) getClusterNsPodsMonitor(c *gin.Context) {
 	}
 	m.handleNameMetricsQuery(c, opt)
 }
+
+func (m *Manager) aaa(c *gin.Context) {
+
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/gostship/kunkka/pkg/util/crdutil"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
+	"github.com/gostship/kunkka/pkg/util/workload"
 	v1 "k8s.io/api/apps/v1"
 	v12 "k8s.io/api/batch/v1"
 	"k8s.io/api/batch/v1beta1"
@@ -17,10 +18,12 @@ import (
 	v1beta12 "k8s.io/api/extensions/v1beta1"
 	v13 "k8s.io/api/storage/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"strings"
 )
 
 func (m *Manager) addClusterNode(c *gin.Context) {
@@ -214,11 +217,48 @@ func (m *Manager) getNodeEvents(c *gin.Context) {
 			result = append(result, &ev)
 		}
 	}
-	resp.RespJson(evList)
+	resp.RespSuccess(true, "OK", result, len(result))
+}
+
+// 获取pod事件
+func (m *Manager) getNsPodEvents(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	clsName := c.Param("name")
+	nsName := c.Param("namespace")
+
+	kindNmae := c.Query("involvedObject.kind")
+	objName := c.Query("involvedObject.name")
+
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		klog.Error("get client error.")
+		return
+	}
+
+	evList := &corev1.EventList{}
+	result := []*corev1.Event{}
+	ctx := context.Background()
+
+	err = cli.List(ctx, evList, &client.ListOptions{
+		FieldSelector: fields.SelectorFromSet(fields.Set{"involvedObject.kind": kindNmae}),
+	})
+
+	if err != nil {
+		klog.Error("get pod envent list error", err)
+		resp.RespError("get pod event list error")
+		return
+	}
+
+	for _, ev := range evList.Items {
+		if ev.InvolvedObject.Namespace == nsName && ev.InvolvedObject.Name == objName {
+			result = append(result, &ev)
+		}
+	}
+	resp.RespSuccess(true, "OK", result, len(result))
 }
 
 // 获取集群的deployment信息
-func (m *Manager) getDeploymentDetail(c *gin.Context) {
+func (m *Manager) getDeploymentList(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
 	clsName := c.Param("name")
@@ -238,6 +278,145 @@ func (m *Manager) getDeploymentDetail(c *gin.Context) {
 		return
 	}
 	resp.RespJson(dep)
+}
+
+// 获取集群的deployment信息
+func (m *Manager) getDeploymentDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clsName := c.Param("name")
+	work := c.Param("workload")
+	nsName := c.Param("namespace")
+
+	k, ok := workload.Kind["deployment"]
+	if !ok {
+		klog.Error("get kind error")
+		resp.RespError("get kind error")
+		return
+	}
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+
+	err = cli.Get(ctx, types.NamespacedName{
+		Namespace: nsName,
+		Name:      work,
+	}, k)
+	if err != nil {
+		klog.Error("get cluster workload error.")
+		resp.RespError("get cluster workload error")
+		return
+	}
+	resp.RespJson(k)
+}
+
+// 获取集群的deployment信息
+func (m *Manager) getStatefulsetsWorkLoad(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clsName := c.Param("name")
+	work := c.Param("workload")
+	nsName := c.Param("namespace")
+
+	k, ok := workload.Kind["statefulsets"]
+	if !ok {
+		klog.Error("get kind error")
+		resp.RespError("get kind error")
+		return
+	}
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+
+	err = cli.Get(ctx, types.NamespacedName{
+		Namespace: nsName,
+		Name:      work,
+	}, k)
+	if err != nil {
+		klog.Error("get cluster workload error.")
+		resp.RespError("get cluster workload error")
+		return
+	}
+	resp.RespJson(k)
+}
+
+// 获取集群的deployment信息
+func (m *Manager) getDeploymentReplicaset(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clsName := c.Param("name")
+	nsName := c.Param("namespace")
+	SelectLabel := c.DefaultQuery("labelSelector", "")
+	lab := labels.Set{}
+	if SelectLabel != "" {
+		label := strings.Split(SelectLabel, ",")
+		for _, v := range label {
+			setlab := strings.Split(v, "=")
+			lab[setlab[0]] = setlab[1]
+		}
+	}
+
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+	repList := &v1.ReplicaSetList{}
+
+	err = cli.List(ctx, repList, &client.ListOptions{
+		Namespace:     nsName,
+		LabelSelector: lab.AsSelector(),
+	})
+	if err != nil {
+		klog.Error("get cluster ReplicaSetList error.")
+		resp.RespError("get cluster ReplicaSetList error")
+		return
+	}
+
+	resp.RespSuccess(true, "OK", repList.Items, len(repList.Items))
+}
+
+// 获取集群的ControllerRevisions 信息
+func (m *Manager) getControllerRevisions(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clsName := c.Param("name")
+	nsName := c.Param("namespace")
+	SelectLabel := c.DefaultQuery("labelSelector", "")
+	lab := labels.Set{}
+	if SelectLabel != "" {
+		label := strings.Split(SelectLabel, ",")
+		for _, v := range label {
+			setlab := strings.Split(v, "=")
+			lab[setlab[0]] = setlab[1]
+		}
+	}
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+	repList := &v1.ControllerRevisionList{}
+
+	err = cli.List(ctx, repList, &client.ListOptions{
+		Namespace:     nsName,
+		LabelSelector: lab.AsSelector(),
+	})
+	if err != nil {
+		klog.Error("get cluster ReplicaSetList error.")
+		resp.RespError("get cluster ReplicaSetList error")
+		return
+	}
+
+	resp.RespSuccess(true, "OK", repList.Items, len(repList.Items))
 }
 
 // 获取集群的Statefulsets信息
@@ -264,7 +443,7 @@ func (m *Manager) getStatefulsetsDetail(c *gin.Context) {
 }
 
 // 获取集群的Daemonsets信息
-func (m *Manager) getDaemonsetsDetail(c *gin.Context) {
+func (m *Manager) getDaemonsetsList(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
 	clsName := c.Param("name")
@@ -284,6 +463,34 @@ func (m *Manager) getDaemonsetsDetail(c *gin.Context) {
 		return
 	}
 	resp.RespJson(dep)
+}
+
+// 获取DaemonsetsDetail 信息
+func (m *Manager) getDaemonsetsDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	clsName := c.Param("name")
+	nsName := c.Param("namespace")
+	appName := c.Param("workload")
+
+	cli, err := m.getClient(clsName)
+	if err != nil {
+		resp.RespError("get cluster client error")
+		return
+	}
+	ctx := context.Background()
+	Daemon := &v1.DaemonSet{}
+
+	err = cli.Get(ctx, types.NamespacedName{
+		Namespace: nsName,
+		Name:      appName,
+	}, Daemon)
+	if err != nil {
+		klog.Error("get cluster DaemonSet error.")
+		resp.RespError("get cluster DaemonSet error")
+		return
+	}
+	resp.RespJson(Daemon)
 }
 
 // 获取集群的Job信息
@@ -333,7 +540,7 @@ func (m *Manager) getCronJobDetail(c *gin.Context) {
 }
 
 // 获取集群Svc信息
-func (m *Manager) getServiceDetail(c *gin.Context) {
+func (m *Manager) getServiceList(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
 	clsName := c.Param("name")
@@ -350,6 +557,31 @@ func (m *Manager) getServiceDetail(c *gin.Context) {
 	if err != nil {
 		klog.Error("get cluster ServiceList error.")
 		resp.RespError("get cluster ServiceList error")
+		return
+	}
+	resp.RespJson(svc)
+}
+
+// 获取集群Svc信息
+func (m *Manager) getServiceDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+	ctx := context.Background()
+	clusName := c.Param("name")
+	nsName := c.Param("namespace")
+	svcName := c.Param("service")
+	cli, err := m.getClient(clusName)
+	if err != nil {
+		resp.RespError("get client error")
+		return
+	}
+	svc := &corev1.Service{}
+	err = cli.Get(ctx, types.NamespacedName{
+		Namespace: nsName,
+		Name:      svcName,
+	}, svc)
+	if err != nil {
+		klog.Error("get service error:", err)
+		resp.RespError("get service error")
 		return
 	}
 	resp.RespJson(svc)

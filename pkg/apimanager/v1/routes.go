@@ -138,6 +138,16 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/namespaces/:namespace/workloads/:kind/:workload/pods",
+			Handler: m.getClusterNsPodsMonitor,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/Monitoring/:name/namespaces/:namespace/pods/:pod",
+			Handler: m.getClusterNsPodsMonitor,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/Monitoring/:name/namespaces",
 			Handler: m.getClusterNsMonitor,
 		},
@@ -158,6 +168,16 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/components/:component",
+			Handler: m.getComponentsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/services/:service",
+			Handler: m.getServiceDetail,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/Monitoring/:name/nodes/:node/pods",
 			Handler: m.getNodePods,
 		},
@@ -169,7 +189,7 @@ func (m *Manager) Routes() []*router.Route {
 		{
 			Method:  "GET",
 			Path:    "/apis/cluster/klusters/:name/services",
-			Handler: m.getServiceDetail,
+			Handler: m.getServiceList,
 		},
 		{
 			Method:  "GET",
@@ -199,32 +219,12 @@ func (m *Manager) Routes() []*router.Route {
 		{
 			Method:  "GET",
 			Path:    "/apis/cluster/klusters/:name/deployments",
-			Handler: m.getDeploymentDetail,
+			Handler: m.getDeploymentList,
 		},
 		{
 			Method:  "GET",
-			Path:    "/apis/cluster/klusters/:name/statefulsets",
-			Handler: m.getStatefulsetsDetail,
-		},
-		{
-			Method:  "GET",
-			Path:    "/apis/cluster/klusters/:name/daemonsets",
-			Handler: m.getDaemonsetsDetail,
-		},
-		{
-			Method:  "GET",
-			Path:    "/apis/cluster/klusters/:name/jobs",
-			Handler: m.getJobsDetail,
-		},
-		{
-			Method:  "GET",
-			Path:    "/apis/cluster/klusters/:name/cronjobs",
-			Handler: m.getCronJobDetail,
-		},
-		{
-			Method:  "GET",
-			Path:    "/apis/cluster/klusters/:name/events",
-			Handler: m.getNodeEvents,
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/events",
+			Handler: m.getNsPodEvents,
 		},
 		{
 			Method:  "GET",
@@ -243,9 +243,100 @@ func (m *Manager) Routes() []*router.Route {
 		},
 		{
 			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/statefulsets/:workload",
+			Handler: m.getStatefulsetsWorkLoad,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/deployments/:workload",
+			Handler: m.getDeploymentDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/daemonsets/:workload",
+			Handler: m.getDaemonsetsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/statefulsets",
+			Handler: m.getStatefulsetsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/daemonsets",
+			Handler: m.getDaemonsetsList,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/jobs",
+			Handler: m.getJobsDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/cronjobs",
+			Handler: m.getCronJobDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/events",
+			Handler: m.getNodeEvents,
+		},
+		{
+			Method:  "GET",
 			Path:    "/apis/cluster/klusters/:name/componenthealth",
 			Handler: m.getComponentHealth,
 		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/users/:user/kubectl",
+			Handler: m.getKubectlPod,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/clusters/:name/namespaces/:namespace/pods/:pod",
+			Handler: m.getTerminalSession,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/users/:user/kubeconfig",
+			Handler: m.getKubeConfig,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/pods/:pod",
+			Handler: m.getPodDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/pods/:pod/log",
+			Handler: m.getPodLogs,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/replicasets",
+			Handler: m.getDeploymentReplicaset,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/controllerrevisions",
+			Handler: m.getControllerRevisions,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/endpoints/:service",
+			Handler: m.getServicePods,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/deployments",
+			Handler: m.getServiceDep,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/klusters/:name/namespaces/:namespace/statefulsets",
+			Handler: m.getServiceDae,
+		},
+		//
 		//{
 		//	Method:  "GET",
 		//	Path:    "/apis/cluster/watch/klusters/:name/namespaces/:namespaces",

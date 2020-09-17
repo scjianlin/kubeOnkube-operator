@@ -147,3 +147,9 @@ type HealthStatus struct {
 	KubeSphereComponents []ComponentStatus `json:"kubesphereStatus" description:"kubesphere components status"`
 	NodeStatus           NodeStatus        `json:"nodeStatus" description:"nodes status"`
 }
+
+type PodInfo struct {
+	Namespace string `json:"namespace" description:"namespace"`
+	Pod       string `json:"pod" description:"pod name"`
+	Container string `json:"container" description:"container name"`
+}

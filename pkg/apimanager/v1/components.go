@@ -72,6 +72,69 @@ func (m *Manager) getClusterComponents(c *gin.Context) {
 	resp.RespJson(components)
 }
 
+func (m *Manager) getComponentsDetail(c *gin.Context) {
+	resp := responseutil.Gin{Ctx: c}
+
+	ctx := context.Background()
+	clusName := c.Param("name")
+	componets := c.Param("component")
+	cli, err := m.getClient(clusName)
+	if err != nil {
+		resp.RespError("get client error")
+		return
+	}
+
+	svc := &corev1.ServiceList{}
+	pod := &corev1.PodList{}
+
+	components := &model.ComponentStatus{}
+	for _, ns := range constants.SystemNamespaces { //range namespace
+		listOptions := &client.ListOptions{Namespace: ns}
+		err = cli.List(ctx, svc, listOptions)
+		if err != nil {
+			klog.Error(err)
+			continue
+		}
+
+		for _, service := range svc.Items {
+			if service.Name == componets {
+
+				// skip services without a selector
+				if len(service.Spec.Selector) == 0 {
+					continue
+				}
+
+				component := model.ComponentStatus{
+					Name:            service.Name,
+					Namespace:       service.Namespace,
+					SelfLink:        service.SelfLink,
+					Label:           service.Spec.Selector,
+					StartedAt:       service.CreationTimestamp.Time,
+					HealthyBackends: 0,
+					TotalBackends:   0,
+				}
+				listOptions.LabelSelector = labels.SelectorFromValidatedSet(service.Spec.Selector)
+
+				err = cli.List(ctx, pod, listOptions)
+				if err != nil {
+					klog.Errorln(err)
+					continue
+				}
+
+				for _, pod := range pod.Items {
+					component.TotalBackends++
+					if pod.Status.Phase == corev1.PodRunning && isAllContainersReady(&pod) {
+						component.HealthyBackends++
+					}
+				}
+				components = &component
+			}
+		}
+	}
+	resp.RespJson(components)
+
+}
+
 func isAllContainersReady(pod *corev1.Pod) bool {
 	for _, c := range pod.Status.ContainerStatuses {
 		if !c.Ready {
