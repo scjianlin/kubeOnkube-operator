@@ -213,6 +213,6 @@ Install_depend_software && \
 Install_ipvs && \
 Install_depend_environment && \
 Install_docker && \
-Update_kernel 
+Update_kernel
 `
 )

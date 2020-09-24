@@ -212,7 +212,6 @@ func (p *Provider) EnsureKubeMisc(ctx context.Context, c *common.Cluster) error 
 	if err != nil {
 		return err
 	}
-
 	return ApplyKubeMiscConfigmap(c.Client, c, c.ClusterCredential.KubeData)
 }
 

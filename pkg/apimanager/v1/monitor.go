@@ -56,7 +56,7 @@ func (m *Manager) getApiserverMonitor(c *gin.Context) {
 
 func (m *Manager) handleNameMetricsQuery(c *gin.Context, q queryOptions) {
 	resp := responseutil.Gin{Ctx: c}
-	cli, err := m.getMonitClient(c.Param("name"))
+	cli, err := m.Cluster.GetMonitor(c.Param("name"))
 	if err != nil {
 		resp.RespError("get monitor client error")
 		return
@@ -105,8 +105,4 @@ func (m *Manager) getClusterNsPodsMonitor(c *gin.Context) {
 		return
 	}
 	m.handleNameMetricsQuery(c, opt)
-}
-
-func (m *Manager) aaa(c *gin.Context) {
-
 }

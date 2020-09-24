@@ -12,6 +12,7 @@ type Rack struct {
 	RackCidr     string           `json:"rackCidr"`
 	RackCidrGw   string           `json:"rackCidrGw"`
 	ProviderCidr string           `json:"providerCidr"`
+	ServiceRoute string           `json:"serviceRoute"`
 	RackTag      string           `json:"rackTag"`
 	IsMaster     int              `json:"isMaster"` //值为0表示False,值为1表示True
 	HostAddr     []*HostAddr      `json:"hostAddr"`

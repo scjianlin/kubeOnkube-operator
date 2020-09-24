@@ -1,11 +1,13 @@
 ARG CENTOS_BASE_VERSION=v7.8.2
 
-ARG K8S_ETCD_VERSION1=v3.3.23
+ARG K8S_ETCD_VERSION1=v3.3.15
 ARG K8S_ETCD_VERSION2=v3.4.9
 
 FROM quay.io/coreos/etcd:${K8S_ETCD_VERSION1} as etcd-v1
 FROM quay.io/coreos/etcd:${K8S_ETCD_VERSION2} as etcd-v2
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION} as default
+
+RUN export https_proxy=http://10.12.217.238:7890 http_proxy=http://10.12.217.238:7890 all_proxy=socks5://10.12.217.238:7890
 
 ENV K9S_SERVER_VERSION v0.21.2
 RUN curl -fsSL https://github.com/derailed/k9s/releases/download/$K9S_SERVER_VERSION/k9s_Linux_x86_64.tar.gz -o k9s.tar.gz \
@@ -23,7 +25,7 @@ RUN curl -fsSL https://get.helm.sh/helm-$HELM_VERSION-linux-amd64.tar.gz -o helm
     && mkdir -p /k8s/bin/ && mv /tmp/linux-amd64/helm /k8s/bin/ \
     && rm helm.tar.gz
 
-ENV K8S_V1 v1.16.13
+ENV K8S_V1 v1.16.14
 RUN curl -fsSL https://dl.k8s.io/$K8S_V1/kubernetes-server-linux-amd64.tar.gz -o k8s-$K8S_V1.tar.gz \
     && mkdir -p /k8s-$K8S_V1/bin/ && tar -C /k8s-$K8S_V1 -xzf k8s-$K8S_V1.tar.gz \
     && mv /k8s-$K8S_V1/kubernetes/server/bin/{kube-apiserver,kubeadm,kubectl,kubelet,kube-scheduler,kube-controller-manager} /k8s-$K8S_V1/bin/ \
@@ -43,7 +45,7 @@ COPY --from=etcd-v2 /usr/local/bin/etcd \
 
 FROM symcn.tencentcloudcr.com/symcn/centos-base:${CENTOS_BASE_VERSION}
 
-ENV K8S_V1 v1.16.13
+ENV K8S_V1 v1.16.14
 COPY --from=default /k8s-$K8S_V1/bin /k8s-$K8S_V1/bin
 
 ENV K8S_V2 v1.18.5

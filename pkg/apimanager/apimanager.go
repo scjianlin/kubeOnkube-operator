@@ -88,12 +88,9 @@ func NewAPIManager(mgr manager.Manager, cli k8smanager.MasterClient, opt *Option
 	// run api ctrl
 	apictl.Add(mgr, &gmanager.GManager{ClusterManager: k8sMgr})
 
-	monot := map[string]*prometheus.Prometheus{}
-
-	cli1, _ := prometheus.NewPrometheus(&prometheus.Options{Endpoint: "http://10.248.224.210:32002/"})
-	monot["hosted1"] = &cli1
-	cli2, _ := prometheus.NewPrometheus(&prometheus.Options{Endpoint: "http://10.248.225.17:32003/"})
-	monot["host"] = &cli2
+	// set meta monitor
+	m, _ := prometheus.NewPrometheus(&prometheus.Options{Endpoint: "http://10.248.225.17:32032/"})
+	k8sMgr.AddMonitor("host", m)
 
 	apiMgr.Cluster = k8sMgr
 	v1.Cluster = k8sMgr
@@ -104,7 +101,6 @@ func NewAPIManager(mgr manager.Manager, cli k8smanager.MasterClient, opt *Option
 		return nil, err
 	}
 
-	v1.Monitor = monot
 	return apiMgr, nil
 }
 

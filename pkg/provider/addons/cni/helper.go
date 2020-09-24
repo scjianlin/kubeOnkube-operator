@@ -21,20 +21,7 @@ const (
 
 set -xeuo pipefail
 
-#cni0
-cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-cni0
-TYPE=bridge
-ONBOOT=yes
-DEVICE=cni0
-BOOTPROTO=static
-IPV4_FAILURE_FATAL=no
-NAME=cni0
-BRIDGE_STP=yes
-EOF
-
-#!/usr/bin/env bash
-
-set -xeuo pipefail
+chattr +i /etc/resolv.conf
 
 #cni0
 cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-cni0
@@ -45,22 +32,6 @@ BOOTPROTO=static
 IPV4_FAILURE_FATAL=no
 NAME=cni0
 BRIDGE_STP=yes
-EOF
-
-egrep -i "IPADDR|PREFIX|NETMASK|GATEWAY" /etc/sysconfig/network-scripts/ifcfg-eth1 >> /etc/sysconfig/network-scripts/ifcfg-cni0
- 
-#ifcfg-eth1
-cat << EOF | tee /etc/sysconfig/network-scripts/ifcfg-eth1
-TYPE=Ethernet
-PROXY_METHOD=none
-BROWSER_ONLY=no
-BOOTPROTO=none
-DEFROUTE=yes
-IPV4_FAILURE_FATAL=no
-NAME=eth1
-DEVICE=eth1
-ONBOOT=yes
-BRIDGE=cni0
 EOF
 
 egrep -i "IPADDR|PREFIX|NETMASK|GATEWAY" /etc/sysconfig/network-scripts/ifcfg-eth1 >> /etc/sysconfig/network-scripts/ifcfg-cni0
@@ -103,7 +74,8 @@ EOF
   ],
   "routes": [
    {
-    "dst": "0.0.0.0/0"
+    "dst": "0.0.0.0/0",
+	"gw": "{{ .Gw }}"
    },
    {
     "dst": "{{ .Dst }}",

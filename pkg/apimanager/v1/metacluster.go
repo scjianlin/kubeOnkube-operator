@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/klog"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"strconv"
 )
 
 var (
@@ -111,9 +112,9 @@ func (m *Manager) AddCluster(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 
 	newCluster := &model.AddCluster{}
-	ctx := context.Background()
+	listRack := []*model.Rack{}
+
 	cli := m.Cluster.GetClient()
-	listMap := []*model.Rack{}
 
 	cluster, err := resp.Bind(newCluster)
 	if err != nil {
@@ -121,56 +122,25 @@ func (m *Manager) AddCluster(c *gin.Context) {
 		resp.RespError("add cluster faild params.")
 		return
 	}
-
-	cms := &corev1.ConfigMap{}
-
-	err = cli.Get(ctx, types.NamespacedName{
-		Name:      ConfigMapName,
-		Namespace: ConfigMapName,
-	}, cms)
-
-	if err != nil {
-		resp.RespError("not found rack cfg.")
-		return
+	for _, host := range cluster.(*model.AddCluster).ClusterIP {
+		listRack = append(listRack, m.getHostRack(host, c))
 	}
 
-	// 获取confiMap的数据
-	data, ok := cms.Data["List"]
-	if !ok {
-		klog.Info("no ConfigMap list!")
-		resp.RespError("no configMap list!")
-		return
-	}
-	// 将yaml转换为json
-	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
-	if err != nil {
-		klog.Errorf("yamlToJson error", err)
-		resp.RespError("yaml to struct error!")
-		return
-	}
-	// 转换为结构体
-	err = json.Unmarshal(yamlToRack, &listMap)
-	if err != nil {
-		klog.Errorf("Unmarshal json err", err)
-		resp.RespError("Unmarshal list json error.")
-		return
-	}
-	//cniOpt := &model.CniOption{}
-	cniOptList := []*model.CniOption{}
 	// 处理集群配置
-	for _, rack := range listMap {
+	cniOptList := []*model.CniOption{}
+	for i, rack := range listRack {
 		cniOpt := &model.CniOption{}
 
 		if metautil.StringofContains(rack.RackTag, cluster.(*model.AddCluster).ClusterRack) {
 			cniOpt.Racks = rack.RackCidr
 			if cluster.(*model.AddCluster).ClusterType == "Baremetal" {
 				for _, machine := range rack.HostAddr {
-					if metautil.StringofContains(machine.IPADDR, cluster.(*model.AddCluster).ClusterIP) {
+					if (cluster.(*model.AddCluster).ClusterIP)[i] == machine.IPADDR {
 						cniOpt.Machine = machine.IPADDR
 					}
 				}
 				for _, pod := range rack.PodCidr {
-					if metautil.StringofContains(pod.ID, cluster.(*model.AddCluster).PodPool) {
+					if cluster.(*model.AddCluster).PodPool[i] == pod.ID {
 						cniOpt.Cni = pod
 					}
 				}
@@ -322,24 +292,36 @@ func (m *Manager) GetClusterCounts(c *gin.Context) {
 		return
 	}
 
+	// 获取集群版本
+	cls, _ := m.getClient("host")
+
 	ctx := context.Background()
 	nodes := &corev1.NodeList{}
+
+	cluster := &devopsv1.Cluster{}
+	cls.Get(ctx, types.NamespacedName{
+		Namespace: clusterName,
+		Name:      clusterName,
+	}, cluster)
 
 	err = cli.List(ctx, nodes)
 	if err != nil {
 		resp.RespError("get cluster count error")
 		return
 	}
-	clusterCount := map[string]int{"masterCount": 0, "masterWorkerCount": 0}
+	clusterCount := map[string]string{"masterCount": "", "masterWorkerCount": "", "masterVersion": ""}
 
+	masterCount, workCount := 0, 0
 	for _, cls := range nodes.Items {
 		if _, ok := cls.Labels["node-role.kubernetes.io/master"]; ok {
-			clusterCount["masterCount"] += 1
+			masterCount += 1
 		} else {
-			clusterCount["masterWorkerCount"] += 1
+			workCount += 1
 		}
-
 	}
+	clusterCount["masterWorkerCount"] = strconv.Itoa(workCount)
+	clusterCount["masterCount"] = strconv.Itoa(masterCount)
+	clusterCount["masterVersion"] = cluster.Spec.Version
 	resp.RespSuccess(true, "success", clusterCount, len(clusterCount))
 }
 

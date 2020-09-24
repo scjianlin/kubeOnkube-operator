@@ -2,7 +2,6 @@ package crdutil
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
@@ -41,11 +40,15 @@ spec:
   serviceCIDR: 172.27.248.0/22
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - idct1-cluster.dke.k8s.io
+    - {{ .Cls.ClusterName }}.k8s.dmall.com
   features:
     ipvs: true
     internalLB: true
     enableMasterSchedule: true
+    ha:
+      thirdParty:
+        vip: {{ .Cls.ClusterName }}.k8s.dmall.com
+        vport: 6443
     hooks:
       cniInstall: dke-cni
       postInstall: addnode
@@ -314,7 +317,7 @@ func BuildBremetalCrd(cluster *model.AddCluster, cni []*model.CniOption) ([]runt
 		}
 	}
 
-	fmt.Println("str-crd==>", string(data))
+	//fmt.Println("str-crd==>", string(data))
 
 	objs, err := k8sutil.LoadObjs(bytes.NewReader(data))
 	if err != nil {

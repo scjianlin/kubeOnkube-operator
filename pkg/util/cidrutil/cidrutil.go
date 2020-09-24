@@ -9,9 +9,9 @@ import (
 	"strings"
 )
 
-var (
-	Route = "10.27.248.0/22"
-)
+//var (
+//	Route = "10.27.248.0/22" //改成动态输入
+//)
 
 // generate subnet
 func generate(cidr string) (*[]string, *[]string, string, error) {
@@ -44,16 +44,15 @@ func inc(ip net.IP) {
 }
 
 // get pod list of subnet
-func getPodCidr(ip string, podNum int) []*model.PodAddr {
+func getPodCidr(ip string, podNum int, svcRoute string) []*model.PodAddr {
 	ips := strings.Split(ip, ".")
 	podCidr := []*model.PodAddr{}
 	for i := 0; i < int(255/podNum); i++ {
 		pod := &model.PodAddr{}
-		pod.DefaultRoute = Route
+		pod.DefaultRoute = svcRoute
 		pod.RangeStart = fmt.Sprintf("%s.%s.%s.%d", ips[0], ips[1], ips[2], i*podNum+1)
 		pod.RangeEnd = fmt.Sprintf("%s.%s.%s.%d", ips[0], ips[1], ips[2], +i*podNum+podNum)
 		pod.ID = uidutil.GenerateId()
-		pod.DefaultRoute = Route
 		podCidr = append(podCidr, pod)
 	}
 	return podCidr
@@ -66,11 +65,11 @@ func genMaskString(m []byte) string {
 	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
-func GenerateCidr(cidr string, gw string, podNum int) ([]*v1.ClusterCni, []*model.HostAddr) {
+func GenerateCidr(cidr string, gw string, podNum int, svcRoute string) ([]*v1.ClusterCni, []*model.HostAddr) {
 	pod, host, mask, _ := generate(cidr)
 	rackpodList := []*model.PodAddr{}
 	for _, ip := range *pod {
-		res := getPodCidr(ip, podNum)
+		res := getPodCidr(ip, podNum, svcRoute)
 		for _, cidr := range res {
 			rackpodList = append(rackpodList, cidr)
 		}
@@ -89,7 +88,7 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*v1.ClusterCni, []*mode
 			Subnet:       cidr,
 			RangeStart:   v.RangeStart,
 			RangeEnd:     v.RangeEnd,
-			DefaultRoute: Route,
+			DefaultRoute: svcRoute,
 			UseState:     0,
 			GW:           gw,
 		}
@@ -97,12 +96,12 @@ func GenerateCidr(cidr string, gw string, podNum int) ([]*v1.ClusterCni, []*mode
 	}
 	for _, v := range rackHost {
 		h := &model.HostAddr{
-			ID:        uidutil.GenerateId(),
-			IPADDR:    v,
-			NetMask:   mask,
-			GateWay:   gw,
-			UseState:  0,
-			DnsServer: []string{"10.27.0.2", "10.27.0.202"},
+			ID:       uidutil.GenerateId(),
+			IPADDR:   v,
+			NetMask:  mask,
+			GateWay:  gw,
+			UseState: 0,
+			//DnsServer: []string{"10.27.0.2", "10.27.0.202"},
 		}
 		hostlist = append(hostlist, h)
 	}

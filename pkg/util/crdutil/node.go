@@ -2,7 +2,6 @@ package crdutil
 
 import (
 	"bytes"
-	"fmt"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
 	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
@@ -55,7 +54,6 @@ func BuildNodeCrd(node *model.ClusterNode, cni *v1.ClusterCni) ([]runtime.Object
 		node,
 		cni,
 	}
-	fmt.Println("opt==", opt)
 	data, err := template.ParseString(nodeTemplate, opt)
 	if err != nil {
 		return nil, err

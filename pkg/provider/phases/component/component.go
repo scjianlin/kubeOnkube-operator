@@ -71,9 +71,9 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 	}
 
 	for _, ls := range CopyList {
-		if ok, err := s.Exist(ls.Dst); err == nil && ok {
-			continue
-		}
+		//if ok, err := s.Exist(ls.Dst); err == nil && ok {
+		//	klog.Info("dst file: %s is exis!", ls.Dst)
+		//}
 
 		err := s.CopyFile(ls.Src, ls.Dst)
 		if err != nil {

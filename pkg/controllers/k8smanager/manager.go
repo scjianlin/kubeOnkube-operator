@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/gostship/kunkka/pkg/provider/monitoring/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sort"
@@ -36,6 +37,7 @@ type MasterClient struct {
 type ClusterManager struct {
 	MasterClient
 	clusters []*Cluster
+	monitor  map[string]*prometheus.Prometheus
 	Started  bool
 	sync.RWMutex
 }
@@ -45,6 +47,7 @@ func NewManager(cli MasterClient) (*ClusterManager, error) {
 	cMgr := &ClusterManager{
 		MasterClient: cli,
 		clusters:     make([]*Cluster, 0, 4),
+		monitor:      map[string]*prometheus.Prometheus{},
 	}
 
 	cMgr.Started = true

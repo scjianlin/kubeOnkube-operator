@@ -33,7 +33,7 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 	nodeParm := &model.ClusterNode{}
 	listMap := []*model.Rack{}
 
-	cni := &devopsv1.ClusterCni{}
+	//cni := &devopsv1.ClusterCni{}
 
 	node, err := resp.Bind(nodeParm)
 	if err != nil {
@@ -75,11 +75,15 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 		return
 	}
 
+	cni := &devopsv1.ClusterCni{}
+
 	for _, rack := range listMap {
 		if rack.RackTag == node.(*model.ClusterNode).NodeRack[0] {
 			for _, pod := range rack.PodCidr {
-				cni = pod //找到node节点的podcidr
-				break
+				if pod.ID == node.(*model.ClusterNode).PodPool[0] {
+					cni = pod //找到node节点的podcidr
+					break
+				}
 			}
 		}
 	}

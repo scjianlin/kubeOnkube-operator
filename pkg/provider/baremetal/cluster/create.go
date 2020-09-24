@@ -596,7 +596,7 @@ func (p *Provider) EnsureApplyEtcd(ctx context.Context, c *common.Cluster) error
 				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--initial-cluster-state=existing")
 			}
 
-			if !isFindLogger {
+			if !isFindLogger && c.Spec.Version != "v1.16.14" {
 				etcdPod.Spec.Containers[0].Command = append(etcdPod.Spec.Containers[0].Command, "--logger=zap")
 			}
 			serialized, err := k8sutil.MarshalToYaml(etcdPod, corev1.SchemeGroupVersion)

@@ -17,13 +17,13 @@ type Prometheus struct {
 	client apiv1.API
 }
 
-func NewPrometheus(options *Options) (Prometheus, error) {
+func NewPrometheus(options *Options) (*Prometheus, error) {
 	cfg := api.Config{
 		Address: options.Endpoint,
 	}
 
 	client, err := api.NewClient(cfg)
-	return Prometheus{client: apiv1.NewAPI(client)}, err
+	return &Prometheus{client: apiv1.NewAPI(client)}, err
 }
 
 func (p Prometheus) GetMetric(expr string, ts time.Time) monitoring.Metric {

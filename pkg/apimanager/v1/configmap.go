@@ -41,7 +41,7 @@ func (m *Manager) AddRackCidr(c *gin.Context) {
 
 	// generate pod or host address
 	rackNetAddr := r.(*model.Rack).RackCidr //10.28.0.0/22
-	podList, hostList := cidrutil.GenerateCidr(rackNetAddr, r.(*model.Rack).RackCidrGw, r.(*model.Rack).PodNum)
+	podList, hostList := cidrutil.GenerateCidr(rackNetAddr, r.(*model.Rack).RackCidrGw, r.(*model.Rack).PodNum, r.(*model.Rack).ServiceRoute)
 	r.(*model.Rack).HostAddr = hostList
 	r.(*model.Rack).PodCidr = podList
 
@@ -396,4 +396,60 @@ func (m *Manager) getMasterRack(c *gin.Context) {
 		}
 	}
 	resp.RespSuccess(true, "scuccess", rackList, len(rackList))
+}
+
+func (m *Manager) getHostRack(host string, c *gin.Context) *model.Rack {
+	resp := responseutil.Gin{Ctx: c}
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+	cms := []model.Rack{}
+
+	cmList := &corev1.ConfigMap{}
+	err := cli.Get(ctx, types.NamespacedName{
+		Namespace: ConfigMapName,
+		Name:      ConfigMapName,
+	}, cmList)
+
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			ns := &corev1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: ConfigMapName,
+				},
+			}
+			err := cli.Create(ctx, ns)
+			if err != nil {
+				klog.Errorf("get namespace:%s , error: %s", ConfigMapName, err)
+				resp.RespError("get namespace error.")
+			}
+		}
+
+		klog.Error("get configMap error %v: ", err)
+		resp.RespError("can't found rackcidr, please create.")
+	}
+
+	data := cmList.Data["List"]
+
+	// 将yaml转换为json
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		klog.Errorf("yamlToJson error", err)
+		resp.RespError("yamlToJson error.")
+	}
+
+	rerr := json.Unmarshal(yamlToRack, &cms)
+	if rerr != nil {
+		klog.Errorf("failed to Unmarshal err: %v", rerr)
+		resp.RespError("failed to Unmarshal err.")
+	}
+	result := &model.Rack{}
+	for _, rack := range cms {
+		for _, hosts := range rack.HostAddr {
+			if hosts.IPADDR == host {
+				result = &rack
+				return result
+			}
+		}
+	}
+	return result
 }

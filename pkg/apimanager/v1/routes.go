@@ -6,16 +6,41 @@ import "github.com/gostship/kunkka/pkg/apimanager/router"
 func (m *Manager) Routes() []*router.Route {
 	var routes []*router.Route
 	apiRoutes := []*router.Route{
-		//{
-		//	Method:  "GET",
-		//	Path:    "/oauth/authorize",
-		//	Handler: m.Oauth.AuthorizeHandler,
-		//},
-		//{
-		//	Method:  "GET",
-		//	Path:    "/kapis/config.kubesphere.io/v1alpha2/configs/configz",
-		//	Handler: m.Oauth.GetConfigMap,
-		//},
+		{
+			Method:  "GET",
+			Path:    "/oauth/authorize",
+			Handler: m.AuthorizeHandler,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/users",
+			Handler: m.getClusterUser,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/globalroles",
+			Handler: m.getGlobalRole,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/configs/oauth",
+			Handler: m.getAuthConfig,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/users/:username",
+			Handler: m.getUserDetail,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/workspaces",
+			Handler: m.getWorkSpace,
+		},
+		{
+			Method:  "GET",
+			Path:    "/apis/cluster/configs/configz",
+			Handler: m.getClusterConfig,
+		},
 		{
 			Method:  "GET",
 			Path:    "/apis/cluster/getRackCidr",
