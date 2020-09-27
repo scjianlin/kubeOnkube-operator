@@ -1,0 +1,51 @@
+apiVersion: {{ include "deployment_api_version" . }}
+kind: Deployment
+metadata:
+  name: {{ include "controller.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/name: {{ include "controller.name" . }}
+    helm.sh/chart: {{ include "controller.chart" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "controller.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ include "controller.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+          - "ctrl"
+          - "-v"
+          - {{ .Values.image.logLevel | quote | default "4" }}
+          - "--kubeconfig=/kunkka/cfg/meta-cluster.yaml"
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.port }}
+              protocol: TCP
+          volumeMounts:
+          - name: meta-cluster
+            mountPath: /kunkka/cfg/meta-cluster.yaml
+            subPath: meta-cluster.yaml
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      imagePullSecrets:
+        - name: tencenthubkey
+      serviceAccountName: {{ .Values.rbac.name }}
+      volumes:
+        - name: meta-cluster
+          configMap:
+            name: meta-cluster
+            items:
+            - key: Cfg
+              path: meta-cluster.yaml

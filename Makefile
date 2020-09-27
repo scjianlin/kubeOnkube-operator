@@ -2,6 +2,8 @@ VERSION ?= v0.0.4-dev1614
 # Image URL to use all building/pushing image targets
 IMG_REG ?= symcn.tencentcloudcr.com/symcn
 IMG_CTL := $(IMG_REG)/kunkka
+API_IMG_CTL := $(IMG_REG)/kunkka-api
+
 # Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
 CRD_OPTIONS ?= "crd:trivialVersions=true"
 
@@ -68,9 +70,14 @@ pre-build:
 	go run pkg/static/generate.go
 #	go generate ./pkg/... ./cmd/...
 
-# Build the docker image
+# Build ctrl the docker image
 docker-build-controller:
 	docker run --rm -v "$$PWD":/go/src/${ROOT} -v ${GOPATH}/pkg/mod:/go/pkg/mod -w /go/src/${ROOT} golang:${GO_VERSION} make build-controller
+
+
+# Build api the docker image
+docker-build-api:
+	docker run --rm -v "$$PWD":/go/src/${ROOT} -v ${GOPATH}/pkg/mod:/go/pkg/mod -w /go/src/${ROOT} golang:${GO_VERSION} make build-api
 
 build: build-controller
 
@@ -78,12 +85,27 @@ build-controller:
 	$(GO) -v -o bin/kunkka-controller -ldflags "-s -w -X $(ROOT)/pkg/version.Release=$(VERSION) -X  $(ROOT)/pkg/version.Commit=$(COMMIT)   \
 	-X  $(ROOT)/pkg/version.BuildDate=$(BUILD_DATE)" cmd/admin-controller/main.go
 
-docker-build: docker-build-controller
+build-api:
+	$(GO) -v -o bin/kunkka-api -ldflags "-s -w -X $(ROOT)/pkg/version.Release=$(VERSION) -X  $(ROOT)/pkg/version.Commit=$(COMMIT)   \
+	-X  $(ROOT)/pkg/version.BuildDate=$(BUILD_DATE)" cmd/admin-api/main.go
+
+
+docker-build-ctrl: docker-build-controller
+
+docker-build-api: docker-build-api
+
+
+
 
 # Push the docker image
-docker-push:
+docker-push-ctrl:
 	docker build -t ${IMG_CTL}:${VERSION} -f ./docker/kunkka/Dockerfile .
 	docker push ${IMG_CTL}:${VERSION}
+
+# Push the docker image
+docker-push-api:
+	docker build -t ${API_IMG_CTL}:${VERSION} -f ./docker/kunkka-api/Dockerfile .
+	docker push ${API_IMG_CTL}:${VERSION}
 
 # find or download controller-gen
 # download controller-gen if necessary

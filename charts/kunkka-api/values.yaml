@@ -1,0 +1,142 @@
+# Default values for api.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 2
+
+image:
+  repository: symcn.tencentcloudcr.com/symcn/kunkka-api
+  tag: v0.0.4-dev1614
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+
+service:
+  type: ClusterIP
+  port: 8888
+
+ingress:
+  enabled: false
+  annotations:
+    kubernetes.io/ingress.class: traefik
+    projectcontour.io/websocket-routes: "/"
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: devapi.sym.xx.com
+    # - host: testapi-djj.sym.xx.com
+      paths: ["/"]
+
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+#healthPath:
+#  liveness: "/live"
+#  readiness: "/ready"
+
+rbac:
+  name: kunkka-api
+  rules:
+  - apiGroups: ["devops.gostship.io"]
+    resources: ["*"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "endpoints", "configmaps"]
+    verbs: ["*"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["events", "pods/portforward"]
+    verbs: ["*"]
+
+resources:
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  limits:
+    cpu: 3
+    memory: 1Gi
+  requests:
+    cpu: 1
+    memory: 256Mi
+
+nodeSelector: {}
+
+tolerations: []
+
+#affinity:
+#  podAntiAffinity:
+#      preferredDuringSchedulingIgnoredDuringExecution:
+#      - weight: 100
+#        podAffinityTerm:
+#          labelSelector:
+#            matchExpressions:
+#            - key: app.kubernetes.io/name
+#              operator: In
+#              values:
+#              - kunkka-api
+#          topologyKey: kubernetes.io/hostname
+
+## dev-test
+#hostAliases:
+#  - ip: "10.13.135.251"
+#    hostnames:
+#      - "cls-89a4hpb3.ccs.tencent-cloud.com"
+#  - ip: "10.13.134.9"
+#    hostnames:
+#      - "cls-cm580t93.ccs.tencent-cloud.com"
+#  - ip: "10.13.133.7"
+#    hostnames:
+#      - "cls-0snem5sv.ccs.tencent-cloud.com"
+#  - ip: "10.13.135.12"
+#    hostnames:
+#      - "cls-7xq1bq9f.ccs.tencent-cloud.com"
+#  - ip: "10.16.247.78"
+#    hostnames:
+#      - "cls-otdyiqyb.ccs.tencent-cloud.com"
+#  - ip: "10.16.247.11"
+#    hostnames:
+#      - "cls-h5f02nmb.ccs.tencent-cloud.com"
+#  - ip: "10.16.113.12"
+#    hostnames:
+#      - "cls-3yclxq8t.ccs.tencent-cloud.com"
+#  - ip: "10.13.133.9"
+#    hostnames:
+#      - "cls-0snem5sv.ccs.tencent-cloud.com"
+#  - ip: "10.16.247.131"
+#    hostnames:
+#      - "cls-278pwqet.ccs.tencent-cloud.com"
+#  - ip: "10.16.113.81"
+#    hostnames:
+#      - "cls-97rlivuj.ccs.tencent-cloud.com"
+#  - ip: "10.13.133.134"
+#    hostnames:
+#      - "cls-azg4i2et.ccs.tencent-cloud.com"
+#  - ip: "10.16.70.8"
+#    hostnames:
+#      - "cls-glojus0v.ccs.tencent-cloud.com"
+#  - ip: "10.248.227.7"
+#    hostnames:
+#      - "cls-2ylraskd.ccs.tencent-cloud.com"
+#  - ip: "10.248.227.74"
+#    hostnames:
+#      - "cls-ehx4vson.ccs.tencent-cloud.com"
+#  - ip: "10.248.224.193"
+#    hostnames:
+#      - "cls-0doi9yrf.ccs.tencent-cloud.com"
+#  - ip: "10.16.116.8"
+#    hostnames:
+#      - "cls-6cy9p9q1.ccs.tencent-cloud.com"
+#  - ip: "10.248.227.142"
+#    hostnames:
+#      - "cls-7txii71z.ccs.tencent-cloud.com"
+#  - ip: "10.16.247.231"
+#    hostnames:
+#      - "cls-jvu2z5sv.ccs.tencent-cloud.com"
+#  - ip: "10.13.135.250"
+#    hostnames:
+#      - "chartmuseum.dmall.com"

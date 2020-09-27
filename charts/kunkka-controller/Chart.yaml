@@ -1,0 +1,11 @@
+apiVersion: v1
+appVersion: 1.1.0
+description: This is a template for creating for kunkka-controller.
+name: kunkka-controller
+keywords:
+  - api-ctrl
+  - ctrl
+sources:
+  - https://github.com/scjianlin/kubeOnkube-operator.git
+tillerVersion: '>=2.13.0'
+version: 1.0.21
