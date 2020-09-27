@@ -6,8 +6,8 @@ replicaCount: 2
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka
-  tag: v0.0.4-dev1614
-  pullPolicy: IfNotPresent
+  tag: v0.0.4-dev1616
+  pullPolicy: Always
   logLevel: 4
   master: false
   offlinepod: false
@@ -49,10 +49,10 @@ rbac:
 
 resources:
   limits:
-    cpu: 2
+    cpu: 0.2
     memory: 512Mi
   requests:
-    cpu: 2
+    cpu: 0.2
     memory: 256Mi
 
 nodeSelector: {}

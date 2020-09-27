@@ -24,44 +24,11 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-#          args:
-#          - "api"
-#          - "-v"
-#          - "4"
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
               protocol: TCP
-#          livenessProbe:
-#            httpGet:
-#              path: {{ .Values.healthPath.readiness }}
-#              port: http
-#            initialDelaySeconds: 5
-#            periodSeconds: 30
-#          readinessProbe:
-#            httpGet:
-#              path: {{ .Values.healthPath.readiness }}
-#              port: http
-#            initialDelaySeconds: 5
-#            periodSeconds: 30
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       imagePullSecrets:
         - name: tencenthubkey
-#      serviceAccountName: {{ .Values.rbac.name }}
-#      {{- with .Values.nodeSelector }}
-#      nodeSelector:
-#        {{- toYaml . | nindent 8 }}
-#      {{- end }}
-#    {{- with .Values.affinity }}
-#      affinity:
-#        {{- toYaml . | nindent 8 }}
-#    {{- end }}
-#    {{- with .Values.tolerations }}
-#      tolerations:
-#        {{- toYaml . | nindent 8 }}
-#    {{- end }}
-#    {{- with .Values.hostAliases }}
-#      hostAliases:
-#        {{- toYaml . | nindent 8 }}
-#    {{- end }}

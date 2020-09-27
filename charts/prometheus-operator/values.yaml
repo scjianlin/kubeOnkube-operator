@@ -334,7 +334,7 @@ alertmanager:
     ## Image of Alertmanager
     ##
     image:
-      repository: quay.io/prometheus/alertmanager
+      repository: symcn.tencentcloudcr.com/symcn/alertmanager
       tag: v0.21.0
       sha: ""
 
@@ -1409,7 +1409,7 @@ prometheus:
     ## Port to expose on each node
     ## Only used if service.type is 'NodePort'
     ##
-    nodePort: 32002
+    nodePort: 32032
 
     ## Loadbalancer IP
     ## Only use if service.type is "loadbalancer"
@@ -1610,7 +1610,7 @@ prometheus:
     ## Image of Prometheus.
     ##
     image:
-      repository: quay.io/prometheus/prometheus
+      repository: symcn.tencentcloudcr.com/symcn/prometheus
       tag: v2.18.2
       sha: ""
 

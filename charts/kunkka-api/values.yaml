@@ -6,15 +6,15 @@ replicaCount: 2
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka-api
-  tag: v0.0.4-dev1614
-  pullPolicy: IfNotPresent
+  tag: v0.0.4-dev1616
+  pullPolicy: Always
 
 nameOverride: ""
 fullnameOverride: ""
 
 service:
   type: ClusterIP
-  port: 8888
+  port: 80
 
 ingress:
   enabled: false
@@ -39,17 +39,8 @@ ingress:
 rbac:
   name: kunkka-api
   rules:
-  - apiGroups: ["devops.gostship.io"]
+  - apiGroups: ["*"]
     resources: ["*"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["pods", "services", "endpoints", "configmaps"]
-    verbs: ["*"]
-  - apiGroups: ["apps"]
-    resources: ["deployments", "statefulsets"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["events", "pods/portforward"]
     verbs: ["*"]
 
 resources:
@@ -58,10 +49,10 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 3
-    memory: 1Gi
+    cpu: 0.1
+    memory: 256Mi
   requests:
-    cpu: 1
+    cpu: 0.1
     memory: 256Mi
 
 nodeSelector: {}

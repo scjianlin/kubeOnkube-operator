@@ -25,6 +25,7 @@ spec:
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+          - /usr/local/bin/kunkka-api
           - "api-ctrl"
           - "-v"
           - "4"
@@ -37,18 +38,6 @@ spec:
           - name: meta-cluster
             mountPath: /kunkka/cfg/meta-cluster.yaml
             subPath: meta-cluster.yaml
-#          livenessProbe:
-#            httpGet:
-#              path: {{ .Values.healthPath.readiness }}
-#              port: http
-#            initialDelaySeconds: 5
-#            periodSeconds: 30
-#          readinessProbe:
-#            httpGet:
-#              path: {{ .Values.healthPath.readiness }}
-#              port: http
-#            initialDelaySeconds: 5
-#            periodSeconds: 30
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
       imagePullSecrets:

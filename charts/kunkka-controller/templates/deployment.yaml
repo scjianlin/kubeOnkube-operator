@@ -25,6 +25,7 @@ spec:
           image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           args:
+          - /usr/local/bin/kunkka-controller
           - "ctrl"
           - "-v"
           - {{ .Values.image.logLevel | quote | default "4" }}

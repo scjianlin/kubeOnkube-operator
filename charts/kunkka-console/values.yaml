@@ -6,14 +6,14 @@ replicaCount: 2
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka-console
-  tag: v0.0.3
-  pullPolicy: IfNotPresent
+  tag: v0.0.4-dev1616
+  pullPolicy: Always
 
 nameOverride: ""
 fullnameOverride: ""
 
 service:
-  type: ClusterIP
+  type: NodePort
   port: 8000
   nodePort: 30882
 
@@ -59,10 +59,10 @@ resources:
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
   # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
   limits:
-    cpu: 3
-    memory: 1Gi
+    cpu: 0.1
+    memory: 256Mi
   requests:
-    cpu: 1
+    cpu: 0.1
     memory: 256Mi
 
 nodeSelector: {}

@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
-	"github.com/gostship/kunkka/pkg/constants"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	websocket2 "github.com/gostship/kunkka/pkg/util/websocket"
 	"io/ioutil"
@@ -22,7 +21,7 @@ import (
 )
 
 const (
-	namespace        = constants.KubeSphereControlNamespace
+	namespace        = "kunkka-api"
 	deployNameFormat = "kubectl-%s"
 )
 

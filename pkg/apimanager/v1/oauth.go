@@ -26,8 +26,7 @@ func (m *Manager) AuthorizeHandler(c *gin.Context) {
 	}
 
 	authorization := c.GetHeader("Authorization")
-	splitUserInfo := strings.Split(authorization, " ")
-	decodeUser, _ := base64.StdEncoding.DecodeString(splitUserInfo[1])
+	decodeUser, _ := base64.StdEncoding.DecodeString(authorization)
 	userInfo := strings.Split(string(decodeUser), ":")
 
 	username := userInfo[0]
