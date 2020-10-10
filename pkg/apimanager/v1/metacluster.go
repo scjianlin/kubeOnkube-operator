@@ -122,8 +122,14 @@ func (m *Manager) AddCluster(c *gin.Context) {
 		resp.RespError("add cluster faild params.")
 		return
 	}
-	for _, host := range cluster.(*model.AddCluster).ClusterIP {
-		listRack = append(listRack, m.getHostRack(host, c))
+	if cluster.(*model.AddCluster).ClusterType == "Baremetal" {
+		for _, host := range cluster.(*model.AddCluster).ClusterIP {
+			listRack = append(listRack, m.getHostRack(host, c, cluster.(*model.AddCluster).ClusterType))
+		}
+	} else {
+		for _, rack := range cluster.(*model.AddCluster).ClusterRack {
+			listRack = append(listRack, m.getHostRack(rack, c, cluster.(*model.AddCluster).ClusterType))
+		}
 	}
 
 	// 处理集群配置

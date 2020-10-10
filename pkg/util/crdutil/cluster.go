@@ -111,17 +111,6 @@ spec:
       labels:
         app: etcd
     spec:
-      affinity:
-        podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
-            - podAffinityTerm:
-                namespaces:
-                  - {{ .Cls.ClusterName }}
-                labelSelector:
-                  matchLabels:
-                    app: etcd
-                topologyKey: kubernetes.io/hostname
-              weight: 100
       containers:
         - name: etcd
           image: symcn.tencentcloudcr.com/symcn/kubernetes:{{ .Cls.ClusterVersion }}
@@ -242,7 +231,6 @@ metadata:
   namespace: {{ .Cls.ClusterName }}
   annotations:
     kunkka.io/description: {{ .Cls.Description }}
-    k8s.io/apiSvcVip: "10.248.225.4"
     k8s.io/action: EnsureKubeMaster,EnsureExtKubeconfig,EnsureAddons,EnsureCni
   labels:
     cluster-role.kunkka.io/cluster-role: "member"
@@ -258,7 +246,7 @@ spec:
   serviceCIDR: 10.97.0.0/16
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - hosteda.dke.k8s.io
+    - {{ .Cls.ClusterName }}.k8s.dmall.com
     - kube-apiserver
   features:
     ipvs: true
@@ -266,7 +254,7 @@ spec:
     enableMasterSchedule: true
     ha:
       thirdParty:
-        vip: "10.248.225.4"
+        vip: "10.248.225.11"
         vport: 30443
     files:
       - src: "/k8s/bin/k9s"

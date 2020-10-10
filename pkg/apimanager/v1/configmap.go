@@ -398,7 +398,7 @@ func (m *Manager) getMasterRack(c *gin.Context) {
 	resp.RespSuccess(true, "scuccess", rackList, len(rackList))
 }
 
-func (m *Manager) getHostRack(host string, c *gin.Context) *model.Rack {
+func (m *Manager) getHostRack(typeName string, c *gin.Context, clstype string) *model.Rack {
 	resp := responseutil.Gin{Ctx: c}
 	cli := m.Cluster.GetClient()
 	ctx := context.Background()
@@ -444,8 +444,15 @@ func (m *Manager) getHostRack(host string, c *gin.Context) *model.Rack {
 	}
 	result := &model.Rack{}
 	for _, rack := range cms {
-		for _, hosts := range rack.HostAddr {
-			if hosts.IPADDR == host {
+		if clstype == "Baremetal" {
+			for _, hosts := range rack.HostAddr {
+				if hosts.IPADDR == typeName {
+					result = &rack
+					return result
+				}
+			}
+		} else { //全托管集群返回机柜信息
+			if typeName == rack.RackTag {
 				result = &rack
 				return result
 			}

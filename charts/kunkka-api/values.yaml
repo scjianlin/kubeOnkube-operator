@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka-api
-  tag: v0.0.4-dev1616
+  tag: v0.0.5-dev09
   pullPolicy: Always
 
 nameOverride: ""

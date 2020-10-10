@@ -152,8 +152,9 @@ func (p *Provider) EnsureClusterReady(ctx context.Context, c *common.Cluster) er
 	}
 	werr := wait.ExponentialBackoff(defaultRetry, func() (bool, error) {
 		body, berr := client.Discovery().RESTClient().Get().AbsPath("/healthz").Do(context.TODO()).Raw()
+		klog.Info("apiserver_url==>", client.Discovery().RESTClient().Get().AbsPath("/healthz"))
 		if berr != nil {
-			klog.Error("Failed to do cluster health check for cluster: %s", c.Name)
+			klog.Error("Failed to do cluster health check for cluster: %s,err:%s", c.Name, berr)
 			return false, nil
 		}
 		if !strings.EqualFold(string(body), "ok") {

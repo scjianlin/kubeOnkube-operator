@@ -172,6 +172,7 @@ func (c *Cluster) HostForBootstrap() (string, error) {
 
 func (c *Cluster) IPs() []string {
 	ips := []string{}
+	ips = append(ips, "0.0.0.0")
 	for _, m := range c.Spec.Machines {
 		ips = append(ips, m.IP)
 	}

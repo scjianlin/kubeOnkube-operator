@@ -42,7 +42,7 @@ func GetPodBindPort(obj *common.Cluster) int32 {
 func GetSvcNodePort(obj *common.Cluster) int32 {
 	port := GetPodBindPort(obj)
 
-	if port < 30000 {
+	if port < 2767 {
 		port = port + 30000
 	}
 	return port
@@ -191,9 +191,8 @@ func (r *Reconciler) apiServerDeployment() runtime.Object {
 		"--token-auth-file=/etc/kubernetes/known_tokens.csv",
 	}
 
-	advertiseAddress := GetAdvertiseAddress(r.Obj)
 	cmds = append(cmds, fmt.Sprintf("--secure-port=%d", GetPodBindPort(r.Obj)))
-	cmds = append(cmds, fmt.Sprintf("--advertise-address=%s", advertiseAddress))
+	cmds = append(cmds, fmt.Sprintf("--advertise-address=%s", "0.0.0.0"))
 	if r.Obj.Cluster.Spec.APIServerExtraArgs != nil {
 		extraArgs := []string{}
 		for k, v := range r.Obj.Cluster.Spec.APIServerExtraArgs {
