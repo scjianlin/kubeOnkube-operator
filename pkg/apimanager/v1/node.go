@@ -9,6 +9,7 @@ import (
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/crdutil"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
+	"github.com/gostship/kunkka/pkg/util/metautil"
 	"github.com/gostship/kunkka/pkg/util/responseutil"
 	"github.com/gostship/kunkka/pkg/util/workload"
 	v1 "k8s.io/api/apps/v1"
@@ -26,6 +27,7 @@ import (
 	"strings"
 )
 
+// 添加集群节点, 根据前端提交的机器和cni配置,组装Machine CRD然后提交到集群。
 func (m *Manager) addClusterNode(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	cli := m.Cluster.GetClient()
@@ -75,20 +77,25 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 		return
 	}
 
-	cni := &devopsv1.ClusterCni{}
+	cniList := []*devopsv1.ClusterCni{}
 
-	for _, rack := range listMap {
-		if rack.RackTag == node.(*model.ClusterNode).NodeRack[0] {
+	listRack := []*model.Rack{}
+
+	for _, host := range node.(*model.ClusterNode).AddressList {
+		listRack = append(listRack, m.getHostRack(host, c, "Baremetal"))
+	}
+
+	for i, rack := range listRack {
+		if metautil.StringofContains(rack.RackTag, node.(*model.ClusterNode).NodeRack) {
 			for _, pod := range rack.PodCidr {
-				if pod.ID == node.(*model.ClusterNode).PodPool[0] {
-					cni = pod //找到node节点的podcidr
-					break
+				if pod.ID == node.(*model.ClusterNode).PodPool[i] {
+					cniList = append(cniList, pod)
 				}
 			}
 		}
 	}
 
-	nodeObj, err := crdutil.BuildNodeCrd(node.(*model.ClusterNode), cni)
+	nodeObj, err := crdutil.BuildNodeCrd(node.(*model.ClusterNode), cniList)
 	if err != nil {
 		klog.Error("build node crd cfg error: ", err)
 		resp.RespError("build node crd cfg error")

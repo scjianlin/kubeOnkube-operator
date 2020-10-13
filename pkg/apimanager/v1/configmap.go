@@ -237,8 +237,8 @@ func (m *Manager) UptConfigMap(c *gin.Context) {
 		klog.Info("no ConfigMap list!")
 		resp.RespError("no ConfigMap list!")
 		return
-
 	}
+
 	// 将yaml转换为json
 	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
 	if err != nil {

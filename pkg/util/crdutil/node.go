@@ -11,44 +11,47 @@ import (
 )
 
 var nodeTemplate = `
+{{ range $index, $element := .Node.AddressList }}
 apiVersion: devops.gostship.io/v1
 kind: Machine
 metadata:
   labels:
-    name: {{ index .Node.AddressList 0 }}
-    clusterName: {{ .Node.ClusterName }}
-  name: {{ index .Node.AddressList 0 }}
-  namespace: {{ .Node.ClusterName }}
+    name: {{ $element }}
+    clusterName: {{ $.Node.ClusterName }}
+  name: {{ $element }}
+  namespace: {{ $.Node.ClusterName }}
 spec:
-  clusterName: {{ .Node.ClusterName }}
+  clusterName: {{ $.Node.ClusterName }}
   type: Baremetal
   machine:
-    ip: {{ index .Node.AddressList 0 }}
+    ip: {{ $element }}
     port: 22
-    username: {{ .Node.UserName }}
-    password: {{ .Node.Password }}
+    username: {{ $.Node.UserName }}
+    password: {{ $.Node.Password }}
     hostCni:
-      id: {{ .Cni.ID }}
-      subnet: {{ .Cni.Subnet }}
-      useState: {{ .Cni.UseState }}
-      rangeStart: {{ .Cni.RangeStart }}
-      rangeEnd: {{ .Cni.RangeEnd }}
-      defaultRoute: {{ .Cni.DefaultRoute }}
-      gw: {{ .Cni.GW }}
+      id: {{  (index $.Cni $index).ID }}
+      subnet: {{  (index $.Cni $index).Subnet }}
+      useState: {{ (index $.Cni $index).UseState }}
+      rangeStart: {{ (index $.Cni $index).RangeStart }}
+      rangeEnd: {{ (index $.Cni $index).RangeEnd }}
+      defaultRoute: {{ (index $.Cni $index).DefaultRoute }}
+      gw: {{ (index $.Cni $index).GW }}
       useState: 1
   dockerExtraArgs:
     registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
-    version: {{ .Node.DockerVersion }}
+    version: {{ $.Node.DockerVersion }}
   feature:
     hooks:
       installType: kubeadm
+---
+{{ end }}
 `
 
-func BuildNodeCrd(node *model.ClusterNode, cni *v1.ClusterCni) ([]runtime.Object, error) {
+func BuildNodeCrd(node *model.ClusterNode, cni []*v1.ClusterCni) ([]runtime.Object, error) {
 
 	type Option struct {
 		Node *model.ClusterNode
-		Cni  *v1.ClusterCni
+		Cni  []*v1.ClusterCni
 	}
 	opt := &Option{
 		node,
