@@ -77,25 +77,40 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 		return
 	}
 
-	cniList := []*devopsv1.ClusterCni{}
-
 	listRack := []*model.Rack{}
 
 	for _, host := range node.(*model.ClusterNode).AddressList {
 		listRack = append(listRack, m.getHostRack(host, c, "Baremetal"))
 	}
 
+	if len(listRack) != len(node.(*model.ClusterNode).AddressList) {
+		klog.Error("address list lerge rack list!")
+		resp.RespError("address list lerge rack list!")
+		return
+	}
+
+	cniOptList := []*model.CniOption{}
+
 	for i, rack := range listRack {
+		cniOpt := &model.CniOption{}
 		if metautil.StringofContains(rack.RackTag, node.(*model.ClusterNode).NodeRack) {
+			cniOpt.Racks = rack.RackTag
+			for _, machine := range rack.HostAddr {
+				if (node.(*model.ClusterNode).AddressList)[i] == machine.IPADDR {
+					cniOpt.Machine = machine.IPADDR
+				}
+			}
 			for _, pod := range rack.PodCidr {
 				if pod.ID == node.(*model.ClusterNode).PodPool[i] {
-					cniList = append(cniList, pod)
+					cniOpt.Cni = pod
 				}
 			}
 		}
+		cniOptList = append(cniOptList, cniOpt)
+		m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
 	}
 
-	nodeObj, err := crdutil.BuildNodeCrd(node.(*model.ClusterNode), cniList)
+	nodeObj, err := crdutil.BuildNodeCrd(node.(*model.ClusterNode), cniOptList)
 	if err != nil {
 		klog.Error("build node crd cfg error: ", err)
 		resp.RespError("build node crd cfg error")
@@ -120,7 +135,7 @@ func (m *Manager) getNoreadyNode(c *gin.Context) {
 	cli := m.Cluster.GetClient()
 	ctx := context.Background()
 	clusterName := c.Query("clusterName")
-	resultList := []*devopsv1.Machine{}
+	resultList := []devopsv1.Machine{}
 	machine := &devopsv1.MachineList{}
 
 	err := cli.List(ctx, machine)
@@ -132,7 +147,7 @@ func (m *Manager) getNoreadyNode(c *gin.Context) {
 
 	for _, ma := range machine.Items {
 		if ma.Status.Phase != devopsv1.MachineRunning && ma.Spec.ClusterName == clusterName { // 未就绪的节点
-			resultList = append(resultList, &ma)
+			resultList = append(resultList, ma)
 		}
 	}
 	resp.RespSuccess(true, "success", resultList, len(resultList))

@@ -65,7 +65,7 @@ func genMaskString(m []byte) string {
 	return fmt.Sprintf("%d.%d.%d.%d", m[0], m[1], m[2], m[3])
 }
 
-func GenerateCidr(cidr string, gw string, podNum int, svcRoute string) ([]*v1.ClusterCni, []*model.HostAddr) {
+func GenerateCidr(cidr string, gw string, podNum int, svcRoute string, rack string) ([]*v1.ClusterCni, []*model.HostAddr) {
 	pod, host, mask, _ := generate(cidr)
 	rackpodList := []*model.PodAddr{}
 	for _, ip := range *pod {
@@ -89,6 +89,7 @@ func GenerateCidr(cidr string, gw string, podNum int, svcRoute string) ([]*v1.Cl
 			RangeStart:   v.RangeStart,
 			RangeEnd:     v.RangeEnd,
 			DefaultRoute: svcRoute,
+			RackTag:      rack,
 			UseState:     0,
 			GW:           gw,
 		}

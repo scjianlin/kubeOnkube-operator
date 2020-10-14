@@ -31,7 +31,7 @@ func IssueTo(username string) (*auth.Token, error) {
 		},
 	}
 	JwtSecret := DefaultIssuerName
-	ExpiresAt := clm.IssuedAt + int64(24*time.Hour)
+	ExpiresAt := clm.IssuedAt + int64(6*time.Hour)
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, clm)
 

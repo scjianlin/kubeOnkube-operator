@@ -3,7 +3,6 @@ package crdutil
 import (
 	"bytes"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
-	v1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -11,31 +10,32 @@ import (
 )
 
 var nodeTemplate = `
-{{ range $index, $element := .Node.AddressList }}
+{{ range $index, $element := .Cni }}
 apiVersion: devops.gostship.io/v1
 kind: Machine
 metadata:
   labels:
-    name: {{ $element }}
+    name: {{ $element.Machine }}
     clusterName: {{ $.Node.ClusterName }}
-  name: {{ $element }}
+  name: {{ $element.Machine }}
   namespace: {{ $.Node.ClusterName }}
 spec:
   clusterName: {{ $.Node.ClusterName }}
   type: Baremetal
   machine:
-    ip: {{ $element }}
+    ip: {{ $element.Machine }}
     port: 22
     username: {{ $.Node.UserName }}
     password: {{ $.Node.Password }}
     hostCni:
-      id: {{  (index $.Cni $index).ID }}
-      subnet: {{  (index $.Cni $index).Subnet }}
-      useState: {{ (index $.Cni $index).UseState }}
-      rangeStart: {{ (index $.Cni $index).RangeStart }}
-      rangeEnd: {{ (index $.Cni $index).RangeEnd }}
-      defaultRoute: {{ (index $.Cni $index).DefaultRoute }}
-      gw: {{ (index $.Cni $index).GW }}
+      id: {{  $element.Cni.ID }}
+      subnet: {{  $element.Cni.Subnet }}
+      useState: {{ $element.Cni.UseState }}
+      rangeStart: {{ $element.Cni.RangeStart }}
+      rangeEnd: {{ $element.Cni.RangeEnd }}
+      defaultRoute: {{ $element.Cni.DefaultRoute }}
+      gw: {{ $element.Cni.GW }}
+      rackTag: {{ $element.Cni.RackTag }}
       useState: 1
   dockerExtraArgs:
     registry-mirrors: https://4xr1qpsp.mirror.aliyuncs.com
@@ -47,11 +47,11 @@ spec:
 {{ end }}
 `
 
-func BuildNodeCrd(node *model.ClusterNode, cni []*v1.ClusterCni) ([]runtime.Object, error) {
+func BuildNodeCrd(node *model.ClusterNode, cni []*model.CniOption) ([]runtime.Object, error) {
 
 	type Option struct {
 		Node *model.ClusterNode
-		Cni  []*v1.ClusterCni
+		Cni  []*model.CniOption
 	}
 	opt := &Option{
 		node,

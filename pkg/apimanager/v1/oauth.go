@@ -56,8 +56,8 @@ func (m *Manager) AuthorizeHandler(c *gin.Context) {
 func (m *Manager) getAuthConfig(c *gin.Context) {
 	resp := responseutil.Gin{Ctx: c}
 	res := map[string]time.Duration{
-		"accessTokenMaxAge":            24 * time.Hour,
-		"accessTokenInactivityTimeout": 24 * time.Hour,
+		"accessTokenMaxAge":            6 * time.Hour,
+		"accessTokenInactivityTimeout": 6 * time.Hour,
 	}
 	resp.RespJson(res)
 }

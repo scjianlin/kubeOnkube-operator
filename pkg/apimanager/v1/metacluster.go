@@ -132,6 +132,12 @@ func (m *Manager) AddCluster(c *gin.Context) {
 		}
 	}
 
+	if len(listRack) != len(cluster.(*model.AddCluster).ClusterIP) {
+		klog.Error("address list lerge rack list!")
+		resp.RespError("address list lerge rack list!")
+		return
+	}
+
 	// 处理集群配置
 	cniOptList := []*model.CniOption{}
 	for i, rack := range listRack {
@@ -159,6 +165,7 @@ func (m *Manager) AddCluster(c *gin.Context) {
 				}
 			}
 			cniOptList = append(cniOptList, cniOpt)
+			m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
 		}
 	}
 

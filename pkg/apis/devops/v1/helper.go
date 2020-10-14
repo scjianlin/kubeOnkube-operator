@@ -52,6 +52,7 @@ type ClusterCni struct {
 	RangeEnd     string `json:"rangeEnd"`
 	DefaultRoute string `json:"defaultRoute"`
 	UseState     int    `json:"useState"` //值0表示未使用,1表示已经使用
+	RackTag      string `json:"rackTag,omitempty"`
 	GW           string `json:"gw"`
 }
 

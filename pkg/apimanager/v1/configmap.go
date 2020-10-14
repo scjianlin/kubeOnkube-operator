@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/ghodss/yaml"
 	"github.com/gin-gonic/gin"
@@ -41,7 +42,7 @@ func (m *Manager) AddRackCidr(c *gin.Context) {
 
 	// generate pod or host address
 	rackNetAddr := r.(*model.Rack).RackCidr //10.28.0.0/22
-	podList, hostList := cidrutil.GenerateCidr(rackNetAddr, r.(*model.Rack).RackCidrGw, r.(*model.Rack).PodNum, r.(*model.Rack).ServiceRoute)
+	podList, hostList := cidrutil.GenerateCidr(rackNetAddr, r.(*model.Rack).RackCidrGw, r.(*model.Rack).PodNum, r.(*model.Rack).ServiceRoute, r.(*model.Rack).RackTag)
 	r.(*model.Rack).HostAddr = hostList
 	r.(*model.Rack).PodCidr = podList
 
@@ -442,6 +443,7 @@ func (m *Manager) getHostRack(typeName string, c *gin.Context, clstype string) *
 		klog.Errorf("failed to Unmarshal err: %v", rerr)
 		resp.RespError("failed to Unmarshal err.")
 	}
+
 	result := &model.Rack{}
 	for _, rack := range cms {
 		if clstype == "Baremetal" {
@@ -459,4 +461,72 @@ func (m *Manager) getHostRack(typeName string, c *gin.Context, clstype string) *
 		}
 	}
 	return result
+}
+
+// 更新机柜使用状态信息
+func (m *Manager) UptRackStatePhase(rack string, machines string, podID string, state int) error {
+	// 获取创建Rack结构体
+	cli := m.Cluster.GetClient()
+	ctx := context.Background()
+	listMap := []*model.Rack{}
+	cm := &corev1.ConfigMap{}
+
+	// 获取configMap
+	err := cli.Get(ctx, types.NamespacedName{Namespace: ConfigMapName, Name: ConfigMapName}, cm)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			klog.Error("get ConfigMap %s error %v: ", ConfigMapName, err)
+			return err
+		}
+	}
+
+	// 获取confiMap的数据
+	data, ok := cm.Data["List"]
+	if !ok {
+		klog.Info("no ConfigMap list!")
+		return errors.New("not found rack configMap Data!")
+	}
+
+	// 将yaml转换为json
+	yamlToRack, err := yaml.YAMLToJSON([]byte(data))
+	if err != nil {
+		klog.Errorf("yamlToJson error", err)
+		return err
+	}
+	// 转换为结构体
+	err = json.Unmarshal(yamlToRack, &listMap)
+	if err != nil {
+		klog.Errorf("Unmarshal json err", err)
+		return err
+	}
+
+	// 查找修改数据
+	for i := 0; i < len(listMap); i++ {
+		if listMap[i].RackTag == rack {
+			for j := 0; i < len(listMap[i].HostAddr); j++ {
+				if listMap[i].HostAddr[j].IPADDR == machines { //获取已经选择的machine节点
+					listMap[i].HostAddr[j].UseState = state // 如果为0表示释放改CIDR资源;为1则正在使用该资源
+				}
+			}
+			for k := 0; k < len(listMap[i].PodCidr); k++ {
+				if listMap[i].PodCidr[k].ID == podID {
+					listMap[i].PodCidr[k].UseState = state // 如果为0表示释放改CIDR资源;为1则正在使用该资源
+				}
+			}
+		}
+	}
+
+	// 反解析json字符串
+	makeList, _ := json.MarshalIndent(listMap, "", "  ")
+
+	// 写入configMap
+	cm.Data["List"] = string(makeList)
+
+	// 更新configMap
+	uerr := cli.Update(ctx, cm)
+	if uerr != nil {
+		klog.Errorf("failed to update Rack configMap.")
+		return err
+	}
+	return nil
 }

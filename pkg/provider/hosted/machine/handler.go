@@ -77,7 +77,7 @@ func (p *Provider) EnsurePostInstallHook(ctx context.Context, machine *devopsv1.
 	//cmd := strings.Split(hook, " ")[0]
 
 	//machineSSH.Execf("chmod +x %s", cmd)
-	_, stderr, exit, err := machineSSH.Execf("kubectl label nodes %s node-role.kubernetes.io/worker=", machine.Name)
+	_, stderr, exit, err := machineSSH.Execf("kubectl cordon %s && kubectl label nodes %s node-role.kubernetes.io/worker=", machine.Name, machine.Name)
 	//_, stderr, exit, err := machineSSH.Exec(hook)
 	if err != nil || exit != 0 {
 		return fmt.Errorf("exec %q failed:exit %d:stderr %s:error %s", hook, exit, stderr, err)
