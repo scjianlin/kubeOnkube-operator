@@ -6,7 +6,7 @@ replicaCount: 2
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka-console
-  tag: v0.0.4-dev1616
+  tag: v0.0.4-dev1617
   pullPolicy: Always
 
 nameOverride: ""

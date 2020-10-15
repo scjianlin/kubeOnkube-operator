@@ -6,7 +6,7 @@ replicaCount: 1
 
 image:
   repository: symcn.tencentcloudcr.com/symcn/kunkka
-  tag: v0.0.5-dev11
+  tag: v0.0.5-dev13
   pullPolicy: Always
   logLevel: 4
   leader: true
@@ -44,11 +44,11 @@ rbac:
 
 resources:
   limits:
-    cpu: 0.2
-    memory: 512Mi
+    cpu: 0.5
+    memory: 2048Mi
   requests:
     cpu: 0.2
-    memory: 256Mi
+    memory: 512Mi
 
 nodeSelector: {}
 
