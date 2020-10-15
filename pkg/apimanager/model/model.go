@@ -74,9 +74,11 @@ type AddCluster struct {
 }
 
 type CniOption struct {
-	Racks   string         `json:"racks"`
-	Machine string         `json:"machine"`
-	Cni     *v1.ClusterCni `json:"cni"`
+	Racks       string         `json:"racks"`
+	Machine     string         `json:"machine"`
+	ClusterCIDR string         `json:"clusterCidr"`
+	ServiceCIDR string         `json:"serviceCidr"`
+	Cni         *v1.ClusterCni `json:"cni"`
 }
 
 type ClusterNode struct {

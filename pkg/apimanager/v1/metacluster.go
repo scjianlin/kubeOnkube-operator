@@ -132,7 +132,7 @@ func (m *Manager) AddCluster(c *gin.Context) {
 		}
 	}
 
-	if len(listRack) != len(cluster.(*model.AddCluster).ClusterIP) {
+	if cluster.(*model.AddCluster).ClusterType == "Baremetal" && len(listRack) != len(cluster.(*model.AddCluster).ClusterIP) {
 		klog.Error("address list lerge rack list!")
 		resp.RespError("address list lerge rack list!")
 		return
@@ -145,6 +145,8 @@ func (m *Manager) AddCluster(c *gin.Context) {
 
 		if metautil.StringofContains(rack.RackTag, cluster.(*model.AddCluster).ClusterRack) {
 			cniOpt.Racks = rack.RackCidr
+			cniOpt.ClusterCIDR = rack.ProviderCidr //获取clusterCIDR
+			cniOpt.ServiceCIDR = rack.ServiceRoute //获取serviceCIDR
 			if cluster.(*model.AddCluster).ClusterType == "Baremetal" {
 				for _, machine := range rack.HostAddr {
 					if (cluster.(*model.AddCluster).ClusterIP)[i] == machine.IPADDR {
@@ -165,7 +167,8 @@ func (m *Manager) AddCluster(c *gin.Context) {
 				}
 			}
 			cniOptList = append(cniOptList, cniOpt)
-			m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
+			//err = m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
+			//klog.Info("update rack state: %s", err)
 		}
 	}
 

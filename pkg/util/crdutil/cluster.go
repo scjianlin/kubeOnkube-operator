@@ -36,8 +36,8 @@ spec:
   type: {{ .Cls.ClusterType }}
   version: {{ .Cls.ClusterVersion }}
   networkType: eth0
-  clusterCIDR: 10.27.184.0/21
-  serviceCIDR: 172.27.248.0/22
+  clusterCIDR: {{ (index $.Cfg 0).ClusterCIDR }}
+  serviceCIDR: {{ (index $.Cfg 0).Cni.DefaultRoute }}
   dnsDomain: cluster.local
   publicAlternativeNames:
     - {{ .Cls.ClusterName }}.k8s.dmall.com
@@ -231,6 +231,7 @@ metadata:
   namespace: {{ .Cls.ClusterName }}
   annotations:
     kunkka.io/description: {{ .Cls.Description }}
+    k8s.io/apiSvcVip: "10.248.225.11"
     k8s.io/action: EnsureKubeMaster,EnsureExtKubeconfig,EnsureAddons,EnsureCni
   labels:
     cluster-role.kunkka.io/cluster-role: "member"
@@ -242,8 +243,8 @@ spec:
   type: {{ .Cls.ClusterType }}
   version: {{ .Cls.ClusterVersion }}
   networkType: eth0
-  clusterCIDR: 10.96.0.0/16
-  serviceCIDR: 10.97.0.0/16
+  clusterCIDR: {{ (index $.Cfg 1).ClusterCIDR }}
+  serviceCIDR: {{ (index $.Cfg 1).ServiceCIDR }}
   dnsDomain: cluster.local
   publicAlternativeNames:
     - {{ .Cls.ClusterName }}.k8s.dmall.com

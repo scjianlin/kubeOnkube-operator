@@ -95,6 +95,7 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 		cniOpt := &model.CniOption{}
 		if metautil.StringofContains(rack.RackTag, node.(*model.ClusterNode).NodeRack) {
 			cniOpt.Racks = rack.RackTag
+			cniOpt.ClusterCIDR = rack.ProviderCidr
 			for _, machine := range rack.HostAddr {
 				if (node.(*model.ClusterNode).AddressList)[i] == machine.IPADDR {
 					cniOpt.Machine = machine.IPADDR
@@ -107,7 +108,8 @@ func (m *Manager) addClusterNode(c *gin.Context) {
 			}
 		}
 		cniOptList = append(cniOptList, cniOpt)
-		m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
+		//err = m.UptRackStatePhase(cniOpt.Racks, cniOpt.Machine, cniOpt.Cni.ID, 1) //更新机器/CNI状态为使用状态。
+		//klog.Info("update rack state: %s", err)
 	}
 
 	nodeObj, err := crdutil.BuildNodeCrd(node.(*model.ClusterNode), cniOptList)
