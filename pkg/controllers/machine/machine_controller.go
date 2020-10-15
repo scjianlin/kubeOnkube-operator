@@ -213,6 +213,13 @@ func (r *machineReconciler) cleanMachinesResources(ctx context.Context, logger l
 	}
 
 	logger.Info("start clean node")
+
+	err = clean.DleNode(ssh, m.Name)
+	if err != nil {
+		logger.Error(err, "failed delete machine node!")
+		return err
+	}
+
 	err = clean.CleanNode(ssh)
 	if err != nil {
 		logger.Error(err, "failed clean machine node")

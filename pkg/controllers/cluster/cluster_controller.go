@@ -309,6 +309,12 @@ func (r *clusterReconciler) cleanClusterResources(ctx context.Context, rc *clust
 		}
 
 		rc.Logger.Info("start Delete", "machine", m.IP)
+		err = clean.DleNode(ssh, m.IP)
+		if err != nil {
+			rc.Logger.Error(err, "failed delete machine node", "node", m.IP)
+			return err
+		}
+
 		err = clean.CleanNode(ssh)
 		if err != nil {
 			rc.Logger.Error(err, "failed clean machine node", "node", m.IP)
