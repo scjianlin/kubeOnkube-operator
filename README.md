@@ -95,7 +95,6 @@ docker run --name meta-controller -d --restart=always \
    -v /etc/hosts:/etc/hosts \
    symcn.tencentcloudcr.com/symcn/kunkka:v0.0.3-dev11 \
    kunkka-controller ctrl -v 2 --kubeconfig=/kunkka/cfg/bt-kubeconfig.yaml
-
 ```
 
 #### Kunkka API 运行
@@ -104,6 +103,18 @@ docker run --name meta-controller -d --restart=always \
 export KUBECONFIG=manifests/fake/fake.yaml  
 $ go run  cmd/admin-api/main.go api
 ```
+
+
+#### 容器部署
+charts目录中kunkka-api 为kunkka的API服务  
+charts目录中kunkka-console 为kunkka的Console控制台  
+charts目录中kunkka-controller 为kunkka的Controller  
+charts目录中prometheus-operator 为容器集群的监控组件
+
+#### 安装说明:
+1. 首先需要有集群(可以使用fake创建)  
+2. 有了集群之后helm instll kunkka-api/kunkka-controller/prometheus-operator 安装对应的程序即可
+
 
 # 计划
 
