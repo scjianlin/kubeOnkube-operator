@@ -257,7 +257,7 @@ spec:
     ip: 10.248.224.176
     port: 22
     username: root
-    password: "hNKKTFCAOp6r58A"
+    password: "11"
   feature:
     hooks:
       installType: kubeadm
@@ -276,7 +276,7 @@ spec:
     ip: 10.248.224.211
     port: 22
     username: root
-    password: "hNKKTFCAOp6r58A"
+    password: "11"
   feature:
     hooks:
       installType: kubeadm
