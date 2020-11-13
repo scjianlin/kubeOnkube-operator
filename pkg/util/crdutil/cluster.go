@@ -40,14 +40,14 @@ spec:
   serviceCIDR: {{ (index $.Cfg 0).Cni.DefaultRoute }}
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - {{ .Cls.ClusterName }}.k8s.dmall.com
+    - {{ .Cls.ClusterName }}.k8s.example.com
   features:
     ipvs: true
     internalLB: true
     enableMasterSchedule: true
     ha:
       thirdParty:
-        vip: {{ .Cls.ClusterName }}.k8s.dmall.com
+        vip: {{ .Cls.ClusterName }}.k8s.example.com
         vport: 6443
     hooks:
       cniInstall: dke-cni
@@ -247,7 +247,7 @@ spec:
   serviceCIDR: {{ (index $.Cfg 1).ServiceCIDR }}
   dnsDomain: cluster.local
   publicAlternativeNames:
-    - {{ .Cls.ClusterName }}.k8s.dmall.com
+    - {{ .Cls.ClusterName }}.k8s.example.com
     - kube-apiserver
   features:
     ipvs: true
@@ -305,8 +305,6 @@ func BuildBremetalCrd(cluster *model.AddCluster, cni []*model.CniOption) ([]runt
 			return nil, err
 		}
 	}
-
-	//fmt.Println("str-crd==>", string(data))
 
 	objs, err := k8sutil.LoadObjs(bytes.NewReader(data))
 	if err != nil {

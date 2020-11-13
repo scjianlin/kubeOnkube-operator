@@ -41,7 +41,7 @@ func Install(s ssh.Interface, c *common.Cluster) error {
 		Cgroupdriver:  "systemd", // cgroupfs or systemd
 		ExtraArgs:     c.Spec.KubeletExtraArgs,
 		HostIP:        s.HostIP(),
-		KernelRepo:    "yum-mirrors.dmall.com",
+		KernelRepo:    "yum-mirrors.example.com",
 	}
 
 	initData, err := template.ParseString(initShellTemplate, option)
