@@ -299,6 +299,8 @@ func BuildBremetalCrd(cluster *model.AddCluster, cni []*model.CniOption) ([]runt
 		if err != nil {
 			return nil, err
 		}
+	} else if cluster.ClusterType == "Include" {
+
 	} else {
 		data, err = template.ParseString(hostedTemplate, opt)
 		if err != nil {

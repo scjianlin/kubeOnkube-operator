@@ -94,6 +94,15 @@ func (m *Manager) getClusterList(c *gin.Context) {
 		resp.RespError("build meta cluster error!")
 		return
 	}
+
+	// append extend cluster
+	extendObj, err := metautil.BuildExtendObj(cli)
+	if err != nil {
+		klog.Error(" extend cluster error.")
+		resp.RespError("build extend cluster error!")
+		return
+	}
+	clusters.Items = append(clusters.Items, extendObj...)
 	clusters.Items = append(clusters.Items, *metaObj)
 
 	for i := 0; i < len(clusters.Items); i++ {
@@ -139,8 +148,25 @@ func (m *Manager) AddCluster(c *gin.Context) {
 		return
 	}
 
+	// 导入外部集群
+	if cluster.(*model.AddCluster).ClusterType == "Include" {
+		// 将配置持久化存储到meta集群
+		klog.Info("cluster %s is extend.", cluster.(*model.AddCluster).ClusterName)
+
+		// 生成CRD对象
+		err := crdutil.BuildExtendCrd(cluster.(*model.AddCluster), cli)
+		if err != nil {
+			klog.Error("build extend crd error: ", err)
+			resp.RespError("build extend crd error!")
+			return
+		}
+		resp.RespSuccess(true, "success", "OK", 0)
+		return
+	}
+
 	// 处理集群配置
 	cniOptList := []*model.CniOption{}
+
 	for i, rack := range listRack {
 		cniOpt := &model.CniOption{}
 
@@ -221,6 +247,16 @@ func (m *Manager) GetClusterDetail(c *gin.Context) {
 		resp.RespError("build meta cluster error!")
 		return
 	}
+
+	// append extend cluster
+	extendCls, err := metautil.BuildExtendObj(cli)
+	if err != nil {
+		klog.Error("build extend cluster error.")
+		resp.RespError("build extend cluster error.")
+		return
+	}
+
+	clusters.Items = append(clusters.Items, extendCls...)
 	clusters.Items = append(clusters.Items, *metaObj)
 
 	for _, cls := range clusters.Items {

@@ -2,13 +2,16 @@ package metautil
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"github.com/gostship/kunkka/pkg/apimanager/model"
 	devopsv1 "github.com/gostship/kunkka/pkg/apis/devops/v1"
 	"github.com/gostship/kunkka/pkg/util/k8sutil"
 	"github.com/gostship/kunkka/pkg/util/template"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/klog"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var MetaTemlate = `
@@ -567,6 +570,34 @@ func BuildMetaObj() (*devopsv1.Cluster, error) {
 		}
 	}
 	return meta, nil
+}
+
+func BuildExtendObj(cli client.Client) ([]devopsv1.Cluster, error) {
+	ctx := context.Background()
+	cms := &corev1.ConfigMapList{}
+
+	clsList := []devopsv1.Cluster{}
+
+	// 获取configMap
+	err := cli.List(ctx, cms, &client.ListOptions{Namespace: "extend-cluster"})
+	if err != nil {
+		return nil, err
+	}
+
+	// 解析obj
+	for _, obj := range cms.Items {
+		ob, err := k8sutil.LoadObjs(bytes.NewReader([]byte(obj.Data["List"])))
+		if err != nil {
+			klog.Error("load extend objs err: %v", err)
+			return nil, err
+		}
+		for _, cls := range ob {
+			if extend, ok := cls.(*devopsv1.Cluster); ok {
+				clsList = append(clsList, *extend)
+			}
+		}
+	}
+	return clsList, nil
 }
 
 func ClusterConditionOfContains(cond1 []devopsv1.ClusterCondition, cond2 *model.RuntimeCondition) *model.RuntimeCondition {

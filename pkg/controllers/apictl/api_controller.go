@@ -39,6 +39,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
+var (
+	Reconciler = &apiReconciler{}
+)
+
 // apiReconciler reconciles a Cluster object
 type apiReconciler struct {
 	client.Client
@@ -69,7 +73,7 @@ func Add(mgr manager.Manager, pMgr *gmanager.GManager) error {
 	if err != nil {
 		return errors.Wrapf(err, "unable to create api controller")
 	}
-
+	Reconciler = reconciler
 	return nil
 }
 

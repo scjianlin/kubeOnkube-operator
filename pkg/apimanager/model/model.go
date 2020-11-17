@@ -67,7 +67,8 @@ type AddCluster struct {
 	Password       string   `json:"passWord"`
 	ClusterVersion string   `json:"clusterVersion"`
 	DockerVersion  string   `json:"dockerVersion"`
-	CustomScript   string   `json:"customScript"`
+	CustomScript   string   `json:"customScript,omitempty"`
+	CustomConfig   string   `json:"customConfig,omitempty"`
 	Description    string   `json:"description"`
 	ClusterGroup   string   `json:"clusterGroup"`
 	PodPool        []string `json:"podPool"`
