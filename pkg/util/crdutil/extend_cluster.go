@@ -83,7 +83,7 @@ func BuildExtendCrd(cluster *model.AddCluster, cli client.Client) error {
 					Name:      cmName,
 					Namespace: ConfigMapName,
 				},
-				Data: map[string]string{"List": ""},
+				Data: map[string]string{"List": "", "Cfg": ""},
 			}
 
 			// 创建 comfilMap
@@ -106,6 +106,7 @@ func BuildExtendCrd(cluster *model.AddCluster, cli client.Client) error {
 
 	// 写入configMap
 	cm.Data["List"] = string(data)
+	cm.Data["Cfg"] = cluster.CustomConfig
 
 	// 更新configMap
 	uerr := cli.Update(ctx, cm)

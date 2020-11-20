@@ -19,6 +19,7 @@ package apictl
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -40,7 +41,8 @@ import (
 )
 
 var (
-	Reconciler = &apiReconciler{}
+	Reconciler    = &apiReconciler{}
+	extendMapName = "extend-cluster"
 )
 
 // apiReconciler reconciles a Cluster object
@@ -181,6 +183,12 @@ func (r *apiReconciler) reconcile(ctx context.Context, rc *apiContext) error {
 		return err
 	}
 
+	// 同步外部集群配置
+	err = r.addExtendCluster()
+	if err != nil {
+		return fmt.Errorf("rsync extend cluster error for %q", err)
+	}
+
 	switch rc.Cluster.Status.Phase {
 	case devopsv1.ClusterInitializing:
 		rc.Logger.Info("onCreate")
@@ -190,5 +198,33 @@ func (r *apiReconciler) reconcile(ctx context.Context, rc *apiContext) error {
 	default:
 		return fmt.Errorf("no handler for %q", rc.Cluster.Status.Phase)
 	}
+	return nil
+}
+
+// 同步外部集群配置到缓存
+// 读取configmap中的集群配置,然后追加到ctrl的缓存队列中.
+func (r *apiReconciler) addExtendCluster() error {
+	cls := &corev1.ConfigMapList{}
+	ctx := context.Background()
+	listOptions := &client.ListOptions{Namespace: extendMapName}
+	err := r.Client.List(ctx, cls, listOptions)
+	if err != nil {
+		klog.V(4).Infof("get all configmaps is error!")
+		return err
+	}
+
+	for _, cl := range cls.Items {
+		clsNameList := strings.Split(cl.Name, "-")
+		clsName := strings.Join(clsNameList[1:], "-")
+
+		_, err = r.AddNewClusters(clsName, cl.Data["Cfg"])
+
+		if err != nil {
+			klog.Errorf("Add extend cluster errors,")
+			return errors.New("Add extend cluster error.")
+		}
+		klog.Info("######################### rsync extend cluster success, cluster name:  ##########################", clsName)
+	}
+
 	return nil
 }
