@@ -95,8 +95,6 @@ docker-build-ctrl: docker-build-controller
 docker-build-api: docker-build-api
 
 
-
-
 # Push the docker image
 docker-push-ctrl:
 	docker build -t ${IMG_CTL}:${VERSION} -f ./docker/kunkka/Dockerfile .
