@@ -29,7 +29,7 @@ spec:
           - "api-ctrl"
           - "-v"
           - "4"
-          - "--kubeconfig=/kunkka/cfg/meta-cluster.yaml"
+#          - "--kubeconfig=/kunkka/cfg/meta-cluster.yaml"
           ports:
             - name: http
               containerPort: 8080

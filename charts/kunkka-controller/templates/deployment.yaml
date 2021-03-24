@@ -29,7 +29,7 @@ spec:
           - "ctrl"
           - "-v"
           - {{ .Values.image.logLevel | quote | default "4" }}
-          - "--kubeconfig=/kunkka/cfg/meta-cluster.yaml"
+#          - "--kubeconfig=/kunkka/cfg/meta-cluster.yaml"
           ports:
             - name: http
               containerPort: {{ .Values.service.port }}
