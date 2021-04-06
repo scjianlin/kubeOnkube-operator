@@ -270,7 +270,7 @@ alertmanager:
     loadBalancerSourceRanges: []
     ## Service type
     ##
-    type: ClusterIP
+    type: NodePort
 
   ## Configuration for creating a separate Service for each statefulset Alertmanager replica
   ##
@@ -378,16 +378,17 @@ alertmanager:
     ## Storage is the definition of how storage will be used by the Alertmanager instances.
     ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md
     ##
-    storage: {}
-    # volumeClaimTemplate:
-    #   spec:
-    #     storageClassName: gluster
-    #     accessModes: ["ReadWriteOnce"]
-    #     resources:
-    #       requests:
-    #         storage: 50Gi
-    #   selector: {}
-
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: prometheus
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 100Gi
+          selector:
+            matchLabels:
+              use: alert
 
     ## 	The external URL the Alertmanager instances will be available under. This is necessary to generate correct URLs. This is necessary if Alertmanager is not served from root of a DNS name.	string	false
     ##
@@ -424,30 +425,29 @@ alertmanager:
     ## If anti-affinity is enabled sets the topologyKey to use for anti-affinity.
     ## This can be changed to, for example, failure-domain.beta.kubernetes.io/zone
     ##
-    podAntiAffinityTopologyKey: kubernetes.io/hostname
+    podAntiAffinityTopologyKey: node-role
 
     ## Assign custom affinity rules to the alertmanager instance
     ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     ##
-    affinity: {}
-    # nodeAffinity:
-    #   requiredDuringSchedulingIgnoredDuringExecution:
-    #     nodeSelectorTerms:
-    #     - matchExpressions:
-    #       - key: kubernetes.io/e2e-az-name
-    #         operator: In
-    #         values:
-    #         - e2e-az1
-    #         - e2e-az2
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+            - key: node-role
+              operator: In
+              values:
+              - monitor   # 指定节点亲和性
+          weight: 1
 
     ## If specified, the pod's tolerations.
     ## ref: https://kubernetes.io/docs/concepts/configuration/taint-and-toleration/
     ##
-    tolerations: []
-    # - key: "key"
-    #   operator: "Equal"
-    #   value: "value"
-    #   effect: "NoSchedule"
+    tolerations:
+      - key: "node-role"
+        operator: "Exists"
+        value: "monitor"
 
     ## SecurityContext holds pod-level security attributes and common container settings.
     ## This defaults to non root user with uid 1000 and gid 2000.	*v1.PodSecurityContext	false
@@ -486,12 +486,27 @@ alertmanager:
 grafana:
   enabled: true
   namespaceOverride: ""
-
+  plugins:
+    - grafana-kubernetes-app
   ## Deploy default dashboards.
   ##
   defaultDashboardsEnabled: true
 
   adminPassword: prom-operator
+
+  persistence:
+    type: pvc
+    enabled: true
+    selector:
+      matchLabels:
+        use: grafana
+    storageClassName: prometheus
+    accessModes:
+      - ReadWriteOnce
+    size: 100Gi
+    # annotations: {}
+    finalizers:
+      - kubernetes.io/pvc-protection
 
   ingress:
     ## If true, Grafana Ingress will be created
@@ -1166,7 +1181,17 @@ prometheusOperator:
       priorityClassName: ""
       podAnnotations: {}
       nodeSelector: {}
-      affinity: {}
+      affinity:
+        nodeAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - preference:
+              matchExpressions:
+              - key: node-role
+                operator: In
+                values:
+                - monitor   # 指定节点亲和性
+            weight: 1
+
       tolerations: []
 
   ## Namespaces to scope the interaction of the Prometheus Operator and the apiserver (allow list).
@@ -1216,7 +1241,7 @@ prometheusOperator:
   ## Service type
   ## NodePort, ClusterIP, loadbalancer
   ##
-    type: ClusterIP
+    type: NodePort
 
     ## List of IP addresses at which the Prometheus server service is available
     ## Ref: https://kubernetes.io/docs/user-guide/services/#external-ips
@@ -1315,16 +1340,16 @@ prometheusOperator:
   ## Assign custom affinity rules to the prometheus operator
   ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
   ##
-  affinity: {}
-    # nodeAffinity:
-    #   requiredDuringSchedulingIgnoredDuringExecution:
-    #     nodeSelectorTerms:
-    #     - matchExpressions:
-    #       - key: kubernetes.io/e2e-az-name
-    #         operator: In
-    #         values:
-    #         - e2e-az1
-    #         - e2e-az2
+  affinity:
+    nodeAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - preference:
+          matchExpressions:
+          - key: node-role
+            operator: In
+            values:
+            - monitor   # 指定节点亲和性
+        weight: 1
 
   securityContext:
     fsGroup: 65534
@@ -1810,16 +1835,16 @@ prometheus:
     ## Assign custom affinity rules to the prometheus instance
     ## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
     ##
-    affinity: {}
-    # nodeAffinity:
-    #   requiredDuringSchedulingIgnoredDuringExecution:
-    #     nodeSelectorTerms:
-    #     - matchExpressions:
-    #       - key: kubernetes.io/e2e-az-name
-    #         operator: In
-    #         values:
-    #         - e2e-az1
-    #         - e2e-az2
+    affinity:
+      nodeAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+        - preference:
+            matchExpressions:
+            - key: node-role
+              operator: In
+              values:
+              - monitor   # 指定节点亲和性
+          weight: 1
 
     ## The remote_read spec configuration for Prometheus.
     ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/api.md#remotereadspec
@@ -1843,15 +1868,17 @@ prometheus:
     ## Prometheus StorageSpec for persistent data
     ## ref: https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md
     ##
-    storageSpec: {}
-    #  volumeClaimTemplate:
-    #    spec:
-    #      storageClassName: gluster
-    #      accessModes: ["ReadWriteOnce"]
-    #      resources:
-    #        requests:
-    #          storage: 50Gi
-    #    selector: {}
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: prometheus
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 300Gi
+          selector:
+            matchLabels:
+              use: prometheus
 
     # Additional volumes on the output StatefulSet definition.
     volumes: []
@@ -1869,7 +1896,35 @@ prometheus:
     ## The scrape configuraiton example below will find master nodes, provided they have the name .*mst.*, relabel the
     ## port to 2379 and allow etcd scraping provided it is running on all Kubernetes master nodes
     ##
-    additionalScrapeConfigs: []
+    additionalScrapeConfigs: {}
+#      - job_name: 'ingress-nginx-endpoints'
+#        kubernetes_sd_configs:
+#          - role: pod
+#            names:
+#              - ingress-nginx
+#            relabel_configs:
+#              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+#                action: keep
+#                regex: true
+#              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scheme]
+#                action: replace
+#                target_label: __scheme__
+#                regex: (https?)
+#              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+#                action: replace
+#                target_label: __metrics_path__
+#                regex: (.+)
+#              - source_labels: [__meta_kubernetes_pod_container_port_name]
+#                action: keep
+#                regex: metrics
+#              - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+#                action: replace
+#                target_label: __address__
+#                regex: ([^:]+)(?::\d+)?;(\d+)
+#                replacement: $1:$2
+#              - source_labels: [__meta_kubernetes_service_name]
+#                regex: prometheus-server
+#                action: drop
     # - job_name: kube-etcd
     #   kubernetes_sd_configs:
     #     - role: node
